@@ -426,9 +426,15 @@ func reconstructPath(node *aStarNode) []Coord {
 	path := []Coord{}
 	current := node
 
+	// Build path in reverse (goal to start)
 	for current != nil {
-		path = append([]Coord{current.pos}, path...)
+		path = append(path, current.pos)
 		current = current.parent
+	}
+
+	// Reverse the path to get start to goal order
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
 	}
 
 	return path
