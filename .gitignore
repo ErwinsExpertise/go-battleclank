@@ -20,6 +20,7 @@ go.work
 # Compiled binaries
 go-battleclank
 benchmark
+compare-implementations
 
 # IDE files
 .idea/
