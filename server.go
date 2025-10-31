@@ -29,7 +29,12 @@ func HandleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	start(state)
+	useRefactored := os.Getenv("USE_REFACTORED") == "true"
+	if useRefactored {
+		startRefactored(state)
+	} else {
+		start(state)
+	}
 
 	// Nothing to respond with here
 	w.WriteHeader(http.StatusOK)
@@ -44,7 +49,15 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := move(state)
+	// Check if we should use refactored logic
+	useRefactored := os.Getenv("USE_REFACTORED") == "true"
+	
+	var response BattlesnakeMoveResponse
+	if useRefactored {
+		response = moveRefactored(state)
+	} else {
+		response = move(state)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(response)
@@ -63,7 +76,12 @@ func HandleEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	end(state)
+	useRefactored := os.Getenv("USE_REFACTORED") == "true"
+	if useRefactored {
+		endRefactored(state)
+	} else {
+		end(state)
+	}
 
 	// Nothing to respond with here
 	w.WriteHeader(http.StatusOK)
