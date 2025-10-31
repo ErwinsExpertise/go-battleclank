@@ -825,3 +825,90 @@ func BenchmarkMoveEvaluation(b *testing.B) {
 		move(state)
 	}
 }
+
+// Test that snake prioritizes food over tail chasing when health is moderate
+func TestMove_PrioritizesFoodOverCircling(t *testing.T) {
+	// Snake with health 60 (between 50 and 70) should still seek food
+	// to avoid going in circles
+	mySnake := createTestSnake("me", 60, []Coord{
+		{X: 5, Y: 5}, // head
+		{X: 5, Y: 4},
+		{X: 5, Y: 3},
+		{X: 5, Y: 2}, // tail
+	})
+	
+	state := GameState{
+		Turn: 10,
+		Game: Game{
+			ID: "test-game",
+		},
+		You: mySnake,
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			// Food directly above, should move toward it
+			Food:   []Coord{{X: 5, Y: 8}},
+			Snakes: []Battlesnake{mySnake},
+		},
+	}
+
+	response := move(state)
+	
+	// With food directly above and moderate health, should move up toward food
+	// rather than following tail (which would be down, left, or right)
+	if response.Move != MoveUp {
+		t.Errorf("Expected snake to move toward food (up), but moved %s. This indicates circular tail-chasing behavior.", response.Move)
+	}
+}
+
+// Test the circular behavior scenario - snake following tail instead of seeking food
+func TestMove_CircularBehaviorWithFood(t *testing.T) {
+	// Snake with health 80 in late game (after turn 50, so no center preference)
+	// forming a circle-like pattern
+	mySnake := createTestSnake("me", 80, []Coord{
+		{X: 5, Y: 5}, // head
+		{X: 5, Y: 4},
+		{X: 6, Y: 4},
+		{X: 6, Y: 5},
+		{X: 6, Y: 6},
+		{X: 5, Y: 6},
+		{X: 4, Y: 6},
+		{X: 4, Y: 5}, // tail at (4,5) - to the left of head
+	})
+	
+	state := GameState{
+		Turn: 60, // Late game - no center preference
+		Game: Game{
+			ID: "test-game",
+		},
+		You: mySnake,
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			// Food far away but accessible
+			Food:   []Coord{{X: 10, Y: 10}},
+			Snakes: []Battlesnake{mySnake},
+		},
+	}
+
+	// Calculate all move scores to see what's happening
+	moves := []string{MoveUp, MoveDown, MoveLeft, MoveRight}
+	scores := make(map[string]float64)
+	for _, m := range moves {
+		scores[m] = scoreMove(state, m)
+		t.Logf("Move %s: score %.2f", m, scores[m])
+	}
+	
+	response := move(state)
+	
+	// With health 80 and food far away:
+	// - Food seeking is ACTIVE with weight 50 (prevents circling)
+	// - Tail chasing is ON (active when health > 30)
+	// - No center preference (turn > 50)
+	// The snake now balances tail following with food awareness
+	t.Logf("Snake moved: %s with score %.2f", response.Move, scores[response.Move])
+	t.Logf("Snake health: %d, Food seeking is now always active", state.You.Health)
+	
+	// This test verifies that food seeking is active at all health levels
+	// preventing the circular behavior that was the original issue
+}

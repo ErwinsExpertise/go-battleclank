@@ -97,10 +97,18 @@ func scoreMove(state GameState, move string) float64 {
 	spaceFactor := evaluateSpace(state, nextPos)
 	score += spaceFactor * 100.0
 
-	// Food seeking
-	if state.You.Health < HealthLow {
-		foodFactor := evaluateFoodProximity(state, nextPos)
+	// Food seeking - always seek food to avoid starvation and circular behavior
+	// Weight increases as health decreases
+	foodFactor := evaluateFoodProximity(state, nextPos)
+	if state.You.Health < HealthCritical {
+		// Critical health: aggressive food seeking
+		score += foodFactor * 300.0
+	} else if state.You.Health < HealthLow {
+		// Low health: strong food seeking
 		score += foodFactor * 200.0
+	} else {
+		// Healthy: moderate food seeking to prevent circling
+		score += foodFactor * 50.0
 	}
 
 	// Avoid smaller snakes' heads (they might kill us in head-to-head)
@@ -201,8 +209,8 @@ func evaluateFoodProximity(state GameState, pos Coord) float64 {
 		return 0
 	}
 
-	// Use A* for critical health situations (more accurate pathfinding)
-	if state.You.Health < HealthCritical {
+	// Use A* for better pathfinding when health is low (more accurate around obstacles)
+	if state.You.Health < HealthLow {
 		_, path := findNearestFoodWithAStar(state, pos)
 		if path != nil && len(path) > 0 {
 			pathLength := len(path)

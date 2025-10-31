@@ -19,8 +19,10 @@ This Battlesnake implements several optimization strategies to maximize survival
    - Uses recursive algorithm with depth limiting for performance
 
 3. **Food Seeking with Health Management**
-   - Aggressively seeks food when health is low (< 50)
-   - Uses Manhattan distance for efficient pathfinding
+   - Always seeks food to prevent starvation and circular behavior
+   - Increases food-seeking aggression as health decreases
+   - Uses A* pathfinding when health is low (< 50) for accurate navigation
+   - Uses Manhattan distance when healthy for better performance
    - Balances food seeking with survival
 
 4. **Head-to-Head Collision Avoidance**
@@ -130,7 +132,10 @@ For detailed algorithm documentation, see:
 Each possible move is scored using multiple weighted factors:
 
 - **Space Availability** (weight: 100): Amount of reachable space via flood fill
-- **Food Proximity** (weight: 200): Distance to nearest food when health < 50
+- **Food Proximity** (dynamic weight): Distance to nearest food
+  - Critical health (< 30): weight 300
+  - Low health (< 50): weight 200
+  - Healthy (≥ 50): weight 50 (prevents circular behavior)
 - **Head Collision Risk** (weight: -500): Potential for head-to-head with larger snakes
 - **Center Proximity** (weight: 10): Distance to board center in early game
 - **Tail Proximity** (weight: 50): Following own tail when health > 30

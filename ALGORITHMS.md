@@ -24,7 +24,9 @@ Final Score = SpaceScore + FoodScore - CollisionRisk + CenterScore + TailScore
 | Factor | Weight | Condition |
 |--------|--------|-----------|
 | Space Availability | 100 | Always |
-| Food Proximity | 200 | Health < 50 |
+| Food Proximity | 300 | Health < 30 (critical) |
+| Food Proximity | 200 | Health < 50 (low) |
+| Food Proximity | 50 | Health ≥ 50 (prevents circling) |
 | Head Collision Risk | -500 | Always |
 | Center Proximity | 10 | Turn < 50 |
 | Tail Proximity | 50 | Health > 30 |
@@ -102,13 +104,22 @@ A higher score indicates more available space, reducing trap risk.
 ## Food Seeking Strategy
 
 ### When to Seek Food
-- Health < 50: Aggressive food seeking (weight: 200)
-- Health >= 50: Focus on survival and positioning
+**Always** - Food seeking is now active at all health levels to prevent starvation and circular behavior:
+- Health < 30 (critical): Very aggressive food seeking (weight: 300)
+- Health < 50 (low): Aggressive food seeking (weight: 200)
+- Health ≥ 50 (healthy): Moderate food seeking (weight: 50)
+
+This prevents the snake from going in circles by always maintaining some food awareness.
 
 ### Food Score Calculation
 ```
+// For health < 50, use A* pathfinding (accurate around obstacles)
+pathLength = aStarSearch(position, nearestFood)
+FoodScore = (1 / pathLength) * weight
+
+// For health ≥ 50, use Manhattan distance (faster)
 distance = manhattanDistance(position, nearestFood)
-FoodScore = (1 / distance) * 200
+FoodScore = (1 / distance) * weight
 ```
 
 ### Manhattan Distance
@@ -119,10 +130,10 @@ distance = |x1 - x2| + |y1 - y2|
 This is optimal for grid-based movement where diagonal moves aren't allowed.
 
 ### Strategy
-1. Find nearest food
-2. Calculate distance for each move
-3. Prefer moves that reduce distance to food
-4. Only when health is low enough to prioritize it
+1. Always evaluate food proximity (prevents circular tail-chasing)
+2. Use A* pathfinding when health < 50 for accurate navigation
+3. Use Manhattan distance when healthy for better performance
+4. Scale food-seeking weight based on health urgency
 
 ## Head-to-Head Collision Avoidance
 
