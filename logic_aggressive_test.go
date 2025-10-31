@@ -167,7 +167,9 @@ func TestIsOutmatchedByNearbyEnemies(t *testing.T) {
 				{X: 7, Y: 4},
 				{X: 7, Y: 3},
 				{X: 7, Y: 2},
-				{X: 7, Y: 1}, // Length 6 (3 longer)
+				{X: 7, Y: 1}, 
+				{X: 6, Y: 1},
+				{X: 5, Y: 1}, // Length 8 (5 longer, exceeds +4 threshold)
 			}),
 			expected: true,
 		},
@@ -482,7 +484,9 @@ func TestMove_DefensiveWhenOutmatched(t *testing.T) {
 		{X: 7, Y: 4},
 		{X: 7, Y: 3},
 		{X: 7, Y: 2},
-		{X: 7, Y: 1}, // Length 6 - much larger
+		{X: 7, Y: 1},
+		{X: 6, Y: 1},
+		{X: 5, Y: 1}, // Length 8 - much larger (5+ longer than us)
 	})
 
 	state := GameState{
