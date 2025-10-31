@@ -164,12 +164,15 @@ func scoreMove(state GameState, move string) float64 {
 	if enemies, inDanger := enemyMoves[nextPos]; inDanger {
 		// We're moving into a position an enemy could also move to
 		for _, enemy := range enemies {
-			if enemy.Length >= state.You.Length {
-				// Enemy is same size or larger - very dangerous
-				score -= 800.0
+			if enemy.Length > state.You.Length+1 {
+				// Enemy is significantly larger - very dangerous
+				score -= 700.0 // Reduced from 800 to be less conservative
+			} else if enemy.Length == state.You.Length || enemy.Length == state.You.Length+1 {
+				// Enemy is same size or slightly larger - risky but contestable
+				score -= 400.0 // Reduced from 800 to allow contesting
 			} else {
-				// Enemy is smaller - less dangerous but still risky
-				score -= 200.0
+				// Enemy is smaller - we have advantage, minimal penalty
+				score -= 100.0 // Reduced from 200 to be more aggressive
 			}
 		}
 	}
@@ -185,7 +188,7 @@ func scoreMove(state GameState, move string) float64 {
 
 	// Food seeking - always seek food to avoid starvation and circular behavior
 	// Weight increases as health decreases
-	// Reduced when we're significantly smaller than nearby enemies (defensive play)
+	// Slightly reduced when we're significantly smaller than nearby enemies (defensive play)
 	foodFactor := evaluateFoodProximity(state, nextPos)
 	foodWeight := 0.0
 	
@@ -193,22 +196,24 @@ func scoreMove(state GameState, move string) float64 {
 	outmatched := isOutmatchedByNearbyEnemies(state)
 	
 	if state.You.Health < HealthCritical {
-		// Critical health: aggressive food seeking (unless suicidal)
-		foodWeight = 300.0
+		// Critical health: MAXIMUM food seeking - survival is paramount
+		// Even when outmatched, we must eat or die
+		foodWeight = 400.0
 		if outmatched {
-			foodWeight = 200.0 // Still seek food but more cautiously
+			foodWeight = 350.0 // Only slight reduction when outmatched
 		}
 	} else if state.You.Health < HealthLow {
 		// Low health: strong food seeking
-		foodWeight = 200.0
+		foodWeight = 250.0
 		if outmatched {
-			foodWeight = 100.0
+			foodWeight = 180.0 // Moderate reduction when outmatched
 		}
 	} else {
-		// Healthy: moderate food seeking to prevent circling
-		foodWeight = 50.0
+		// Healthy: aggressive food seeking to maintain dominance
+		// Increased from 50 to 100 to encourage active growth
+		foodWeight = 100.0
 		if outmatched {
-			foodWeight = 30.0 // Reduce food seeking when outmatched
+			foodWeight = 60.0 // Still seek food when outmatched
 		}
 	}
 	score += foodFactor * foodWeight
@@ -217,10 +222,15 @@ func scoreMove(state GameState, move string) float64 {
 	headCollisionRisk := evaluateHeadCollisionRisk(state, nextPos)
 	score -= headCollisionRisk * 500.0
 
-	// Prefer center positions early game
+	// Prefer center positions early game and when healthy
+	// Center control is key to aggressive play and territory dominance
 	if state.Turn < 50 {
 		centerFactor := evaluateCenterProximity(state, nextPos)
 		score += centerFactor * 10.0
+	} else if state.You.Health > HealthLow && !outmatched {
+		// When healthy and not outmatched, maintain center control
+		centerFactor := evaluateCenterProximity(state, nextPos)
+		score += centerFactor * 15.0
 	}
 
 	// Tail chasing when safe - but not when enemies are nearby
@@ -232,10 +242,10 @@ func scoreMove(state GameState, move string) float64 {
 
 	// Penalize corner/edge positions when enemies exist (not just nearby)
 	// This prevents getting squeezed into corners with limited escape routes
-	// For extremely aggressive snakes, we need to avoid walls at all costs
+	// Reduced from 400 to 300 to be less wall-averse and allow contesting food near edges
 	if hasAnyEnemies(state) {
 		wallPenalty := evaluateWallAvoidance(state, nextPos)
-		score -= wallPenalty * 400.0
+		score -= wallPenalty * 300.0
 	}
 
 	// NEW: Detect cutoff/boxing-in scenarios
@@ -274,7 +284,8 @@ func isOutmatchedByNearbyEnemies(state GameState) bool {
 		dist := manhattanDistance(myHead, snake.Head)
 		if dist <= EnemyProximityRadius {
 			// Enemy is nearby - check if they're significantly larger
-			if snake.Length > myLength+2 {
+			// Increased threshold from +2 to +4 to be less defensive
+			if snake.Length > myLength+4 {
 				return true
 			}
 		}
@@ -449,10 +460,13 @@ func findNearestFoodManhattan(state GameState, pos Coord) (Coord, float64) {
 // isFoodDangerous checks if food is too close to enemy snakes
 // Food is considered dangerous if:
 // 1. It's within FoodDangerRadius spaces of any enemy snake body segment
-// 2. An enemy can reach it faster than us
-// 3. We don't have escape routes after getting the food
+// 2. An enemy can reach it significantly faster than us (3+ moves)
+// 3. Enemy reaches at same time and is much larger (2+ length advantage)
 func isFoodDangerous(state GameState, food Coord) bool {
 	myDistToFood := manhattanDistance(state.You.Head, food)
+	
+	// When health is critical, be more willing to take risks
+	isCritical := state.You.Health < HealthCritical
 	
 	for _, snake := range state.Board.Snakes {
 		// Skip our own snake
@@ -472,17 +486,29 @@ func isFoodDangerous(state GameState, food Coord) bool {
 		// This helps avoid food baiting scenarios where enemies camp near food
 		enemyDistToFood := manhattanDistance(snake.Head, food)
 		
-		// Only consider it dangerous if enemy is noticeably closer (2+ moves)
-		// This avoids false positives where enemy happens to be slightly closer
-		// but isn't actually camping or baiting
-		if enemyDistToFood < myDistToFood-1 {
+		// More aggressive: only avoid if enemy is 3+ moves closer (was 2+)
+		// This allows us to contest food more often
+		if enemyDistToFood < myDistToFood-2 {
 			// Enemy is significantly closer - potentially dangerous
 			return true
 		}
 		
-		// If enemy can reach at same time/±1 move and is larger, be cautious
-		if abs(enemyDistToFood-myDistToFood) <= 1 && snake.Length >= state.You.Length {
-			return true
+		// If enemy can reach at same time, only avoid if they're MUCH larger (2+ length)
+		// This encourages contesting food with similar-sized snakes
+		// If we're critical health, be even more willing to contest
+		lengthAdvantage := snake.Length - state.You.Length
+		if abs(enemyDistToFood-myDistToFood) <= 1 {
+			if isCritical {
+				// When critical, only avoid if enemy is 3+ longer
+				if lengthAdvantage >= 3 {
+					return true
+				}
+			} else {
+				// When healthy, avoid if enemy is 2+ longer
+				if lengthAdvantage >= 2 {
+					return true
+				}
+			}
 		}
 	}
 
