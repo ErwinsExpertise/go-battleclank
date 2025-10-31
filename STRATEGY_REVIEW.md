@@ -51,7 +51,7 @@ This Battlesnake is **intentionally stateless**. All decision-making functions a
 ### References
 
 - [Battlesnake Post Mortem by Asymptotic Labs](https://medium.com/asymptoticlabs/battlesnake-post-mortem-a5917f9a3428) - Discusses benefits of stateless design for competitive Battlesnake
-- [Efficiently Updatable Neural Networks](https://en.wikipedia.org/wiki/Efficiently_updatable_neural_network) - Approach for integrating ML while maintaining stateless architecture
+- [Efficiently Updatable Neural Networks (NNUE)](https://en.wikipedia.org/wiki/Efficiently_updatable_neural_network) - Neural network architecture that can be integrated into stateless systems by loading pre-trained weights without requiring persistent state during gameplay
 
 ## Current Strategy Analysis
 
