@@ -59,6 +59,15 @@ const (
 	// - Radius 3: Balanced (default) - reasonable safety zone
 	// - Radius 4-5: More relaxed - only disables circling when enemies are very close
 	EnemyProximityRadius = 3
+
+	// SpaceBufferRadius defines how close we consider enemy snakes when evaluating space.
+	// When flood filling, we treat positions within this radius of enemy heads as blocked
+	// to account for the fact that enemies can move and cut off our escape routes.
+	// Tuning guidance:
+	// - Radius 1: Aggressive - only avoids immediate enemy positions
+	// - Radius 2: Balanced (default) - accounts for one enemy move ahead
+	// - Radius 3: Conservative - very cautious, may over-restrict movement
+	SpaceBufferRadius = 2
 )
 
 // info returns metadata about the battlesnake
@@ -169,6 +178,13 @@ func scoreMove(state GameState, move string) float64 {
 		score += tailFactor * 50.0
 	}
 
+	// Penalize corner/edge positions when enemies are nearby
+	// This prevents getting squeezed into corners with limited escape routes
+	if hasEnemiesNearby(state) {
+		cornerPenalty := evaluateCornerPenalty(state, nextPos)
+		score -= cornerPenalty * 150.0
+	}
+
 	return score
 }
 
@@ -229,6 +245,32 @@ func floodFill(state GameState, pos Coord, visited map[Coord]bool, depth int, ma
 			}
 			if pos.X == segment.X && pos.Y == segment.Y {
 				return 0
+			}
+		}
+	}
+
+	// Check if too close to enemy snake heads (they can move and cut us off)
+	// Skip our own snake to avoid penalizing our own position
+	for _, snake := range state.Board.Snakes {
+		if snake.ID == state.You.ID {
+			continue
+		}
+		// Consider positions near enemy heads as risky during space evaluation
+		// Only apply this at shallow depths to avoid over-restricting distant areas
+		if depth < 3 {
+			dist := manhattanDistance(pos, snake.Head)
+			if dist <= SpaceBufferRadius {
+				// Don't completely block, but reduce the value of this space
+				// by treating it as less valuable (we still count it but flag it)
+				visited[pos] = true
+				// Return reduced count (0.3 instead of 1.0) for risky positions
+				count := 0
+				count += floodFill(state, Coord{X: pos.X + 1, Y: pos.Y}, visited, depth+1, maxDepth)
+				count += floodFill(state, Coord{X: pos.X - 1, Y: pos.Y}, visited, depth+1, maxDepth)
+				count += floodFill(state, Coord{X: pos.X, Y: pos.Y + 1}, visited, depth+1, maxDepth)
+				count += floodFill(state, Coord{X: pos.X, Y: pos.Y - 1}, visited, depth+1, maxDepth)
+				// Return partial credit for this risky position but continue exploring
+				return count / 3
 			}
 		}
 	}
@@ -382,6 +424,68 @@ func evaluateTailProximity(state GameState, pos Coord) float64 {
 		return 1.0
 	}
 	return 1.0 / float64(dist)
+}
+
+// evaluateCornerPenalty returns a penalty for positions near corners/edges
+// when enemies are nearby. This prevents getting squeezed into corners.
+func evaluateCornerPenalty(state GameState, pos Coord) float64 {
+	// Calculate distance from edges
+	distFromLeft := pos.X
+	distFromRight := state.Board.Width - 1 - pos.X
+	distFromBottom := pos.Y
+	distFromTop := state.Board.Height - 1 - pos.Y
+
+	// Find minimum distance to any edge
+	minDistToEdge := distFromLeft
+	if distFromRight < minDistToEdge {
+		minDistToEdge = distFromRight
+	}
+	if distFromBottom < minDistToEdge {
+		minDistToEdge = distFromBottom
+	}
+	if distFromTop < minDistToEdge {
+		minDistToEdge = distFromTop
+	}
+
+	// Count how many directions are blocked (by walls or approaching edge)
+	blockedDirections := 0
+	
+	// Check if near walls (within 1-2 squares)
+	if distFromLeft <= 1 {
+		blockedDirections++
+	}
+	if distFromRight <= 1 {
+		blockedDirections++
+	}
+	if distFromBottom <= 1 {
+		blockedDirections++
+	}
+	if distFromTop <= 1 {
+		blockedDirections++
+	}
+
+	// Calculate penalty based on how cornered we are
+	// 0 blocked directions = no penalty
+	// 1 blocked direction = slight penalty (edge)
+	// 2+ blocked directions = high penalty (corner or very limited escape)
+	penalty := 0.0
+	switch blockedDirections {
+	case 0:
+		penalty = 0.0
+	case 1:
+		penalty = 0.3 // Slight penalty for being near an edge
+	case 2:
+		penalty = 0.8 // High penalty for corner
+	default:
+		penalty = 1.0 // Maximum penalty for severely cornered position
+	}
+
+	// Also factor in overall distance from edges - being far from edges is safer
+	if minDistToEdge <= 1 {
+		penalty += 0.2
+	}
+
+	return penalty
 }
 
 // manhattanDistance calculates the Manhattan distance between two coordinates
