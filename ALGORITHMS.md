@@ -120,7 +120,21 @@ FoodScore = (1 / pathLength) * weight
 // For health ≥ 50, use Manhattan distance (faster)
 distance = manhattanDistance(position, nearestFood)
 FoodScore = (1 / distance) * weight
+
+// Apply danger penalty if food is near enemy snakes
+if isFoodDangerous(nearestFood):
+    FoodScore = FoodScore * 0.1  // 90% reduction
 ```
+
+### Food Danger Detection
+Food is considered **dangerous** if it's within 2 Manhattan distance units of any enemy snake body segment. This prevents the snake from:
+- Getting trapped in corners with looping enemy snakes
+- Pursuing food in confined spaces controlled by enemies
+- Walking into potential traps near enemy bodies
+
+When food is marked as dangerous, its attractiveness is reduced by 90%, making the snake prefer:
+1. Safer food options further from enemies
+2. Other survival behaviors (space preservation, tail following)
 
 ### Manhattan Distance
 ```
@@ -134,6 +148,7 @@ This is optimal for grid-based movement where diagonal moves aren't allowed.
 2. Use A* pathfinding when health < 50 for accurate navigation
 3. Use Manhattan distance when healthy for better performance
 4. Scale food-seeking weight based on health urgency
+5. **NEW**: Detect and avoid dangerous food near enemy snakes
 
 ## Head-to-Head Collision Avoidance
 

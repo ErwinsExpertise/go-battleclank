@@ -26,6 +26,20 @@ const (
 	// - 19x19 board: 300-400 nodes - larger board may need more exploration
 	// Average search explores 50-150 nodes, so 200 provides good headroom.
 	MaxAStarNodes = 200
+
+	// Food danger detection constants
+	// FoodDangerRadius defines how close (in Manhattan distance) food must be to an enemy
+	// snake to be considered dangerous. A radius of 2 provides a safety buffer while not
+	// being overly conservative.
+	// Tuning guidance:
+	// - Radius 1: Very aggressive, only avoids food directly adjacent to enemies
+	// - Radius 2: Balanced (default) - avoids traps while still seeking most food
+	// - Radius 3: Conservative - may miss food opportunities but maximizes safety
+	FoodDangerRadius = 2
+
+	// FoodDangerPenalty is the multiplier applied to food scores when food is dangerous.
+	// A penalty of 0.1 means dangerous food is 90% less attractive.
+	FoodDangerPenalty = 0.1
 )
 
 // info returns metadata about the battlesnake
@@ -237,7 +251,7 @@ func evaluateFoodProximity(state GameState, pos Coord) float64 {
 	if isFoodDangerous(state, targetFood) {
 		// Significantly reduce food attractiveness if it's near enemy snakes
 		// This prevents the snake from getting trapped near enemy snakes
-		distanceScore *= 0.1
+		distanceScore *= FoodDangerPenalty
 	}
 
 	return distanceScore
@@ -268,10 +282,8 @@ func findNearestFoodManhattan(state GameState, pos Coord) (Coord, float64) {
 }
 
 // isFoodDangerous checks if food is too close to enemy snakes
-// Food is considered dangerous if it's within 2 spaces of any enemy snake body segment
+// Food is considered dangerous if it's within FoodDangerRadius spaces of any enemy snake body segment
 func isFoodDangerous(state GameState, food Coord) bool {
-	const dangerRadius = 2
-
 	for _, snake := range state.Board.Snakes {
 		// Skip our own snake
 		if snake.ID == state.You.ID {
@@ -281,7 +293,7 @@ func isFoodDangerous(state GameState, food Coord) bool {
 		// Check distance to each segment of enemy snake
 		for _, segment := range snake.Body {
 			dist := manhattanDistance(food, segment)
-			if dist <= dangerRadius {
+			if dist <= FoodDangerRadius {
 				return true
 			}
 		}
