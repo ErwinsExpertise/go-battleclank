@@ -239,7 +239,7 @@ func evaluateFoodProximity(state GameState, pos Coord) float64 {
 				distanceScore = 1.0 / float64(pathLength)
 			}
 		} else {
-			// If no path found, fall through to Manhattan distance
+			// If no path found with A*, fall back to Manhattan distance
 			targetFood, distanceScore = findNearestFoodManhattan(state, pos)
 		}
 	} else {
