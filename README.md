@@ -139,7 +139,7 @@ Each possible move is scored using multiple weighted factors:
   - Healthy (≥ 50): weight 50 (prevents circular behavior)
 - **Head Collision Risk** (weight: -500): Potential for head-to-head with larger snakes
 - **Center Proximity** (weight: 10): Distance to board center in early game
-- **Tail Proximity** (weight: 50): Following own tail when health > 30
+- **Tail Proximity** (weight: 50): Following own tail when health > 30 AND no enemies nearby (within 3 squares)
 
 Fatal moves (out of bounds, snake collision) receive a score of -10000.
 
@@ -149,6 +149,7 @@ Fatal moves (out of bounds, snake collision) receive a score of -10000.
 2. **Tail Recognition**: Distinguishes between moving and stationary tails
 3. **Health-Based Strategy**: Adjusts behavior based on current health level
 4. **Multi-Factor Decision Making**: Combines multiple heuristics for robust choices
+5. **Enemy Proximity Detection**: Disables tail-chasing when enemies are nearby to avoid becoming a predictable target
 
 ### Future Enhancements
 

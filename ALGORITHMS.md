@@ -29,7 +29,7 @@ Final Score = SpaceScore + FoodScore - CollisionRisk + CenterScore + TailScore
 | Food Proximity | 50 | Health ≥ 50 (prevents circling) |
 | Head Collision Risk | -500 | Always |
 | Center Proximity | 10 | Turn < 50 |
-| Tail Proximity | 50 | Health > 30 |
+| Tail Proximity | 50 | Health > 30 AND no enemies nearby |
 | Fatal Move | -10000 | If move is fatal |
 
 ## Collision Detection
@@ -193,16 +193,23 @@ centerScore = 1 - (distance_to_center / max_distance) * 10
 - Better positioning against opponents
 
 ### Tail Chasing (Late Game)
-When health > 30, follow own tail:
+When health > 30 AND no enemies nearby, follow own tail:
 
 ```
-tailScore = (1 / distance_to_tail) * 50
+if health > 30 AND !hasEnemiesNearby():
+    tailScore = (1 / distance_to_tail) * 50
 ```
 
 **Rationale**:
 - Tail position is always safe (it moves)
 - Creates a "safe path" to follow
 - Maintains position without risk
+- **Disabled when enemies are nearby** (within 3 Manhattan distance) to avoid becoming a predictable, circling target
+
+**Enemy Proximity Detection**:
+- Checks if any enemy snake head is within `EnemyProximityRadius` (default: 3 squares)
+- When enemies are nearby, prioritizes space availability and food seeking over tail following
+- Prevents the snake from circling predictably near threats
 
 ## Performance Optimizations
 
