@@ -253,6 +253,7 @@ func scoreMove(state GameState, move string) float64 {
 	// Tail following is now DISABLED to prevent circular behavior
 	// The snake should always be hunting for food or prey, never standing still
 	// Only use tail as fallback when no other options exist (very low weight)
+	// Note: Using HealthLow (50) as threshold to ensure we're healthy enough for this fallback
 	if state.You.Health > HealthLow && !hasEnemiesNearby(state) && len(state.Board.Food) == 0 {
 		// Only follow tail when no food exists (rare case)
 		tailFactor := evaluateTailProximity(state, nextPos)
@@ -506,30 +507,14 @@ func isFoodDangerous(state GameState, food Coord) bool {
 	// Only skip this check when we're at critical health (must risk it to survive)
 	// OR when we're already on/near a wall ourselves (no additional danger)
 	if !isCritical && hasAnyEnemies(state) {
-		// Calculate our distance from walls
-		ourDistFromLeft := state.You.Head.X
-		ourDistFromRight := state.Board.Width - 1 - state.You.Head.X
-		ourDistFromBottom := state.You.Head.Y
-		ourDistFromTop := state.Board.Height - 1 - state.You.Head.Y
+		// Calculate our distance from walls using helper
+		ourMinDistToWall := getMinDistanceToWall(state, state.You.Head)
 		
-		ourMinDistToWall := ourDistFromLeft
-		if ourDistFromRight < ourMinDistToWall {
-			ourMinDistToWall = ourDistFromRight
-		}
-		if ourDistFromBottom < ourMinDistToWall {
-			ourMinDistToWall = ourDistFromBottom
-		}
-		if ourDistFromTop < ourMinDistToWall {
-			ourMinDistToWall = ourDistFromTop
-		}
-		
-		// Calculate food's distance from walls
+		// Check if food is directly ON any wall (distance = 0)
 		foodDistFromLeft := food.X
 		foodDistFromRight := state.Board.Width - 1 - food.X
 		foodDistFromBottom := food.Y
 		foodDistFromTop := state.Board.Height - 1 - food.Y
-		
-		// Check if food is directly ON any wall (distance = 0)
 		foodOnWall := (foodDistFromLeft == 0 || foodDistFromRight == 0 || foodDistFromBottom == 0 || foodDistFromTop == 0)
 		
 		// Only mark as dangerous if food is on wall AND we're not already ON a wall
@@ -1104,6 +1089,20 @@ func getMinDistanceToWall(state GameState, pos Coord) int {
 	}
 	
 	return minDist
+}
+
+// minInt returns the minimum of multiple integers
+func minInt(values ...int) int {
+	if len(values) == 0 {
+		return 0
+	}
+	min := values[0]
+	for _, v := range values[1:] {
+		if v < min {
+			min = v
+		}
+	}
+	return min
 }
 
 // evaluateEnemyReachableSpace calculates the reachable space for an enemy snake from a given position
