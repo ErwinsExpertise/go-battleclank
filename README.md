@@ -146,14 +146,23 @@ For detailed algorithm documentation, see:
 
 Each possible move is scored using multiple weighted factors:
 
-- **Space Availability** (weight: 100): Amount of reachable space via flood fill
+- **Space Availability** (weight: 100-200): Amount of reachable space via flood fill
+  - Doubled to 200 when enemies are nearby
 - **Food Proximity** (dynamic weight): Distance to nearest food
-  - Critical health (< 30): weight 300
-  - Low health (< 50): weight 200
-  - Healthy (≥ 50): weight 50 (prevents circular behavior)
+  - Critical health (< 30): weight 400 (350 when outmatched)
+  - Low health (< 50): weight 250 (180 when outmatched)
+  - Healthy (≥ 50): weight 100 (60 when outmatched) - increased for more aggressive growth
+- **Danger Zone Avoidance** (dynamic penalty): Avoiding positions enemies can reach
+  - -700 for significantly larger enemies (2+ length advantage)
+  - -400 for similar-sized enemies
+  - -100 for smaller enemies
 - **Head Collision Risk** (weight: -500): Potential for head-to-head with larger snakes
-- **Center Proximity** (weight: 10): Distance to board center in early game
+- **Center Proximity** (weight: 10-15): Distance to board center
+  - Early game (turn < 50): weight 10
+  - Late game when healthy and not outmatched: weight 15
 - **Tail Proximity** (weight: 50): Following own tail when health > 30 AND no enemies nearby (within 3 squares)
+- **Wall Avoidance** (weight: -300): Penalty for positions near walls/corners when enemies present
+- **Cutoff Detection** (weight: -300): Penalty for limited escape routes
 
 Fatal moves (out of bounds, snake collision) receive a score of -10000.
 

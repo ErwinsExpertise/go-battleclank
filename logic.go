@@ -488,6 +488,7 @@ func isFoodDangerous(state GameState, food Coord) bool {
 		
 		// More aggressive: only avoid if enemy is 3+ moves closer (was 2+)
 		// This allows us to contest food more often
+		// Example: if we're 5 moves away and enemy is 2 moves away, that's 3 moves closer
 		if enemyDistToFood < myDistToFood-2 {
 			// Enemy is significantly closer - potentially dangerous
 			return true

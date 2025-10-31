@@ -63,7 +63,8 @@ func TestContestFoodWithSimilarEnemy(t *testing.T) {
 	}
 
 	// Check that food is NOT considered dangerous despite similar distance
-	// Food is 3 squares away from both, outside FoodDangerRadius of 2
+	// Both snakes are 3 moves from food, so distances are equal and neither
+	// snake body is within FoodDangerRadius (2) of the food
 	foodDangerous := isFoodDangerous(state, Coord{X: 5, Y: 5})
 	if foodDangerous {
 		t.Error("Food should NOT be considered dangerous when enemy is same size and equidistant (outside danger radius)")
@@ -174,7 +175,7 @@ func TestMoreWillingToContestFood(t *testing.T) {
 			enemyLength: 4,
 			myLength:    3,
 			expectSafe:  true,
-			description: "Only 1 length advantage at same distance should be safe (threshold is now 2+)",
+			description: "Only 1 length advantage at same distance should be safe (threshold is 2+ for healthy snakes)",
 		},
 		{
 			name:        "Critical health, enemy 2 longer - safe",
