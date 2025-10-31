@@ -4,6 +4,30 @@ import (
 	"testing"
 )
 
+// Standard Battlesnake Board Sizes:
+// - 7x7 (small)
+// - 11x11 (medium/standard)
+// - 19x19 (large)
+// Reference: https://docs.battlesnake.com/api/objects/board
+
+// Helper function to create API-compliant test snakes
+// Creates a Battlesnake with all required fields per the Battlesnake API spec:
+// https://docs.battlesnake.com/api/objects/battlesnake
+func createTestSnake(id string, health int, body []Coord) Battlesnake {
+	if len(body) == 0 {
+		panic("snake body cannot be empty")
+	}
+	return Battlesnake{
+		ID:     id,
+		Name:   id, // Use ID as name for tests
+		Health: health,
+		Body:   body,
+		Head:   body[0], // Head is always first element
+		Length: len(body),
+		// Latency, Shout, and Customizations are optional and omitted in tests
+	}
+}
+
 // Test info function
 func TestInfo(t *testing.T) {
 	response := info()
@@ -112,15 +136,11 @@ func TestIsImmediatelyFatal_SnakeCollision(t *testing.T) {
 			Width:  11,
 			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					ID:     "snake1",
-					Health: 50,
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
+				createTestSnake("snake1", 50, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
 			},
 		},
 	}
@@ -153,15 +173,11 @@ func TestIsImmediatelyFatal_SnakeJustAte(t *testing.T) {
 			Width:  11,
 			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					ID:     "snake1",
-					Health: MaxHealth, // Just ate
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
+				createTestSnake("snake1", MaxHealth, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
 			},
 		},
 	}
@@ -221,28 +237,37 @@ func TestEvaluateFoodProximity_NoFood(t *testing.T) {
 // Test evaluateHeadCollisionRisk
 func TestEvaluateHeadCollisionRisk(t *testing.T) {
 	state := GameState{
-		You: Battlesnake{
-			ID:     "me",
-			Length: 5,
-			Head:   Coord{X: 5, Y: 5},
-		},
+		You: createTestSnake("me", 100, []Coord{
+			{X: 5, Y: 5},
+			{X: 5, Y: 4},
+			{X: 5, Y: 3},
+			{X: 5, Y: 2},
+			{X: 5, Y: 1},
+		}),
 		Board: Board{
+			Width:  11,
+			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					ID:     "me",
-					Length: 5,
-					Head:   Coord{X: 5, Y: 5},
-				},
-				{
-					ID:     "enemy1",
-					Length: 6, // Larger snake
-					Head:   Coord{X: 5, Y: 7},
-				},
-				{
-					ID:     "enemy2",
-					Length: 3, // Smaller snake
-					Head:   Coord{X: 7, Y: 5},
-				},
+				createTestSnake("me", 100, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+					{X: 5, Y: 2},
+					{X: 5, Y: 1},
+				}),
+				createTestSnake("enemy1", 100, []Coord{
+					{X: 5, Y: 7},
+					{X: 5, Y: 8},
+					{X: 5, Y: 9},
+					{X: 5, Y: 10},
+					{X: 4, Y: 10},
+					{X: 3, Y: 10},
+				}),
+				createTestSnake("enemy2", 100, []Coord{
+					{X: 7, Y: 5},
+					{X: 8, Y: 5},
+					{X: 9, Y: 5},
+				}),
 			},
 		},
 	}
@@ -276,9 +301,11 @@ func TestEvaluateCenterProximity(t *testing.T) {
 // Test evaluateSpace
 func TestEvaluateSpace(t *testing.T) {
 	state := GameState{
-		You: Battlesnake{
-			Length: 3,
-		},
+		You: createTestSnake("me", 100, []Coord{
+			{X: 5, Y: 5},
+			{X: 5, Y: 4},
+			{X: 5, Y: 3},
+		}),
 		Board: Board{
 			Width:  11,
 			Height: 11,
@@ -295,39 +322,23 @@ func TestEvaluateSpace(t *testing.T) {
 
 // Test move function
 func TestMove(t *testing.T) {
+	mySnake := createTestSnake("me", 50, []Coord{
+		{X: 5, Y: 5},
+		{X: 5, Y: 4},
+		{X: 5, Y: 3},
+	})
+	
 	state := GameState{
 		Turn: 1,
 		Game: Game{
 			ID: "test-game",
 		},
-		You: Battlesnake{
-			ID:     "me",
-			Health: 50,
-			Length: 3,
-			Head:   Coord{X: 5, Y: 5},
-			Body: []Coord{
-				{X: 5, Y: 5},
-				{X: 5, Y: 4},
-				{X: 5, Y: 3},
-			},
-		},
+		You: mySnake,
 		Board: Board{
 			Width:  11,
 			Height: 11,
 			Food:   []Coord{{X: 5, Y: 7}},
-			Snakes: []Battlesnake{
-				{
-					ID:     "me",
-					Health: 50,
-					Length: 3,
-					Head:   Coord{X: 5, Y: 5},
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
-			},
+			Snakes: []Battlesnake{mySnake},
 		},
 	}
 
@@ -353,36 +364,20 @@ func TestMove(t *testing.T) {
 
 // Test scoreMove doesn't crash
 func TestScoreMove(t *testing.T) {
+	mySnake := createTestSnake("me", 50, []Coord{
+		{X: 5, Y: 5},
+		{X: 5, Y: 4},
+		{X: 5, Y: 3},
+	})
+	
 	state := GameState{
 		Turn: 1,
-		You: Battlesnake{
-			ID:     "me",
-			Health: 50,
-			Length: 3,
-			Head:   Coord{X: 5, Y: 5},
-			Body: []Coord{
-				{X: 5, Y: 5},
-				{X: 5, Y: 4},
-				{X: 5, Y: 3},
-			},
-		},
+		You:  mySnake,
 		Board: Board{
 			Width:  11,
 			Height: 11,
 			Food:   []Coord{},
-			Snakes: []Battlesnake{
-				{
-					ID:     "me",
-					Health: 50,
-					Length: 3,
-					Head:   Coord{X: 5, Y: 5},
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
-			},
+			Snakes: []Battlesnake{mySnake},
 		},
 	}
 
@@ -440,16 +435,13 @@ func TestAStarSearch_AroundObstacle(t *testing.T) {
 			Width:  11,
 			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					Health: 50,
-					Body: []Coord{
-						{X: 5, Y: 0},
-						{X: 5, Y: 1},
-						{X: 5, Y: 2},
-						{X: 5, Y: 3},
-						{X: 5, Y: 4},
-					},
-				},
+				createTestSnake("obstacle", 50, []Coord{
+					{X: 5, Y: 0},
+					{X: 5, Y: 1},
+					{X: 5, Y: 2},
+					{X: 5, Y: 3},
+					{X: 5, Y: 4},
+				}),
 			},
 		},
 	}
@@ -486,35 +478,31 @@ func TestAStarSearch_NoPath(t *testing.T) {
 			Width:  7,
 			Height: 7,
 			Snakes: []Battlesnake{
-				{
-					Health: 50,
-					// Create a complete box with snake body (not including tail)
-					Body: []Coord{
-						// Top wall
-						{X: 2, Y: 5},
-						{X: 3, Y: 5},
-						{X: 4, Y: 5},
-						// Right wall
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-						{X: 5, Y: 2},
-						// Bottom wall
-						{X: 4, Y: 1},
-						{X: 3, Y: 1},
-						{X: 2, Y: 1},
-						// Left wall
-						{X: 1, Y: 2},
-						{X: 1, Y: 3},
-						{X: 1, Y: 4},
-						// Close the box
-						{X: 1, Y: 5},
-						{X: 5, Y: 5},
-						{X: 5, Y: 1},
-						{X: 1, Y: 1},
-						// Tail (movable but outside the box)
-						{X: 0, Y: 0},
-					},
-				},
+				createTestSnake("wall", 50, []Coord{
+					// Top wall
+					{X: 2, Y: 5},
+					{X: 3, Y: 5},
+					{X: 4, Y: 5},
+					// Right wall
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+					{X: 5, Y: 2},
+					// Bottom wall
+					{X: 4, Y: 1},
+					{X: 3, Y: 1},
+					{X: 2, Y: 1},
+					// Left wall
+					{X: 1, Y: 2},
+					{X: 1, Y: 3},
+					{X: 1, Y: 4},
+					// Close the box
+					{X: 1, Y: 5},
+					{X: 5, Y: 5},
+					{X: 5, Y: 1},
+					{X: 1, Y: 1},
+					// Tail (movable but outside the box)
+					{X: 0, Y: 0},
+				}),
 			},
 		},
 	}
@@ -564,14 +552,11 @@ func TestAStarSearch_GoalBlocked(t *testing.T) {
 			Width:  11,
 			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					Health: 50,
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
+				createTestSnake("blocker", 50, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
 			},
 		},
 	}
@@ -593,14 +578,11 @@ func TestIsPositionBlocked(t *testing.T) {
 			Width:  11,
 			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					Health: 50,
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
+				createTestSnake("snake1", 50, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
 			},
 		},
 	}
@@ -633,14 +615,11 @@ func TestIsPositionBlocked_SnakeJustAte(t *testing.T) {
 			Width:  11,
 			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					Health: MaxHealth, // Just ate
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
+				createTestSnake("snake1", MaxHealth, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
 			},
 		},
 	}
@@ -659,14 +638,11 @@ func TestGetValidNeighbors(t *testing.T) {
 			Width:  11,
 			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					Health: 50,
-					Body: []Coord{
-						{X: 5, Y: 6},
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-					},
-				},
+				createTestSnake("snake1", 50, []Coord{
+					{X: 5, Y: 6},
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+				}),
 			},
 		},
 	}
@@ -744,9 +720,11 @@ func TestFindNearestFoodWithAStar(t *testing.T) {
 // Test evaluateFoodProximity with A* integration (critical health)
 func TestEvaluateFoodProximity_WithAStar(t *testing.T) {
 	state := GameState{
-		You: Battlesnake{
-			Health: 20, // Critical - will use A*
-		},
+		You: createTestSnake("me", 20, []Coord{
+			{X: 0, Y: 0},
+			{X: 0, Y: 1},
+			{X: 0, Y: 2},
+		}),
 		Board: Board{
 			Width:  11,
 			Height: 11,
@@ -766,9 +744,11 @@ func TestEvaluateFoodProximity_WithAStar(t *testing.T) {
 // Test evaluateFoodProximity without A* (non-critical health)
 func TestEvaluateFoodProximity_WithoutAStar(t *testing.T) {
 	state := GameState{
-		You: Battlesnake{
-			Health: 80, // High - will use Manhattan distance
-		},
+		You: createTestSnake("me", 80, []Coord{
+			{X: 0, Y: 0},
+			{X: 0, Y: 1},
+			{X: 0, Y: 2},
+		}),
 		Board: Board{
 			Width:  11,
 			Height: 11,
@@ -787,87 +767,61 @@ func TestEvaluateFoodProximity_WithoutAStar(t *testing.T) {
 
 // Benchmark A* search performance
 func BenchmarkAStarSearch(b *testing.B) {
-state := GameState{
-Board: Board{
-Width:  11,
-Height: 11,
-Snakes: []Battlesnake{
-{
-Health: 50,
-Body: []Coord{
-{X: 5, Y: 0},
-{X: 5, Y: 1},
-{X: 5, Y: 2},
-{X: 5, Y: 3},
-{X: 5, Y: 4},
-},
-},
-},
-},
-}
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{
+				createTestSnake("obstacle", 50, []Coord{
+					{X: 5, Y: 0},
+					{X: 5, Y: 1},
+					{X: 5, Y: 2},
+					{X: 5, Y: 3},
+					{X: 5, Y: 4},
+				}),
+			},
+		},
+	}
 
-start := Coord{X: 0, Y: 2}
-goal := Coord{X: 10, Y: 8}
+	start := Coord{X: 0, Y: 2}
+	goal := Coord{X: 10, Y: 8}
 
-b.ResetTimer()
-for i := 0; i < b.N; i++ {
-aStarSearch(state, start, goal, MaxAStarNodes)
-}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		aStarSearch(state, start, goal, MaxAStarNodes)
+	}
 }
 
 // Benchmark move evaluation with A* integration
 func BenchmarkMoveEvaluation(b *testing.B) {
-state := GameState{
-Turn: 50,
-You: Battlesnake{
-ID:     "me",
-Health: 25, // Critical - will use A*
-Length: 5,
-Head:   Coord{X: 5, Y: 5},
-Body: []Coord{
-{X: 5, Y: 5},
-{X: 5, Y: 4},
-{X: 5, Y: 3},
-{X: 5, Y: 2},
-{X: 5, Y: 1},
-},
-},
-Board: Board{
-Width:  11,
-Height: 11,
-Food:   []Coord{{X: 10, Y: 10}, {X: 1, Y: 1}},
-Snakes: []Battlesnake{
-{
-ID:     "me",
-Health: 25,
-Length: 5,
-Head:   Coord{X: 5, Y: 5},
-Body: []Coord{
-{X: 5, Y: 5},
-{X: 5, Y: 4},
-{X: 5, Y: 3},
-{X: 5, Y: 2},
-{X: 5, Y: 1},
-},
-},
-{
-ID:     "enemy",
-Health: 80,
-Length: 4,
-Head:   Coord{X: 3, Y: 3},
-Body: []Coord{
-{X: 3, Y: 3},
-{X: 3, Y: 2},
-{X: 3, Y: 1},
-{X: 3, Y: 0},
-},
-},
-},
-},
-}
+	mySnake := createTestSnake("me", 25, []Coord{
+		{X: 5, Y: 5},
+		{X: 5, Y: 4},
+		{X: 5, Y: 3},
+		{X: 5, Y: 2},
+		{X: 5, Y: 1},
+	})
+	
+	enemySnake := createTestSnake("enemy", 80, []Coord{
+		{X: 3, Y: 3},
+		{X: 3, Y: 2},
+		{X: 3, Y: 1},
+		{X: 3, Y: 0},
+	})
 
-b.ResetTimer()
-for i := 0; i < b.N; i++ {
-move(state)
-}
+	state := GameState{
+		Turn: 50,
+		You:  mySnake,
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food:   []Coord{{X: 10, Y: 10}, {X: 1, Y: 1}},
+			Snakes: []Battlesnake{mySnake, enemySnake},
+		},
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		move(state)
+	}
 }
