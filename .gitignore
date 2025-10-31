@@ -17,8 +17,9 @@ vendor/
 # Go workspace file
 go.work
 
-# Compiled binary
+# Compiled binaries
 go-battleclank
+benchmark
 
 # IDE files
 .idea/
