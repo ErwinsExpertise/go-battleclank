@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/heap"
 	"log"
 	"math"
 )
@@ -16,6 +17,9 @@ const (
 	HealthCritical = 30
 	HealthLow      = 50
 	MaxHealth      = 100
+
+	// A* algorithm constants
+	MaxAStarNodes = 200 // Maximum nodes to explore in A* search
 )
 
 // info returns metadata about the battlesnake
@@ -186,6 +190,20 @@ func evaluateFoodProximity(state GameState, pos Coord) float64 {
 		return 0
 	}
 
+	// Use A* for critical health situations (more accurate pathfinding)
+	if state.You.Health < HealthCritical {
+		_, path := findNearestFoodWithAStar(state, pos)
+		if path != nil && len(path) > 0 {
+			pathLength := len(path)
+			if pathLength == 1 {
+				return 1.0 // Already at food
+			}
+			return 1.0 / float64(pathLength)
+		}
+		// If no path found, fall through to Manhattan distance
+	}
+
+	// Use Manhattan distance for non-critical situations (better performance)
 	minDist := math.MaxInt32
 	for _, food := range state.Board.Food {
 		dist := manhattanDistance(pos, food)
@@ -281,4 +299,192 @@ func getNextPosition(pos Coord, move string) Coord {
 		return Coord{X: pos.X + 1, Y: pos.Y}
 	}
 	return pos
+}
+
+// A* Pathfinding Implementation
+
+// aStarNode represents a node in the A* search
+type aStarNode struct {
+	pos    Coord
+	gScore int // Cost from start
+	fScore int // gScore + heuristic to goal
+	parent *aStarNode
+	index  int // Index in the priority queue
+}
+
+// priorityQueue implements heap.Interface for A* algorithm
+type priorityQueue []*aStarNode
+
+func (pq priorityQueue) Len() int { return len(pq) }
+
+func (pq priorityQueue) Less(i, j int) bool {
+	return pq[i].fScore < pq[j].fScore
+}
+
+func (pq priorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
+}
+
+func (pq *priorityQueue) Push(x interface{}) {
+	n := len(*pq)
+	node := x.(*aStarNode)
+	node.index = n
+	*pq = append(*pq, node)
+}
+
+func (pq *priorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	node := old[n-1]
+	old[n-1] = nil
+	node.index = -1
+	*pq = old[0 : n-1]
+	return node
+}
+
+// aStarSearch finds the shortest path from start to goal using A* algorithm
+// Returns nil if no path exists or search exceeds maxNodes
+func aStarSearch(state GameState, start, goal Coord, maxNodes int) []Coord {
+	// Check if goal is blocked
+	if isPositionBlocked(state, goal) {
+		return nil
+	}
+
+	// Check if start equals goal
+	if start.X == goal.X && start.Y == goal.Y {
+		return []Coord{start}
+	}
+
+	// Initialize open set with start node
+	openSet := &priorityQueue{}
+	heap.Init(openSet)
+
+	startNode := &aStarNode{
+		pos:    start,
+		gScore: 0,
+		fScore: manhattanDistance(start, goal),
+		parent: nil,
+	}
+	heap.Push(openSet, startNode)
+
+	// Track visited nodes and their best scores
+	visited := make(map[Coord]int)
+	nodesExplored := 0
+
+	for openSet.Len() > 0 && nodesExplored < maxNodes {
+		// Get node with lowest f-score
+		current := heap.Pop(openSet).(*aStarNode)
+		nodesExplored++
+
+		// Check if we reached the goal
+		if current.pos.X == goal.X && current.pos.Y == goal.Y {
+			return reconstructPath(current)
+		}
+
+		// Mark as visited
+		visited[current.pos] = current.gScore
+
+		// Explore neighbors
+		for _, neighbor := range getValidNeighbors(state, current.pos) {
+			tentativeGScore := current.gScore + 1
+
+			// Skip if we've found a better path to this neighbor
+			if prevScore, seen := visited[neighbor]; seen && prevScore <= tentativeGScore {
+				continue
+			}
+
+			// Add neighbor to open set
+			neighborNode := &aStarNode{
+				pos:    neighbor,
+				gScore: tentativeGScore,
+				fScore: tentativeGScore + manhattanDistance(neighbor, goal),
+				parent: current,
+			}
+			heap.Push(openSet, neighborNode)
+		}
+	}
+
+	// No path found
+	return nil
+}
+
+// reconstructPath builds the path from start to goal by following parent pointers
+func reconstructPath(node *aStarNode) []Coord {
+	path := []Coord{}
+	current := node
+
+	for current != nil {
+		path = append([]Coord{current.pos}, path...)
+		current = current.parent
+	}
+
+	return path
+}
+
+// getValidNeighbors returns adjacent positions that are not blocked
+func getValidNeighbors(state GameState, pos Coord) []Coord {
+	neighbors := []Coord{}
+	directions := []Coord{
+		{X: 0, Y: 1},  // up
+		{X: 0, Y: -1}, // down
+		{X: -1, Y: 0}, // left
+		{X: 1, Y: 0},  // right
+	}
+
+	for _, dir := range directions {
+		newPos := Coord{X: pos.X + dir.X, Y: pos.Y + dir.Y}
+
+		// Check bounds
+		if newPos.X < 0 || newPos.X >= state.Board.Width ||
+			newPos.Y < 0 || newPos.Y >= state.Board.Height {
+			continue
+		}
+
+		// Check if blocked by snake
+		if isPositionBlocked(state, newPos) {
+			continue
+		}
+
+		neighbors = append(neighbors, newPos)
+	}
+
+	return neighbors
+}
+
+// isPositionBlocked checks if a position is occupied by a snake body
+func isPositionBlocked(state GameState, pos Coord) bool {
+	for _, snake := range state.Board.Snakes {
+		for i, segment := range snake.Body {
+			// Skip tails that will move (snake hasn't just eaten)
+			if i == len(snake.Body)-1 && snake.Health != MaxHealth {
+				continue
+			}
+
+			if pos.X == segment.X && pos.Y == segment.Y {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// findNearestFoodWithAStar finds the closest reachable food using A*
+func findNearestFoodWithAStar(state GameState, pos Coord) (Coord, []Coord) {
+	var nearestFood Coord
+	var shortestPath []Coord
+	shortestLength := math.MaxInt32
+
+	// Try A* to each food item, keeping track of shortest path
+	for _, food := range state.Board.Food {
+		path := aStarSearch(state, pos, food, MaxAStarNodes)
+		if path != nil && len(path) < shortestLength {
+			shortestPath = path
+			nearestFood = food
+			shortestLength = len(path)
+		}
+	}
+
+	return nearestFood, shortestPath
 }
