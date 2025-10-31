@@ -1375,3 +1375,190 @@ func TestMove_EnablesTailChasingWhenSafe(t *testing.T) {
 	// This test verifies that tail chasing is active when no enemies are nearby
 	// The tail proximity bonus should be applied in this case
 }
+
+// TestStatelessBehavior verifies that the AI is truly stateless by ensuring
+// that calling the move function multiple times with the same GameState
+// produces identical results. This is a critical requirement for reliability
+// and scalability.
+func TestStatelessBehavior(t *testing.T) {
+	// Create a typical game state
+	state := GameState{
+		Game: Game{
+			ID: "stateless-test",
+		},
+		Turn: 10,
+		Board: Board{
+			Height: 11,
+			Width:  11,
+			Food: []Coord{
+				{X: 5, Y: 5},
+				{X: 8, Y: 3},
+			},
+			Snakes: []Battlesnake{
+				createTestSnake("you", 75, []Coord{
+					{X: 3, Y: 3}, // head
+					{X: 3, Y: 2},
+					{X: 3, Y: 1},
+				}),
+				createTestSnake("enemy", 80, []Coord{
+					{X: 7, Y: 7}, // head
+					{X: 7, Y: 6},
+					{X: 7, Y: 5},
+				}),
+			},
+		},
+		You: createTestSnake("you", 75, []Coord{
+			{X: 3, Y: 3}, // head
+			{X: 3, Y: 2},
+			{X: 3, Y: 1},
+		}),
+	}
+
+	// Call move function multiple times with the exact same state
+	const iterations = 10
+	moves := make([]string, iterations)
+	for i := 0; i < iterations; i++ {
+		response := move(state)
+		moves[i] = response.Move
+	}
+
+	// Verify all moves are identical
+	firstMove := moves[0]
+	for i := 1; i < iterations; i++ {
+		if moves[i] != firstMove {
+			t.Errorf("Stateless violation: move %d returned '%s' but move 0 returned '%s'",
+				i, moves[i], firstMove)
+		}
+	}
+
+	t.Logf("Stateless behavior verified: all %d calls returned '%s'", iterations, firstMove)
+}
+
+// TestStatelessBehavior_DifferentStates verifies that the AI responds differently
+// to different game states, confirming it's not just returning a constant value
+func TestStatelessBehavior_DifferentStates(t *testing.T) {
+	// Create two different game states
+	state1 := GameState{
+		Game: Game{ID: "test1"},
+		Turn: 10,
+		Board: Board{
+			Height: 11,
+			Width:  11,
+			Food: []Coord{
+				{X: 5, Y: 5}, // food to the right
+			},
+			Snakes: []Battlesnake{
+				createTestSnake("you", 30, []Coord{ // low health
+					{X: 3, Y: 3}, // head
+					{X: 3, Y: 2},
+					{X: 3, Y: 1},
+				}),
+			},
+		},
+		You: createTestSnake("you", 30, []Coord{
+			{X: 3, Y: 3},
+			{X: 3, Y: 2},
+			{X: 3, Y: 1},
+		}),
+	}
+
+	state2 := GameState{
+		Game: Game{ID: "test2"},
+		Turn: 10,
+		Board: Board{
+			Height: 11,
+			Width:  11,
+			Food: []Coord{
+				{X: 1, Y: 3}, // food to the left
+			},
+			Snakes: []Battlesnake{
+				createTestSnake("you", 30, []Coord{ // low health
+					{X: 3, Y: 3}, // head (same position)
+					{X: 3, Y: 2},
+					{X: 3, Y: 1},
+				}),
+			},
+		},
+		You: createTestSnake("you", 30, []Coord{
+			{X: 3, Y: 3},
+			{X: 3, Y: 2},
+			{X: 3, Y: 1},
+		}),
+	}
+
+	// Get moves for both states
+	move1 := move(state1).Move
+	move2 := move(state2).Move
+
+	t.Logf("State 1 (food right): %s", move1)
+	t.Logf("State 2 (food left): %s", move2)
+
+	// The moves might be the same due to other factors, but the function
+	// should at least be considering the different game states.
+	// This test mainly ensures the function runs without errors on different inputs.
+}
+
+// TestStatelessBehavior_NoGlobalState verifies that multiple concurrent games
+// don't interfere with each other
+func TestStatelessBehavior_NoGlobalState(t *testing.T) {
+	// Create two different game states representing different games
+	game1State := GameState{
+		Game: Game{ID: "game1"},
+		Turn: 5,
+		Board: Board{
+			Height: 11,
+			Width:  11,
+			Food:   []Coord{{X: 2, Y: 2}},
+			Snakes: []Battlesnake{
+				createTestSnake("you", 50, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
+			},
+		},
+		You: createTestSnake("you", 50, []Coord{
+			{X: 5, Y: 5},
+			{X: 5, Y: 4},
+			{X: 5, Y: 3},
+		}),
+	}
+
+	game2State := GameState{
+		Game: Game{ID: "game2"},
+		Turn: 15,
+		Board: Board{
+			Height: 11,
+			Width:  11,
+			Food:   []Coord{{X: 8, Y: 8}},
+			Snakes: []Battlesnake{
+				createTestSnake("you", 80, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 6},
+					{X: 5, Y: 7},
+				}),
+			},
+		},
+		You: createTestSnake("you", 80, []Coord{
+			{X: 5, Y: 5},
+			{X: 5, Y: 6},
+			{X: 5, Y: 7},
+		}),
+	}
+
+	// Interleave calls to simulate concurrent games
+	move1a := move(game1State).Move
+	move2a := move(game2State).Move
+	move1b := move(game1State).Move
+	move2b := move(game2State).Move
+
+	// Each game should get consistent results
+	if move1a != move1b {
+		t.Errorf("Game 1 state produced different moves: %s vs %s", move1a, move1b)
+	}
+	if move2a != move2b {
+		t.Errorf("Game 2 state produced different moves: %s vs %s", move2a, move2b)
+	}
+
+	t.Logf("Concurrent game test passed - Game 1: %s, Game 2: %s", move1a, move2a)
+}

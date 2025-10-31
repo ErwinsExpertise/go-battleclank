@@ -2,6 +2,20 @@
 
 A competitive Battlesnake implementation in Go with advanced decision-making algorithms.
 
+## Architecture
+
+### Stateless Design
+
+This Battlesnake is **completely stateless** - all decision-making is based purely on the current game state provided by the Battlesnake API, with no memory of previous turns. This design ensures:
+
+- **Fresh decisions every turn** based on updated board state
+- **Easy debugging and testing** without hidden state dependencies
+- **Simple horizontal scaling** - any server instance can handle any request
+- **No accumulation of bugs** from stale or incorrect state
+- **Reliability** - crashes or restarts don't affect decision quality
+
+This follows best practices from top-performing Battlesnakes. See: [Battlesnake Post Mortem](https://medium.com/asymptoticlabs/battlesnake-post-mortem-a5917f9a3428)
+
 ## Features
 
 This Battlesnake implements several optimization strategies to maximize survival and winning chances:

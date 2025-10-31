@@ -3,12 +3,55 @@
 This document provides a comprehensive review of the current Battlesnake strategies implemented in go-battleclank and analyzes potential improvements based on academic research and competitive best practices.
 
 ## Table of Contents
-1. [Current Strategy Analysis](#current-strategy-analysis)
-2. [Traditional Heuristics Evaluation](#traditional-heuristics-evaluation)
-3. [Machine Learning Approaches](#machine-learning-approaches)
-4. [Hybrid Strategy Recommendations](#hybrid-strategy-recommendations)
-5. [Implementation Roadmap](#implementation-roadmap)
-6. [References](#references)
+1. [Architecture: Stateless Design](#architecture-stateless-design)
+2. [Current Strategy Analysis](#current-strategy-analysis)
+3. [Traditional Heuristics Evaluation](#traditional-heuristics-evaluation)
+4. [Machine Learning Approaches](#machine-learning-approaches)
+5. [Hybrid Strategy Recommendations](#hybrid-strategy-recommendations)
+6. [Implementation Roadmap](#implementation-roadmap)
+7. [References](#references)
+
+## Architecture: Stateless Design
+
+### Design Philosophy
+
+This Battlesnake is **intentionally stateless**. All decision-making functions are pure functions that depend only on the current `GameState` parameter provided by the Battlesnake API, with no persistent memory between turns.
+
+### Benefits of Stateless Architecture
+
+1. **Always Updated Decisions**: Every move is based on fresh, current board state with no risk of stale or incorrect historical data
+2. **Simplified Debugging**: No hidden state dependencies make bugs easier to identify and fix
+3. **Easy Horizontal Scaling**: Any server instance can handle any request without session affinity
+4. **Reliability**: Server crashes or restarts don't affect decision quality
+5. **No State Bugs**: Cannot accumulate errors from incorrect state tracking
+6. **Testability**: Pure functions are easier to unit test with predictable inputs/outputs
+
+### Implementation Details
+
+- The `start()` function logs the game start but does **not** initialize any persistent state
+- The `move()` function computes decisions fresh on each call using only the `GameState` parameter
+- The `end()` function logs the game end but does **not** clean up or persist any state
+- No global variables maintain game state between API calls
+- All helper functions are pure or only use local state (e.g., flood fill visited maps)
+
+### Trade-offs
+
+**Advantages**:
+- Simpler architecture and deployment
+- Better reliability and scalability
+- Easier to reason about behavior
+
+**Limitations**:
+- Cannot leverage historical patterns or trends
+- No direct mechanism for reinforcement learning between games
+- Must recompute all analysis each turn (mitigated by efficient algorithms)
+
+**Note**: Machine learning models (if added) would be trained offline and loaded as static weights, maintaining the stateless property during gameplay.
+
+### References
+
+- [Battlesnake Post Mortem by Asymptotic Labs](https://medium.com/asymptoticlabs/battlesnake-post-mortem-a5917f9a3428) - Discusses benefits of stateless design for competitive Battlesnake
+- [Efficiently Updatable Neural Networks](https://en.wikipedia.org/wiki/Efficiently_updatable_neural_network) - Approach for integrating ML while maintaining stateless architecture
 
 ## Current Strategy Analysis
 

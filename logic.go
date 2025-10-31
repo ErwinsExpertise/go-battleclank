@@ -6,6 +6,16 @@ import (
 	"math"
 )
 
+// This package implements a STATELESS Battlesnake AI.
+// All decision-making functions are pure functions that depend only on the
+// current GameState parameter, with no persistent memory between turns.
+// This ensures:
+// - Updated decisions based on current board state
+// - Easy debugging and testing
+// - Simple horizontal scaling
+// - No accumulation of stale state or bugs
+// See: https://medium.com/asymptoticlabs/battlesnake-post-mortem-a5917f9a3428
+
 const (
 	// Move directions
 	MoveUp    = "up"
@@ -70,16 +80,24 @@ func info() BattlesnakeInfoResponse {
 }
 
 // start is called when the game begins
+// This function is intentionally stateless - it does not initialize or store
+// any game state. All decisions are made fresh on each move based solely on
+// the GameState parameter provided by the Battlesnake API.
 func start(state GameState) {
 	log.Printf("GAME START: %s\n", state.Game.ID)
 }
 
 // end is called when the game finishes
+// This function is intentionally stateless - it does not clean up or persist
+// any game state. This ensures the server remains simple and scalable.
 func end(state GameState) {
 	log.Printf("GAME OVER: %s\n", state.Game.ID)
 }
 
 // move is the main decision-making function called on every turn
+// This function is STATELESS and makes decisions based purely on the current
+// GameState parameter, ensuring fresh, updated decisions every turn without
+// any dependency on previous game history or persistent state.
 func move(state GameState) BattlesnakeMoveResponse {
 	possibleMoves := []string{MoveUp, MoveDown, MoveLeft, MoveRight}
 
