@@ -178,11 +178,12 @@ func scoreMove(state GameState, move string) float64 {
 		score += tailFactor * 50.0
 	}
 
-	// Penalize corner/edge positions when enemies are nearby
+	// Penalize corner/edge positions when enemies exist (not just nearby)
 	// This prevents getting squeezed into corners with limited escape routes
-	if hasEnemiesNearby(state) {
-		cornerPenalty := evaluateCornerPenalty(state, nextPos)
-		score -= cornerPenalty * 150.0
+	// For extremely aggressive snakes, we need to avoid walls at all costs
+	if hasAnyEnemies(state) {
+		wallPenalty := evaluateWallAvoidance(state, nextPos)
+		score -= wallPenalty * 400.0
 	}
 
 	return score
@@ -426,8 +427,84 @@ func evaluateTailProximity(state GameState, pos Coord) float64 {
 	return 1.0 / float64(dist)
 }
 
+// hasAnyEnemies checks if there are any enemy snakes on the board
+// Used to determine if wall avoidance should be active
+func hasAnyEnemies(state GameState) bool {
+	// If there's only one snake (us), no enemies exist
+	return len(state.Board.Snakes) > 1
+}
+
+// evaluateWallAvoidance returns a penalty for positions near walls/edges
+// This is more aggressive than the old evaluateCornerPenalty, designed to
+// prevent getting boxed in by aggressive snakes. The penalty increases
+// the closer we are to walls, with a safety zone of 2-3 squares from edges.
+func evaluateWallAvoidance(state GameState, pos Coord) float64 {
+	// Calculate distance from each edge
+	distFromLeft := pos.X
+	distFromRight := state.Board.Width - 1 - pos.X
+	distFromBottom := pos.Y
+	distFromTop := state.Board.Height - 1 - pos.Y
+
+	// Find minimum distance to any edge
+	minDistToEdge := distFromLeft
+	if distFromRight < minDistToEdge {
+		minDistToEdge = distFromRight
+	}
+	if distFromBottom < minDistToEdge {
+		minDistToEdge = distFromBottom
+	}
+	if distFromTop < minDistToEdge {
+		minDistToEdge = distFromTop
+	}
+
+	// Gradual penalty based on distance from nearest edge
+	// 0 squares from edge: 1.0 penalty (maximum - on the wall)
+	// 1 square from edge: 0.8 penalty (very dangerous)
+	// 2 squares from edge: 0.5 penalty (still dangerous)
+	// 3 squares from edge: 0.2 penalty (slight risk)
+	// 4+ squares from edge: 0.0 penalty (safe)
+	penalty := 0.0
+	switch minDistToEdge {
+	case 0:
+		penalty = 1.0 // On the edge - extremely dangerous
+	case 1:
+		penalty = 0.8 // One square from edge - very dangerous
+	case 2:
+		penalty = 0.5 // Two squares from edge - moderately dangerous
+	case 3:
+		penalty = 0.2 // Three squares from edge - slightly dangerous
+	default:
+		penalty = 0.0 // Safe distance from edges
+	}
+
+	// Additional penalty for being in a corner (multiple walls close)
+	// Count walls within 2 squares
+	wallsNearby := 0
+	if distFromLeft <= 2 {
+		wallsNearby++
+	}
+	if distFromRight <= 2 {
+		wallsNearby++
+	}
+	if distFromBottom <= 2 {
+		wallsNearby++
+	}
+	if distFromTop <= 2 {
+		wallsNearby++
+	}
+
+	// If in or near a corner (2+ walls nearby), add extra penalty
+	if wallsNearby >= 2 {
+		penalty += 0.3 * float64(wallsNearby) // 0.6 for corner, 0.9 for very tight corner
+	}
+
+	return penalty
+}
+
 // evaluateCornerPenalty returns a penalty for positions near corners/edges
 // when enemies are nearby. This prevents getting squeezed into corners.
+// NOTE: This function is kept for backward compatibility but is now superseded
+// by evaluateWallAvoidance which is more aggressive.
 func evaluateCornerPenalty(state GameState, pos Coord) float64 {
 	// Calculate distance from edges
 	distFromLeft := pos.X
@@ -449,7 +526,7 @@ func evaluateCornerPenalty(state GameState, pos Coord) float64 {
 
 	// Count how many directions are blocked (by walls or approaching edge)
 	blockedDirections := 0
-	
+
 	// Check if near walls (within 1-2 squares)
 	if distFromLeft <= 1 {
 		blockedDirections++
