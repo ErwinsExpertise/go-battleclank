@@ -47,7 +47,7 @@ This Battlesnake implements several optimization strategies to maximize survival
 
 5. **Strategic Positioning**
    - Prefers center positions early in the game
-   - Follows own tail when health is sufficient
+   - Always actively hunts for food or prey (no circling/standing still)
    - Balances multiple heuristics with weighted scoring
 
 ## API Endpoints
@@ -151,7 +151,7 @@ Each possible move is scored using multiple weighted factors:
 - **Food Proximity** (dynamic weight): Distance to nearest food
   - Critical health (< 30): weight 400 (350 when outmatched)
   - Low health (< 50): weight 250 (180 when outmatched)
-  - Healthy (≥ 50): weight 100 (60 when outmatched) - increased for more aggressive growth
+  - Healthy (≥ 50): weight 150 (90 when outmatched) - always aggressively hunting for growth
 - **Danger Zone Avoidance** (dynamic penalty): Avoiding positions enemies can reach
   - -700 for significantly larger enemies (2+ length advantage)
   - -400 for similar-sized enemies
@@ -160,7 +160,7 @@ Each possible move is scored using multiple weighted factors:
 - **Center Proximity** (weight: 10-15): Distance to board center
   - Early game (turn < 50): weight 10
   - Late game when healthy and not outmatched: weight 15
-- **Tail Proximity** (weight: 50): Following own tail when health > 30 AND no enemies nearby (within 3 squares)
+- **Tail Proximity** (weight: 5): Minimal fallback only when no food exists (prevents circular behavior)
 - **Wall Avoidance** (weight: -300): Penalty for positions near walls/corners when enemies present
 - **Cutoff Detection** (weight: -300): Penalty for limited escape routes
 
@@ -172,7 +172,7 @@ Fatal moves (out of bounds, snake collision) receive a score of -10000.
 2. **Tail Recognition**: Distinguishes between moving and stationary tails
 3. **Health-Based Strategy**: Adjusts behavior based on current health level
 4. **Multi-Factor Decision Making**: Combines multiple heuristics for robust choices
-5. **Enemy Proximity Detection**: Disables tail-chasing when enemies are nearby to avoid becoming a predictable target
+5. **Always Hunting**: Eliminates circular tail-chasing behavior, snake continuously seeks food or optimal positioning
 
 ### Future Enhancements
 
