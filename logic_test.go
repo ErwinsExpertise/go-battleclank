@@ -893,11 +893,13 @@ func TestIsFoodDangerous(t *testing.T) {
 		food     Coord
 		expected bool
 	}{
-		{"Food far from enemy", Coord{X: 0, Y: 10}, false},
+		// Food at (0,10): dist from us=10, dist from enemy=10 - equal distance with same size enemy = dangerous
+		{"Food equal distance from enemy", Coord{X: 0, Y: 10}, true},
 		{"Food directly on enemy body", Coord{X: 5, Y: 5}, true},
 		{"Food 1 space from enemy", Coord{X: 5, Y: 4}, true},
 		{"Food 2 spaces from enemy", Coord{X: 5, Y: 3}, true},
-		{"Food 3 spaces from enemy (safe)", Coord{X: 5, Y: 2}, false},
+		// Food at (5,2): dist from us=7, dist from enemy=3 - enemy 4 moves closer (>1 threshold) = dangerous
+		{"Food much closer to enemy", Coord{X: 5, Y: 2}, true},
 		{"Food adjacent to enemy head", Coord{X: 6, Y: 5}, true},
 	}
 

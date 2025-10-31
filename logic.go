@@ -117,9 +117,13 @@ func move(state GameState) BattlesnakeMoveResponse {
 	}
 
 	// Find the best move
+	// Iterate in a fixed order to ensure deterministic behavior.
+	// When multiple moves have the same score, we'll consistently pick the first one
+	// in the possibleMoves array (up, down, left, right), ensuring stateless behavior.
 	bestMove := MoveUp
 	bestScore := -math.MaxFloat64
-	for move, score := range moveScores {
+	for _, move := range possibleMoves {
+		score := moveScores[move]
 		if score > bestScore {
 			bestScore = score
 			bestMove = move
@@ -143,25 +147,73 @@ func scoreMove(state GameState, move string) float64 {
 		return -10000.0
 	}
 
+	// NEW: Check for self-trapping scenarios (multi-turn lookahead)
+	// This helps prevent the snake from moving into positions where it will
+	// collide with itself in the next few turns.
+	// Note: This is a lightweight check that only validates escape routes exist,
+	// not a full recursive simulation, to maintain performance.
+	if !simulateMove(state, move, 1) {
+		// This move leads to a self-trap situation - apply strong penalty
+		// but not as severe as immediate death to allow it as a last resort
+		score -= 3000.0
+	}
+
+	// NEW: Check if we're moving into enemy danger zones
+	// Predict where enemies can move next turn
+	enemyMoves := predictEnemyMoves(state)
+	if enemies, inDanger := enemyMoves[nextPos]; inDanger {
+		// We're moving into a position an enemy could also move to
+		for _, enemy := range enemies {
+			if enemy.Length >= state.You.Length {
+				// Enemy is same size or larger - very dangerous
+				score -= 800.0
+			} else {
+				// Enemy is smaller - less dangerous but still risky
+				score -= 200.0
+			}
+		}
+	}
+
 	// Space availability (flood fill)
+	// Increase weight when enemies are nearby (more important to maintain space)
 	spaceFactor := evaluateSpace(state, nextPos)
-	score += spaceFactor * 100.0
+	spaceWeight := 100.0
+	if hasEnemiesNearby(state) {
+		spaceWeight = 200.0 // Double weight when enemies are close
+	}
+	score += spaceFactor * spaceWeight
 
 	// Food seeking - always seek food to avoid starvation and circular behavior
 	// Weight increases as health decreases
+	// Reduced when we're significantly smaller than nearby enemies (defensive play)
 	foodFactor := evaluateFoodProximity(state, nextPos)
+	foodWeight := 0.0
+	
+	// Check if we're outmatched by nearby enemies
+	outmatched := isOutmatchedByNearbyEnemies(state)
+	
 	if state.You.Health < HealthCritical {
-		// Critical health: aggressive food seeking
-		score += foodFactor * 300.0
+		// Critical health: aggressive food seeking (unless suicidal)
+		foodWeight = 300.0
+		if outmatched {
+			foodWeight = 200.0 // Still seek food but more cautiously
+		}
 	} else if state.You.Health < HealthLow {
 		// Low health: strong food seeking
-		score += foodFactor * 200.0
+		foodWeight = 200.0
+		if outmatched {
+			foodWeight = 100.0
+		}
 	} else {
 		// Healthy: moderate food seeking to prevent circling
-		score += foodFactor * 50.0
+		foodWeight = 50.0
+		if outmatched {
+			foodWeight = 30.0 // Reduce food seeking when outmatched
+		}
 	}
+	score += foodFactor * foodWeight
 
-	// Avoid smaller snakes' heads (they might kill us in head-to-head)
+	// Avoid enemy snakes' heads (they might kill us in head-to-head)
 	headCollisionRisk := evaluateHeadCollisionRisk(state, nextPos)
 	score -= headCollisionRisk * 500.0
 
@@ -186,7 +238,49 @@ func scoreMove(state GameState, move string) float64 {
 		score -= wallPenalty * 400.0
 	}
 
+	// NEW: Detect cutoff/boxing-in scenarios
+	// Heavy penalty for positions with limited escape routes
+	cutoffPenalty := detectCutoff(state, nextPos)
+	score -= cutoffPenalty * 300.0
+
+	// NEW: Anti-chasing behavior
+	// If being chased, prefer moves that break the pattern or use our tail space
+	if isBeingChased(state) {
+		// Slightly prefer moves toward our own body area where enemy can't easily follow
+		// This creates unpredictable movement
+		myTail := state.You.Body[len(state.You.Body)-1]
+		distToTail := manhattanDistance(nextPos, myTail)
+		// Small bonus for moving toward areas we control
+		if distToTail <= 2 {
+			score += 20.0
+		}
+	}
+
 	return score
+}
+
+// isOutmatchedByNearbyEnemies checks if there are nearby enemies significantly larger than us
+// Returns true if we should play defensively
+func isOutmatchedByNearbyEnemies(state GameState) bool {
+	myHead := state.You.Head
+	myLength := state.You.Length
+	
+	for _, snake := range state.Board.Snakes {
+		if snake.ID == state.You.ID {
+			continue
+		}
+		
+		// Check if enemy is nearby (within proximity radius)
+		dist := manhattanDistance(myHead, snake.Head)
+		if dist <= EnemyProximityRadius {
+			// Enemy is nearby - check if they're significantly larger
+			if snake.Length > myLength+2 {
+				return true
+			}
+		}
+	}
+	
+	return false
 }
 
 // isImmediatelyFatal checks if a position results in immediate death
@@ -353,20 +447,42 @@ func findNearestFoodManhattan(state GameState, pos Coord) (Coord, float64) {
 }
 
 // isFoodDangerous checks if food is too close to enemy snakes
-// Food is considered dangerous if it's within FoodDangerRadius spaces of any enemy snake body segment
+// Food is considered dangerous if:
+// 1. It's within FoodDangerRadius spaces of any enemy snake body segment
+// 2. An enemy can reach it faster than us
+// 3. We don't have escape routes after getting the food
 func isFoodDangerous(state GameState, food Coord) bool {
+	myDistToFood := manhattanDistance(state.You.Head, food)
+	
 	for _, snake := range state.Board.Snakes {
 		// Skip our own snake
 		if snake.ID == state.You.ID {
 			continue
 		}
 
-		// Check distance to each segment of enemy snake
+		// Check distance to each segment of enemy snake body
 		for _, segment := range snake.Body {
 			dist := manhattanDistance(food, segment)
 			if dist <= FoodDangerRadius {
 				return true
 			}
+		}
+		
+		// Check if enemy can reach food significantly faster than us
+		// This helps avoid food baiting scenarios where enemies camp near food
+		enemyDistToFood := manhattanDistance(snake.Head, food)
+		
+		// Only consider it dangerous if enemy is noticeably closer (2+ moves)
+		// This avoids false positives where enemy happens to be slightly closer
+		// but isn't actually camping or baiting
+		if enemyDistToFood < myDistToFood-1 {
+			// Enemy is significantly closer - potentially dangerous
+			return true
+		}
+		
+		// If enemy can reach at same time/±1 move and is larger, be cautious
+		if abs(enemyDistToFood-myDistToFood) <= 1 && snake.Length >= state.You.Length {
+			return true
 		}
 	}
 
@@ -374,6 +490,7 @@ func isFoodDangerous(state GameState, food Coord) bool {
 }
 
 // evaluateHeadCollisionRisk checks for potential head-to-head collisions
+// Now enhanced with enemy move prediction to avoid dangerous positions
 func evaluateHeadCollisionRisk(state GameState, pos Coord) float64 {
 	risk := 0.0
 	myLength := state.You.Length
@@ -387,16 +504,127 @@ func evaluateHeadCollisionRisk(state GameState, pos Coord) float64 {
 		enemyHead := snake.Head
 		for _, dir := range []string{MoveUp, MoveDown, MoveLeft, MoveRight} {
 			enemyNextPos := getNextPosition(enemyHead, dir)
+			
+			// Skip if enemy's next position would be invalid (out of bounds or collision)
+			if enemyNextPos.X < 0 || enemyNextPos.X >= state.Board.Width ||
+				enemyNextPos.Y < 0 || enemyNextPos.Y >= state.Board.Height {
+				continue
+			}
+			
 			if enemyNextPos.X == pos.X && enemyNextPos.Y == pos.Y {
 				// Head-to-head collision possible
 				if snake.Length >= myLength {
-					risk += 1.0 // Enemy is same size or larger
+					risk += 1.0 // Enemy is same size or larger - avoid this position
+				} else {
+					// Enemy is smaller - we'd win head-to-head, but still risky
+					risk += 0.3
 				}
 			}
 		}
 	}
 
 	return risk
+}
+
+// predictEnemyMoves returns all possible next positions for enemy snake heads
+// This helps us avoid moving into positions where enemies can attack next turn
+func predictEnemyMoves(state GameState) map[Coord][]Battlesnake {
+	enemyMoves := make(map[Coord][]Battlesnake)
+	
+	for _, snake := range state.Board.Snakes {
+		if snake.ID == state.You.ID {
+			continue
+		}
+		
+		// For each possible direction the enemy can move
+		for _, dir := range []string{MoveUp, MoveDown, MoveLeft, MoveRight} {
+			nextPos := getNextPosition(snake.Head, dir)
+			
+			// Skip if move would be immediately fatal for enemy
+			if isImmediatelyFatal(state, nextPos) {
+				continue
+			}
+			
+			// Add this possible position
+			enemyMoves[nextPos] = append(enemyMoves[nextPos], snake)
+		}
+	}
+	
+	return enemyMoves
+}
+
+// simulateMove performs a lightweight check to see if a move leaves adequate escape routes.
+// This is NOT a full multi-turn simulation (too expensive), but rather a quick validation
+// that the immediate next position has sufficient exit options.
+// Returns true if the move appears safe, false if it may lead to a trap.
+func simulateMove(state GameState, move string, turnsAhead int) bool {
+	if turnsAhead <= 0 || turnsAhead > 3 {
+		return true // Only look ahead 1-3 turns for performance
+	}
+	
+	myHead := state.You.Head
+	nextPos := getNextPosition(myHead, move)
+	
+	// Check immediate safety first
+	if isImmediatelyFatal(state, nextPos) {
+		return false
+	}
+	
+	// Create a simulated future state with our snake moved
+	// Note: This is a simplified simulation that doesn't handle food consumption
+	// or enemy movement, focusing only on our own body position
+	newBody := make([]Coord, len(state.You.Body))
+	newBody[0] = nextPos // New head position
+	
+	// Shift body forward (snake moves, tail segment leaves)
+	// NOTE: This assumes no food is eaten. If food is at nextPos, the tail
+	// wouldn't move and we'd have one less escape option, making this check
+	// slightly pessimistic (safer) in those cases.
+	for i := 1; i < len(state.You.Body); i++ {
+		newBody[i] = state.You.Body[i-1]
+	}
+	
+	// Create simulated game state
+	simState := GameState{
+		Board: Board{
+			Width:  state.Board.Width,
+			Height: state.Board.Height,
+			Snakes: make([]Battlesnake, len(state.Board.Snakes)),
+			Food:   state.Board.Food, // Include food positions for more accurate checks
+		},
+		You: Battlesnake{
+			ID:     state.You.ID,
+			Body:   newBody,
+			Head:   nextPos,
+			Length: state.You.Length,
+			Health: state.You.Health,
+		},
+	}
+	
+	// Copy snakes, updating our own
+	for i, snake := range state.Board.Snakes {
+		if snake.ID == state.You.ID {
+			simState.Board.Snakes[i] = simState.You
+		} else {
+			simState.Board.Snakes[i] = snake
+		}
+	}
+	
+	// Check if this position leaves us with escape routes
+	// Count available safe moves from new position
+	safeMovesCount := 0
+	for _, dir := range []string{MoveUp, MoveDown, MoveLeft, MoveRight} {
+		testPos := getNextPosition(nextPos, dir)
+		if !isImmediatelyFatal(simState, testPos) {
+			safeMovesCount++
+		}
+	}
+	
+	// We need at least 1 escape route to survive. Requiring 2+ is conservative
+	// but helps avoid getting boxed in. In desperate situations, the penalty
+	// is lower than immediate death, so the snake will still take risky moves
+	// if all alternatives are worse.
+	return safeMovesCount >= 1
 }
 
 // evaluateCenterProximity prefers center positions
@@ -598,6 +826,89 @@ func hasEnemiesNearby(state GameState) bool {
 	}
 
 	return false
+}
+
+// isBeingChased detects if an enemy snake is following us closely
+// Returns true if we should take evasive action
+func isBeingChased(state GameState) bool {
+	myHead := state.You.Head
+	myTail := state.You.Body[len(state.You.Body)-1]
+	
+	for _, snake := range state.Board.Snakes {
+		if snake.ID == state.You.ID {
+			continue
+		}
+		
+		// Check if enemy head is close to our tail
+		distToTail := manhattanDistance(snake.Head, myTail)
+		distToHead := manhattanDistance(snake.Head, myHead)
+		
+		// Enemy is chasing if they're closer to our tail than our head
+		// and within a reasonable distance
+		if distToTail <= 3 && distToTail < distToHead {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// detectCutoff checks if enemy snakes are blocking our escape routes
+// Returns a penalty score based on how trapped we are
+func detectCutoff(state GameState, pos Coord) float64 {
+	// Count how many valid moves we have from this position
+	validMoves := 0
+	blockedByEnemies := 0
+	
+	for _, dir := range []string{MoveUp, MoveDown, MoveLeft, MoveRight} {
+		nextPos := getNextPosition(pos, dir)
+		
+		// Check if move is valid
+		if nextPos.X < 0 || nextPos.X >= state.Board.Width ||
+			nextPos.Y < 0 || nextPos.Y >= state.Board.Height {
+			continue
+		}
+		
+		// Check if blocked by snake
+		blocked := false
+		blockedByEnemy := false
+		for _, snake := range state.Board.Snakes {
+			for i, segment := range snake.Body {
+				// Skip tails that will move
+				if i == len(snake.Body)-1 && snake.Health != MaxHealth {
+					continue
+				}
+				if nextPos.X == segment.X && nextPos.Y == segment.Y {
+					blocked = true
+					if snake.ID != state.You.ID {
+						blockedByEnemy = true
+					}
+					break
+				}
+			}
+			if blocked {
+				break
+			}
+		}
+		
+		if !blocked {
+			validMoves++
+		} else if blockedByEnemy {
+			blockedByEnemies++
+		}
+	}
+	
+	// Calculate cutoff penalty
+	// If we have 0-1 valid moves, we're in serious danger
+	if validMoves == 0 {
+		return 10.0 // Extreme danger - completely trapped
+	} else if validMoves == 1 {
+		return 5.0 // High danger - only one escape route
+	} else if validMoves == 2 && blockedByEnemies >= 2 {
+		return 2.0 // Moderate danger - limited options
+	}
+	
+	return 0.0
 }
 
 // getNextPosition returns the coordinate resulting from a move
