@@ -68,6 +68,22 @@ const (
 	// - Radius 2: Balanced (default) - accounts for one enemy move ahead
 	// - Radius 3: Conservative - very cautious, may over-restrict movement
 	SpaceBufferRadius = 2
+
+	// Trap detection constants
+	// TrapSpaceThreshold is the minimum percentage of space an enemy must lose for us
+	// to consider a move as a potential trap. Value of 0.15 means enemy loses 15%+ space.
+	TrapSpaceThreshold = 0.15
+
+	// TrapSafetyMargin is the minimum space advantage we need to maintain when trapping.
+	// Value of 1.2 means we need 20% more reachable space than the enemy we're trapping.
+	TrapSafetyMargin = 1.2
+
+	// Aggression scoring thresholds
+	// AggressionLengthAdvantage is the length advantage needed for aggressive behavior
+	AggressionLengthAdvantage = 2
+
+	// AggressionHealthThreshold is the minimum health needed for aggressive behavior
+	AggressionHealthThreshold = 60
 )
 
 // info returns metadata about the battlesnake
@@ -264,6 +280,19 @@ func scoreMove(state GameState, move string) float64 {
 		if distToTail <= 2 {
 			score += 20.0
 		}
+	}
+
+	// NEW: Calculate aggression score to determine offensive vs defensive play
+	aggressionScore := calculateAggressionScore(state)
+	
+	// NEW: Evaluate trap opportunities when we're in aggressive mode
+	// Only attempt traps when we have the advantage (high aggression score)
+	if aggressionScore > 0.6 {
+		trapScore := evaluateTrapOpportunity(state, nextPos)
+		// Weight trap opportunities based on aggression level
+		// Higher aggression = more willing to pursue traps
+		trapWeight := 200.0 * aggressionScore
+		score += trapScore * trapWeight
 	}
 
 	return score
@@ -936,6 +965,250 @@ func detectCutoff(state GameState, pos Coord) float64 {
 	}
 	
 	return 0.0
+}
+
+// calculateAggressionScore determines how aggressive we should be based on current game state
+// Returns a score from 0.0 (defensive) to 1.0 (aggressive)
+func calculateAggressionScore(state GameState) float64 {
+	score := 0.5 // Start neutral
+	
+	myLength := state.You.Length
+	myHealth := state.You.Health
+	
+	// Health factor: increase aggression when healthy
+	if myHealth >= AggressionHealthThreshold {
+		score += 0.2
+	} else if myHealth < HealthCritical {
+		score -= 0.3 // Very defensive when low health
+	}
+	
+	// Length advantage factor
+	if len(state.Board.Snakes) > 1 {
+		totalEnemyLength := 0
+		enemyCount := 0
+		longestEnemy := 0
+		
+		for _, snake := range state.Board.Snakes {
+			if snake.ID != state.You.ID {
+				totalEnemyLength += snake.Length
+				enemyCount++
+				if snake.Length > longestEnemy {
+					longestEnemy = snake.Length
+				}
+			}
+		}
+		
+		if enemyCount > 0 {
+			avgEnemyLength := float64(totalEnemyLength) / float64(enemyCount)
+			
+			// Compare to longest enemy (most dangerous)
+			if myLength > longestEnemy+AggressionLengthAdvantage {
+				score += 0.3 // Much longer than strongest enemy
+			} else if myLength > longestEnemy {
+				score += 0.1 // Slightly longer
+			} else if myLength < longestEnemy-AggressionLengthAdvantage {
+				score -= 0.2 // Much shorter, be defensive
+			}
+			
+			// Compare to average (overall dominance)
+			if float64(myLength) > avgEnemyLength+1 {
+				score += 0.1
+			}
+		}
+	}
+	
+	// Space control factor: increase aggression when we have more space
+	mySpace := evaluateSpace(state, state.You.Head)
+	if mySpace > 0.4 {
+		score += 0.1 // We control a lot of space
+	} else if mySpace < 0.2 {
+		score -= 0.2 // Limited space, be defensive
+	}
+	
+	// Board position factor: reduce aggression near walls
+	distToWall := getMinDistanceToWall(state, state.You.Head)
+	if distToWall <= 1 {
+		score -= 0.1
+	}
+	
+	// Clamp between 0 and 1
+	if score < 0 {
+		score = 0
+	}
+	if score > 1 {
+		score = 1
+	}
+	
+	return score
+}
+
+// getMinDistanceToWall returns the minimum distance to any wall
+func getMinDistanceToWall(state GameState, pos Coord) int {
+	distFromLeft := pos.X
+	distFromRight := state.Board.Width - 1 - pos.X
+	distFromBottom := pos.Y
+	distFromTop := state.Board.Height - 1 - pos.Y
+	
+	minDist := distFromLeft
+	if distFromRight < minDist {
+		minDist = distFromRight
+	}
+	if distFromBottom < minDist {
+		minDist = distFromBottom
+	}
+	if distFromTop < minDist {
+		minDist = distFromTop
+	}
+	
+	return minDist
+}
+
+// evaluateEnemyReachableSpace calculates the reachable space for an enemy snake from a given position
+// This is used to determine if we're successfully trapping them
+func evaluateEnemyReachableSpace(state GameState, enemy Battlesnake, fromPos Coord) int {
+	visited := make(map[Coord]bool)
+	return floodFillForSnake(state, fromPos, visited, 0, enemy.Length, enemy.ID)
+}
+
+// floodFillForSnake is similar to floodFill but considers a specific snake's perspective
+// It's used to calculate how much space an enemy snake can reach
+func floodFillForSnake(state GameState, pos Coord, visited map[Coord]bool, depth int, maxDepth int, snakeID string) int {
+	// Limit recursion depth for performance
+	if depth > maxDepth {
+		return 0
+	}
+
+	// Check if position is valid and unvisited
+	if pos.X < 0 || pos.X >= state.Board.Width || pos.Y < 0 || pos.Y >= state.Board.Height {
+		return 0
+	}
+	if visited[pos] {
+		return 0
+	}
+
+	// Check if blocked by snake (excluding the snake's own tail which will move)
+	for _, snake := range state.Board.Snakes {
+		for i, segment := range snake.Body {
+			// Skip the tail of the snake we're evaluating for (it will move)
+			if snake.ID == snakeID && i == len(snake.Body)-1 {
+				continue
+			}
+			// Skip other snakes' tails
+			if i == len(snake.Body)-1 {
+				continue
+			}
+			if pos.X == segment.X && pos.Y == segment.Y {
+				return 0
+			}
+		}
+	}
+
+	visited[pos] = true
+	count := 1
+
+	// Recursively check adjacent squares
+	count += floodFillForSnake(state, Coord{X: pos.X + 1, Y: pos.Y}, visited, depth+1, maxDepth, snakeID)
+	count += floodFillForSnake(state, Coord{X: pos.X - 1, Y: pos.Y}, visited, depth+1, maxDepth, snakeID)
+	count += floodFillForSnake(state, Coord{X: pos.X, Y: pos.Y + 1}, visited, depth+1, maxDepth, snakeID)
+	count += floodFillForSnake(state, Coord{X: pos.X, Y: pos.Y - 1}, visited, depth+1, maxDepth, snakeID)
+
+	return count
+}
+
+// evaluateTrapOpportunity checks if a move would trap an enemy snake
+// Returns a trap score (higher is better) or 0 if not a trap opportunity
+func evaluateTrapOpportunity(state GameState, nextPos Coord) float64 {
+	trapScore := 0.0
+	
+	// For each enemy, check if this move reduces their available space significantly
+	for _, enemy := range state.Board.Snakes {
+		if enemy.ID == state.You.ID {
+			continue
+		}
+		
+		// Calculate enemy's current reachable space
+		enemyCurrentSpace := evaluateEnemyReachableSpace(state, enemy, enemy.Head)
+		
+		// Simulate the game state after our move
+		simState := simulateGameState(state, state.You.ID, nextPos)
+		
+		// Calculate enemy's reachable space after our move
+		enemyNewSpace := evaluateEnemyReachableSpace(simState, enemy, enemy.Head)
+		
+		// Check if we're significantly reducing their space
+		spaceReduction := float64(enemyCurrentSpace - enemyNewSpace)
+		totalSpaces := float64(state.Board.Width * state.Board.Height)
+		spaceReductionPercent := spaceReduction / totalSpaces
+		
+		// Only consider it a trap if:
+		// 1. We reduce their space significantly (> TrapSpaceThreshold)
+		// 2. We maintain enough space for ourselves (TrapSafetyMargin)
+		// 3. The enemy is not significantly larger (would be dangerous)
+		if spaceReductionPercent > TrapSpaceThreshold {
+			// Safety check: ensure we have enough space
+			mySimSpace := evaluateSpace(simState, nextPos)
+			enemySimSpace := float64(enemyNewSpace) / totalSpaces
+			
+			if mySimSpace > enemySimSpace*TrapSafetyMargin {
+				// Safe trap opportunity
+				// Score higher if enemy is smaller or same size
+				if enemy.Length <= state.You.Length {
+					trapScore += spaceReductionPercent * 2.0
+				} else if enemy.Length <= state.You.Length+2 {
+					trapScore += spaceReductionPercent * 1.0
+				}
+			}
+		}
+	}
+	
+	return trapScore
+}
+
+// simulateGameState creates a new game state with a snake moved to a new position
+// This is used for trap detection to see what the board would look like after our move
+func simulateGameState(state GameState, snakeID string, newHead Coord) GameState {
+	simState := GameState{
+		Game:  state.Game,
+		Turn:  state.Turn + 1,
+		Board: Board{
+			Width:   state.Board.Width,
+			Height:  state.Board.Height,
+			Food:    state.Board.Food,
+			Hazards: state.Board.Hazards,
+			Snakes:  make([]Battlesnake, len(state.Board.Snakes)),
+		},
+		You: state.You,
+	}
+	
+	// Copy snakes and update the specified snake
+	for i, snake := range state.Board.Snakes {
+		if snake.ID == snakeID {
+			// Create new body with new head and shifted body
+			newBody := make([]Coord, len(snake.Body))
+			newBody[0] = newHead
+			for j := 1; j < len(snake.Body); j++ {
+				newBody[j] = snake.Body[j-1]
+			}
+			
+			simState.Board.Snakes[i] = Battlesnake{
+				ID:     snake.ID,
+				Name:   snake.Name,
+				Health: snake.Health,
+				Body:   newBody,
+				Head:   newHead,
+				Length: snake.Length,
+			}
+			
+			// Update You if this is our snake
+			if snake.ID == state.You.ID {
+				simState.You = simState.Board.Snakes[i]
+			}
+		} else {
+			simState.Board.Snakes[i] = snake
+		}
+	}
+	
+	return simState
 }
 
 // getNextPosition returns the coordinate resulting from a move
