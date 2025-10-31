@@ -96,6 +96,11 @@ https://docs.battlesnake.com/api
 
 ## Algorithm Details
 
+For detailed algorithm documentation, see:
+- **[ALGORITHMS.md](ALGORITHMS.md)** - In-depth technical documentation of current algorithms
+- **[STRATEGY_REVIEW.md](STRATEGY_REVIEW.md)** - Comprehensive strategy analysis and future improvements
+- **[ASTAR_IMPLEMENTATION.md](ASTAR_IMPLEMENTATION.md)** - Implementation guide for A* pathfinding
+
 ### Move Scoring
 
 Each possible move is scored using multiple weighted factors:
@@ -114,6 +119,16 @@ Fatal moves (out of bounds, snake collision) receive a score of -10000.
 2. **Tail Recognition**: Distinguishes between moving and stationary tails
 3. **Health-Based Strategy**: Adjusts behavior based on current health level
 4. **Multi-Factor Decision Making**: Combines multiple heuristics for robust choices
+
+### Future Enhancements
+
+The strategy review identifies several potential improvements:
+- **A* Pathfinding**: More accurate food seeking around obstacles
+- **2-Turn Lookahead**: Tactical planning for better positioning
+- **Machine Learning**: DQN and reinforcement learning approaches
+- **Genetic Algorithms**: Automated weight optimization
+
+See [STRATEGY_REVIEW.md](STRATEGY_REVIEW.md) for detailed analysis and implementation roadmap.
 
 ## License
 

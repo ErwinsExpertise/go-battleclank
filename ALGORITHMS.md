@@ -224,11 +224,15 @@ For typical board (11×11, 4 snakes, length ~10):
 
 ## Future Optimization Ideas
 
+> **Note**: For a comprehensive analysis of optimization strategies, see [STRATEGY_REVIEW.md](STRATEGY_REVIEW.md)
+
 ### 1. A* Pathfinding
 Replace Manhattan distance with A* for food seeking:
 - More accurate pathing
 - Avoids obstacles
 - More computation required
+- **Status**: Recommended for Phase 1 implementation
+- **Expected Impact**: High - prevents chasing unreachable food
 
 ### 2. Minimax Search
 Look ahead multiple turns:
@@ -236,24 +240,50 @@ Look ahead multiple turns:
 - Evaluate game tree
 - Choose optimal path
 - High computational cost
+- **Status**: Recommended for endgame scenarios
+- **Expected Impact**: Medium - tactical advantage in 1v1 situations
 
 ### 3. Neural Networks
 Train on game history:
 - Learn winning patterns
 - Adapt to opponent strategies
 - Requires training data
+- **Status**: Long-term research goal
+- **Expected Impact**: Unknown - requires significant investment
+- **See**: [STRATEGY_REVIEW.md](STRATEGY_REVIEW.md#deep-q-learning-dqn) for detailed ML analysis
 
 ### 4. Monte Carlo Tree Search
 Simulate many random games:
 - Statistically best move
 - Handles uncertainty
 - Very effective but slow
+- **Status**: Research consideration
+- **Expected Impact**: High - proven in similar games, but may exceed time budget
 
 ### 5. Voronoi Diagrams
 Calculate territory control:
 - Identify controlled spaces
 - Predict dominance
 - Useful for multi-snake scenarios
+- **Status**: Lower priority
+- **Expected Impact**: Low-Medium - complexity may outweigh benefits
+
+### 6. Genetic Algorithms (NEW)
+Optimize heuristic weights automatically:
+- Evolve weight configurations through simulated games
+- Find counter-intuitive optimal combinations
+- Can be tuned for specific opponent types
+- **Status**: Recommended for weight tuning
+- **Expected Impact**: Medium - improve current heuristics without code changes
+
+### 7. Human-In-the-Loop Learning (NEW)
+Combine heuristics with machine learning:
+- Use current agent as expert teacher
+- Train neural network through behavioral cloning
+- Refine with reinforcement learning
+- **Status**: Long-term ML approach
+- **Expected Impact**: High - faster convergence than pure RL
+- **Reference**: https://arxiv.org/pdf/2007.10504.pdf
 
 ## Tuning Guidelines
 
@@ -285,8 +315,21 @@ Calculate territory control:
 
 ## References
 
+### Official Documentation
 - [Battlesnake Official Docs](https://docs.battlesnake.com)
+- [Battlesnake API Reference](https://docs.battlesnake.com/api)
+
+### Academic Research
+- [Battlesnake: A Multi-Agent Reinforcement Learning Testbed](https://arxiv.org/pdf/2007.10504.pdf) - Comprehensive study of ML approaches for Battlesnake
+- [Deep Q-Learning (DQN)](https://arxiv.org/abs/1312.5602) - Foundation for RL in games
+- [AlphaZero Paper](https://arxiv.org/abs/1712.01815) - Combining MCTS with neural networks
+
+### Algorithm Fundamentals
 - [Flood Fill Algorithm](https://en.wikipedia.org/wiki/Flood_fill)
 - [Manhattan Distance](https://en.wikipedia.org/wiki/Taxicab_geometry)
 - [Minimax Algorithm](https://en.wikipedia.org/wiki/Minimax)
 - [A* Pathfinding](https://en.wikipedia.org/wiki/A*_search_algorithm)
+- [Monte Carlo Tree Search](https://en.wikipedia.org/wiki/Monte_Carlo_tree_search)
+
+### Additional Resources
+- [STRATEGY_REVIEW.md](STRATEGY_REVIEW.md) - Comprehensive strategy analysis and implementation roadmap
