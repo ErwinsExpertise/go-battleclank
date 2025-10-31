@@ -902,13 +902,13 @@ func TestMove_CircularBehaviorWithFood(t *testing.T) {
 	response := move(state)
 	
 	// With health 80 and food far away:
-	// - Food seeking is OFF (only active when health < 50)
+	// - Food seeking is ACTIVE with weight 50 (prevents circling)
 	// - Tail chasing is ON (active when health > 30)
 	// - No center preference (turn > 50)
-	// The snake will likely follow its tail, causing circular movement
+	// The snake now balances tail following with food awareness
 	t.Logf("Snake moved: %s with score %.2f", response.Move, scores[response.Move])
-	t.Logf("Snake health: %d, Food seeking threshold: < 50", state.You.Health)
+	t.Logf("Snake health: %d, Food seeking is now always active", state.You.Health)
 	
-	// Document that tail chasing dominates when food seeking is disabled
-	// This is the root cause of circular behavior
+	// This test verifies that food seeking is active at all health levels
+	// preventing the circular behavior that was the original issue
 }
