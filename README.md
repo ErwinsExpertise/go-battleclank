@@ -40,31 +40,55 @@ This Battlesnake implements several optimization strategies to maximize survival
 - `POST /move` - Called each turn to get the next move
 - `POST /end` - Called when a game ends
 
-## Building and Running
+## Installation
 
-### Prerequisites
+### Download Pre-built Binaries
 
-- Go 1.24 or higher
+Download the latest release for your platform from the [releases page](https://github.com/ErwinsExpertise/go-battleclank/releases).
 
-### Build
+Available platforms:
+- Linux (amd64, arm64, armv7)
+- macOS (amd64, arm64/Apple Silicon)
+- Windows (amd64)
 
+Extract and run:
 ```bash
-go build
+./go-battleclank
+# Or on Windows: go-battleclank.exe
 ```
 
-### Run
+### Using Docker
 
 ```bash
+docker pull ghcr.io/erwinsexpertise/go-battleclank:latest
+docker run -p 8000:8000 ghcr.io/erwinsexpertise/go-battleclank:latest
+```
+
+### Building from Source
+
+Prerequisites: Go 1.24 or higher
+
+```bash
+git clone https://github.com/ErwinsExpertise/go-battleclank.git
+cd go-battleclank
+go build
 ./go-battleclank
 ```
 
-Or set a custom port:
+### Configuration
 
+Set a custom port:
 ```bash
 PORT=8080 ./go-battleclank
 ```
 
 The server will start on `http://0.0.0.0:8000` by default.
+
+### Check Version
+
+```bash
+./go-battleclank --version
+```
 
 ## Testing
 
@@ -96,6 +120,11 @@ https://docs.battlesnake.com/api
 
 ## Algorithm Details
 
+For detailed algorithm documentation, see:
+- **[ALGORITHMS.md](ALGORITHMS.md)** - In-depth technical documentation of current algorithms
+- **[STRATEGY_REVIEW.md](STRATEGY_REVIEW.md)** - Comprehensive strategy analysis and future improvements
+- **[ASTAR_IMPLEMENTATION.md](ASTAR_IMPLEMENTATION.md)** - Implementation guide for A* pathfinding
+
 ### Move Scoring
 
 Each possible move is scored using multiple weighted factors:
@@ -114,6 +143,16 @@ Fatal moves (out of bounds, snake collision) receive a score of -10000.
 2. **Tail Recognition**: Distinguishes between moving and stationary tails
 3. **Health-Based Strategy**: Adjusts behavior based on current health level
 4. **Multi-Factor Decision Making**: Combines multiple heuristics for robust choices
+
+### Future Enhancements
+
+The strategy review identifies several potential improvements:
+- **A* Pathfinding**: More accurate food seeking around obstacles
+- **2-Turn Lookahead**: Tactical planning for better positioning
+- **Machine Learning**: DQN and reinforcement learning approaches
+- **Genetic Algorithms**: Automated weight optimization
+
+See [STRATEGY_REVIEW.md](STRATEGY_REVIEW.md) for detailed analysis and implementation roadmap.
 
 ## License
 

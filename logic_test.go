@@ -4,6 +4,30 @@ import (
 	"testing"
 )
 
+// Standard Battlesnake Board Sizes:
+// - 7x7 (small)
+// - 11x11 (medium/standard)
+// - 19x19 (large)
+// Reference: https://docs.battlesnake.com/api/objects/board
+
+// Helper function to create API-compliant test snakes
+// Creates a Battlesnake with all required fields per the Battlesnake API spec:
+// https://docs.battlesnake.com/api/objects/battlesnake
+func createTestSnake(id string, health int, body []Coord) Battlesnake {
+	if len(body) == 0 {
+		panic("snake body cannot be empty")
+	}
+	return Battlesnake{
+		ID:     id,
+		Name:   id, // Use ID as name for tests
+		Health: health,
+		Body:   body,
+		Head:   body[0], // Head is always first element
+		Length: len(body),
+		// Latency, Shout, and Customizations are optional and omitted in tests
+	}
+}
+
 // Test info function
 func TestInfo(t *testing.T) {
 	response := info()
@@ -112,15 +136,11 @@ func TestIsImmediatelyFatal_SnakeCollision(t *testing.T) {
 			Width:  11,
 			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					ID:     "snake1",
-					Health: 50,
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
+				createTestSnake("snake1", 50, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
 			},
 		},
 	}
@@ -153,15 +173,11 @@ func TestIsImmediatelyFatal_SnakeJustAte(t *testing.T) {
 			Width:  11,
 			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					ID:     "snake1",
-					Health: MaxHealth, // Just ate
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
+				createTestSnake("snake1", MaxHealth, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
 			},
 		},
 	}
@@ -221,28 +237,37 @@ func TestEvaluateFoodProximity_NoFood(t *testing.T) {
 // Test evaluateHeadCollisionRisk
 func TestEvaluateHeadCollisionRisk(t *testing.T) {
 	state := GameState{
-		You: Battlesnake{
-			ID:     "me",
-			Length: 5,
-			Head:   Coord{X: 5, Y: 5},
-		},
+		You: createTestSnake("me", 100, []Coord{
+			{X: 5, Y: 5},
+			{X: 5, Y: 4},
+			{X: 5, Y: 3},
+			{X: 5, Y: 2},
+			{X: 5, Y: 1},
+		}),
 		Board: Board{
+			Width:  11,
+			Height: 11,
 			Snakes: []Battlesnake{
-				{
-					ID:     "me",
-					Length: 5,
-					Head:   Coord{X: 5, Y: 5},
-				},
-				{
-					ID:     "enemy1",
-					Length: 6, // Larger snake
-					Head:   Coord{X: 5, Y: 7},
-				},
-				{
-					ID:     "enemy2",
-					Length: 3, // Smaller snake
-					Head:   Coord{X: 7, Y: 5},
-				},
+				createTestSnake("me", 100, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+					{X: 5, Y: 2},
+					{X: 5, Y: 1},
+				}),
+				createTestSnake("enemy1", 100, []Coord{
+					{X: 5, Y: 7},
+					{X: 5, Y: 8},
+					{X: 5, Y: 9},
+					{X: 5, Y: 10},
+					{X: 4, Y: 10},
+					{X: 3, Y: 10},
+				}),
+				createTestSnake("enemy2", 100, []Coord{
+					{X: 7, Y: 5},
+					{X: 8, Y: 5},
+					{X: 9, Y: 5},
+				}),
 			},
 		},
 	}
@@ -276,9 +301,11 @@ func TestEvaluateCenterProximity(t *testing.T) {
 // Test evaluateSpace
 func TestEvaluateSpace(t *testing.T) {
 	state := GameState{
-		You: Battlesnake{
-			Length: 3,
-		},
+		You: createTestSnake("me", 100, []Coord{
+			{X: 5, Y: 5},
+			{X: 5, Y: 4},
+			{X: 5, Y: 3},
+		}),
 		Board: Board{
 			Width:  11,
 			Height: 11,
@@ -295,39 +322,23 @@ func TestEvaluateSpace(t *testing.T) {
 
 // Test move function
 func TestMove(t *testing.T) {
+	mySnake := createTestSnake("me", 50, []Coord{
+		{X: 5, Y: 5},
+		{X: 5, Y: 4},
+		{X: 5, Y: 3},
+	})
+	
 	state := GameState{
 		Turn: 1,
 		Game: Game{
 			ID: "test-game",
 		},
-		You: Battlesnake{
-			ID:     "me",
-			Health: 50,
-			Length: 3,
-			Head:   Coord{X: 5, Y: 5},
-			Body: []Coord{
-				{X: 5, Y: 5},
-				{X: 5, Y: 4},
-				{X: 5, Y: 3},
-			},
-		},
+		You: mySnake,
 		Board: Board{
 			Width:  11,
 			Height: 11,
 			Food:   []Coord{{X: 5, Y: 7}},
-			Snakes: []Battlesnake{
-				{
-					ID:     "me",
-					Health: 50,
-					Length: 3,
-					Head:   Coord{X: 5, Y: 5},
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
-			},
+			Snakes: []Battlesnake{mySnake},
 		},
 	}
 
@@ -353,36 +364,20 @@ func TestMove(t *testing.T) {
 
 // Test scoreMove doesn't crash
 func TestScoreMove(t *testing.T) {
+	mySnake := createTestSnake("me", 50, []Coord{
+		{X: 5, Y: 5},
+		{X: 5, Y: 4},
+		{X: 5, Y: 3},
+	})
+	
 	state := GameState{
 		Turn: 1,
-		You: Battlesnake{
-			ID:     "me",
-			Health: 50,
-			Length: 3,
-			Head:   Coord{X: 5, Y: 5},
-			Body: []Coord{
-				{X: 5, Y: 5},
-				{X: 5, Y: 4},
-				{X: 5, Y: 3},
-			},
-		},
+		You:  mySnake,
 		Board: Board{
 			Width:  11,
 			Height: 11,
 			Food:   []Coord{},
-			Snakes: []Battlesnake{
-				{
-					ID:     "me",
-					Health: 50,
-					Length: 3,
-					Head:   Coord{X: 5, Y: 5},
-					Body: []Coord{
-						{X: 5, Y: 5},
-						{X: 5, Y: 4},
-						{X: 5, Y: 3},
-					},
-				},
-			},
+			Snakes: []Battlesnake{mySnake},
 		},
 	}
 
@@ -396,5 +391,437 @@ func TestScoreMove(t *testing.T) {
 				t.Errorf("Expected very negative score for fatal move down, got %f", score)
 			}
 		}
+	}
+}
+
+// Test A* search with straight line path
+func TestAStarSearch_StraightLine(t *testing.T) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{},
+		},
+	}
+
+	start := Coord{X: 0, Y: 0}
+	goal := Coord{X: 5, Y: 0}
+
+	path := aStarSearch(state, start, goal, MaxAStarNodes)
+
+	if path == nil {
+		t.Fatal("Expected path, got nil")
+	}
+
+	if len(path) != 6 { // 0,1,2,3,4,5
+		t.Errorf("Expected path length 6, got %d", len(path))
+	}
+
+	// Verify path starts at start
+	if path[0].X != start.X || path[0].Y != start.Y {
+		t.Errorf("Path should start at %v, got %v", start, path[0])
+	}
+
+	// Verify path ends at goal
+	if path[len(path)-1].X != goal.X || path[len(path)-1].Y != goal.Y {
+		t.Errorf("Path should end at %v, got %v", goal, path[len(path)-1])
+	}
+}
+
+// Test A* search around obstacle
+func TestAStarSearch_AroundObstacle(t *testing.T) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{
+				createTestSnake("obstacle", 50, []Coord{
+					{X: 5, Y: 0},
+					{X: 5, Y: 1},
+					{X: 5, Y: 2},
+					{X: 5, Y: 3},
+					{X: 5, Y: 4},
+				}),
+			},
+		},
+	}
+
+	start := Coord{X: 0, Y: 2}
+	goal := Coord{X: 10, Y: 2}
+
+	path := aStarSearch(state, start, goal, MaxAStarNodes)
+
+	if path == nil {
+		t.Fatal("Expected path, got nil")
+	}
+
+	// Path should go around the obstacle
+	// Verify no position in path collides with snake
+	for _, pos := range path {
+		if isPositionBlocked(state, pos) {
+			t.Errorf("Path includes blocked position: %v", pos)
+		}
+	}
+
+	// Path should be longer than direct Manhattan distance
+	manhattanDist := manhattanDistance(start, goal)
+	if len(path)-1 <= manhattanDist {
+		t.Logf("Path length %d should be greater than Manhattan distance %d (due to obstacle)", len(path)-1, manhattanDist)
+	}
+}
+
+// Test A* search with no valid path
+func TestAStarSearch_NoPath(t *testing.T) {
+	// Goal is in a completely enclosed area
+	state := GameState{
+		Board: Board{
+			Width:  7,
+			Height: 7,
+			Snakes: []Battlesnake{
+				createTestSnake("wall", 50, []Coord{
+					// Top wall
+					{X: 2, Y: 5},
+					{X: 3, Y: 5},
+					{X: 4, Y: 5},
+					// Right wall
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+					{X: 5, Y: 2},
+					// Bottom wall
+					{X: 4, Y: 1},
+					{X: 3, Y: 1},
+					{X: 2, Y: 1},
+					// Left wall
+					{X: 1, Y: 2},
+					{X: 1, Y: 3},
+					{X: 1, Y: 4},
+					// Close the box
+					{X: 1, Y: 5},
+					{X: 5, Y: 5},
+					{X: 5, Y: 1},
+					{X: 1, Y: 1},
+					// Tail (movable but outside the box)
+					{X: 0, Y: 0},
+				}),
+			},
+		},
+	}
+
+	start := Coord{X: 0, Y: 6}
+	goal := Coord{X: 3, Y: 3} // Inside the enclosed box
+
+	path := aStarSearch(state, start, goal, MaxAStarNodes)
+
+	if path != nil {
+		t.Error("Expected nil (no path), got path")
+	}
+}
+
+// Test A* search when start equals goal
+func TestAStarSearch_StartEqualsGoal(t *testing.T) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{},
+		},
+	}
+
+	start := Coord{X: 5, Y: 5}
+	goal := Coord{X: 5, Y: 5}
+
+	path := aStarSearch(state, start, goal, MaxAStarNodes)
+
+	if path == nil {
+		t.Fatal("Expected path with single element")
+	}
+
+	if len(path) != 1 {
+		t.Errorf("Expected path length 1, got %d", len(path))
+	}
+
+	if path[0].X != start.X || path[0].Y != start.Y {
+		t.Errorf("Expected path to contain only start position %v, got %v", start, path[0])
+	}
+}
+
+// Test A* search with goal blocked
+func TestAStarSearch_GoalBlocked(t *testing.T) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{
+				createTestSnake("blocker", 50, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
+			},
+		},
+	}
+
+	start := Coord{X: 0, Y: 0}
+	goal := Coord{X: 5, Y: 4} // Blocked by snake body
+
+	path := aStarSearch(state, start, goal, MaxAStarNodes)
+
+	if path != nil {
+		t.Error("Expected nil path when goal is blocked")
+	}
+}
+
+// Test isPositionBlocked
+func TestIsPositionBlocked(t *testing.T) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{
+				createTestSnake("snake1", 50, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
+			},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		pos      Coord
+		expected bool
+	}{
+		{"Empty space", Coord{X: 0, Y: 0}, false},
+		{"Snake head", Coord{X: 5, Y: 5}, true},
+		{"Snake body", Coord{X: 5, Y: 4}, true},
+		{"Snake tail (should move)", Coord{X: 5, Y: 3}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isPositionBlocked(state, tt.pos)
+			if result != tt.expected {
+				t.Errorf("Expected %v for position %v, got %v", tt.expected, tt.pos, result)
+			}
+		})
+	}
+}
+
+// Test isPositionBlocked when snake just ate
+func TestIsPositionBlocked_SnakeJustAte(t *testing.T) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{
+				createTestSnake("snake1", MaxHealth, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
+			},
+		},
+	}
+
+	// Tail should be considered blocked if snake just ate
+	result := isPositionBlocked(state, Coord{X: 5, Y: 3})
+	if !result {
+		t.Error("Expected tail to be blocked when snake just ate")
+	}
+}
+
+// Test getValidNeighbors
+func TestGetValidNeighbors(t *testing.T) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{
+				createTestSnake("snake1", 50, []Coord{
+					{X: 5, Y: 6},
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+				}),
+			},
+		},
+	}
+
+	// Position surrounded by obstacle on top
+	pos := Coord{X: 5, Y: 7}
+	neighbors := getValidNeighbors(state, pos)
+
+	// Should have 3 neighbors (up is blocked by snake, down/left/right are open)
+	if len(neighbors) != 3 {
+		t.Errorf("Expected 3 valid neighbors, got %d", len(neighbors))
+	}
+
+	// Check that blocked position is not in neighbors
+	blockedPos := Coord{X: 5, Y: 6}
+	for _, n := range neighbors {
+		if n.X == blockedPos.X && n.Y == blockedPos.Y {
+			t.Error("Blocked position should not be in valid neighbors")
+		}
+	}
+}
+
+// Test getValidNeighbors at corner
+func TestGetValidNeighbors_Corner(t *testing.T) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{},
+		},
+	}
+
+	// Corner position
+	pos := Coord{X: 0, Y: 0}
+	neighbors := getValidNeighbors(state, pos)
+
+	// Should have 2 neighbors (right and up)
+	if len(neighbors) != 2 {
+		t.Errorf("Expected 2 valid neighbors at corner, got %d", len(neighbors))
+	}
+}
+
+// Test findNearestFoodWithAStar
+func TestFindNearestFoodWithAStar(t *testing.T) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food: []Coord{
+				{X: 10, Y: 10}, // Far food
+				{X: 2, Y: 2},   // Near food
+			},
+			Snakes: []Battlesnake{},
+		},
+	}
+
+	start := Coord{X: 0, Y: 0}
+	nearestFood, path := findNearestFoodWithAStar(state, start)
+
+	if path == nil {
+		t.Fatal("Expected path to nearest food")
+	}
+
+	// Should find the closer food
+	if nearestFood.X != 2 || nearestFood.Y != 2 {
+		t.Errorf("Expected nearest food at (2,2), got (%d,%d)", nearestFood.X, nearestFood.Y)
+	}
+
+	// Path should be shorter to (2,2) than to (10,10)
+	if len(path) > 5 {
+		t.Errorf("Expected short path to near food, got length %d", len(path))
+	}
+}
+
+// Test evaluateFoodProximity with A* integration (critical health)
+func TestEvaluateFoodProximity_WithAStar(t *testing.T) {
+	state := GameState{
+		You: createTestSnake("me", 20, []Coord{
+			{X: 0, Y: 0},
+			{X: 0, Y: 1},
+			{X: 0, Y: 2},
+		}),
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food:   []Coord{{X: 5, Y: 5}},
+			Snakes: []Battlesnake{},
+		},
+	}
+
+	pos := Coord{X: 0, Y: 0}
+	score := evaluateFoodProximity(state, pos)
+
+	if score <= 0 {
+		t.Error("Expected positive score for food proximity")
+	}
+}
+
+// Test evaluateFoodProximity without A* (non-critical health)
+func TestEvaluateFoodProximity_WithoutAStar(t *testing.T) {
+	state := GameState{
+		You: createTestSnake("me", 80, []Coord{
+			{X: 0, Y: 0},
+			{X: 0, Y: 1},
+			{X: 0, Y: 2},
+		}),
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food:   []Coord{{X: 5, Y: 5}},
+			Snakes: []Battlesnake{},
+		},
+	}
+
+	pos := Coord{X: 0, Y: 0}
+	score := evaluateFoodProximity(state, pos)
+
+	if score <= 0 {
+		t.Error("Expected positive score for food proximity")
+	}
+}
+
+// Benchmark A* search performance
+func BenchmarkAStarSearch(b *testing.B) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{
+				createTestSnake("obstacle", 50, []Coord{
+					{X: 5, Y: 0},
+					{X: 5, Y: 1},
+					{X: 5, Y: 2},
+					{X: 5, Y: 3},
+					{X: 5, Y: 4},
+				}),
+			},
+		},
+	}
+
+	start := Coord{X: 0, Y: 2}
+	goal := Coord{X: 10, Y: 8}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		aStarSearch(state, start, goal, MaxAStarNodes)
+	}
+}
+
+// Benchmark move evaluation with A* integration
+func BenchmarkMoveEvaluation(b *testing.B) {
+	mySnake := createTestSnake("me", 25, []Coord{
+		{X: 5, Y: 5},
+		{X: 5, Y: 4},
+		{X: 5, Y: 3},
+		{X: 5, Y: 2},
+		{X: 5, Y: 1},
+	})
+	
+	enemySnake := createTestSnake("enemy", 80, []Coord{
+		{X: 3, Y: 3},
+		{X: 3, Y: 2},
+		{X: 3, Y: 1},
+		{X: 3, Y: 0},
+	})
+
+	state := GameState{
+		Turn: 50,
+		You:  mySnake,
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food:   []Coord{{X: 10, Y: 10}, {X: 1, Y: 1}},
+			Snakes: []Battlesnake{mySnake, enemySnake},
+		},
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		move(state)
 	}
 }
