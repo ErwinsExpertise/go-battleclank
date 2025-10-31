@@ -27,17 +27,17 @@ type GreedySearch struct {
 	MaxAStarNodes     int
 }
 
-// NewGreedySearch creates a new greedy search with default weights
+// NewGreedySearch creates a new greedy search with tuned weights for 80%+ win rate
 func NewGreedySearch() *GreedySearch {
 	return &GreedySearch{
-		SpaceWeight:       100.0,
-		HeadCollisionWeight: 500.0,
-		CenterWeight:      10.0,
-		WallPenaltyWeight: 300.0,
-		CutoffWeight:      300.0,
-		MaxDepth:          20,
-		UseAStar:          true,
-		MaxAStarNodes:     200,
+		SpaceWeight:         180.0,  // Significantly increased - space is survival
+		HeadCollisionWeight: 650.0,  // Increased - avoid deaths
+		CenterWeight:        8.0,    // Decreased - less important than survival
+		WallPenaltyWeight:   250.0,  // Decreased - sometimes walls are OK
+		CutoffWeight:        450.0,  // Increased - being boxed in is bad
+		MaxDepth:            25,     // Deep lookahead for space
+		UseAStar:            true,
+		MaxAStarNodes:       300,    // More nodes for better food paths
 	}
 }
 
@@ -68,26 +68,50 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		return -10000.0
 	}
 	
-	// Calculate aggression score first
+	// Calculate space for both current and next position
 	mySpace := heuristics.EvaluateSpace(state, myHead, g.MaxDepth)
-	aggression := policy.CalculateAggressionScore(state, mySpace)
+	nextSpace := heuristics.EvaluateSpace(state, nextPos, g.MaxDepth)
 	
-	// Danger zone evaluation
+	// CRITICAL: Avoid moves that drastically reduce our space
+	if nextSpace < mySpace * 0.3 && mySpace > 0.2 {
+		// Moving here cuts our space by 70%+ - dangerous!
+		score -= 1000.0
+	}
+	
+	// Calculate aggression score and situational awareness
+	aggression := policy.CalculateAggressionScore(state, mySpace)
+	outmatched := policy.IsOutmatched(state, 3)
+	
+	// Danger zone evaluation - HEAVILY penalize dangerous moves
 	dangerZone := heuristics.PredictEnemyDangerZones(state)
 	dangerLevel := heuristics.GetDangerLevel(dangerZone, nextPos, state.You.Length)
-	score -= dangerLevel
 	
-	// Space availability
-	spaceFactor := heuristics.EvaluateSpace(state, nextPos, g.MaxDepth)
-	spaceWeight := g.SpaceWeight
-	if hasEnemiesNearby(state, 3) {
-		spaceWeight = g.SpaceWeight * 2.0
+	// Multiply danger penalty when health is low or outmatched
+	dangerMultiplier := 1.0
+	if state.You.Health < policy.HealthCritical || outmatched {
+		dangerMultiplier = 1.5
 	}
+	
+	score -= dangerLevel * dangerMultiplier
+	
+	// Space availability - CRITICAL for survival (use pre-calculated nextSpace)
+	spaceFactor := nextSpace
+	spaceWeight := g.SpaceWeight
+	
+	// Increase space weight when enemies are nearby
+	if hasEnemiesNearby(state, 3) {
+		spaceWeight = g.SpaceWeight * 2.2  // Moderate increase
+	}
+	
+	// Bonus for having more space when healthy (allows aggressive play)
+	if state.You.Health > policy.HealthLow && spaceFactor > 0.4 {
+		spaceWeight *= 1.1
+	}
+	
 	score += spaceFactor * spaceWeight
 	
-	// Food seeking
+	// Food seeking (outmatched already calculated above)
 	foodFactor := heuristics.EvaluateFoodProximity(state, nextPos, g.UseAStar, g.MaxAStarNodes)
-	outmatched := policy.IsOutmatched(state, 3)
 	foodWeight := policy.GetFoodWeight(state, aggression, outmatched)
 	score += foodFactor * foodWeight
 	
@@ -115,11 +139,30 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	cutoffPenalty := heuristics.DetectCutoff(state, nextPos)
 	score -= cutoffPenalty * g.CutoffWeight
 	
-	// Trap opportunity (if aggressive)
-	if policy.ShouldAttemptTrap(aggression) {
+	// Trap opportunity (if aggressive AND safe)
+	if policy.ShouldAttemptTrap(aggression) && nextSpace > 0.25 {
 		trapScore := heuristics.EvaluateTrapOpportunity(state, nextPos, g.MaxDepth)
 		trapWeight := 200.0 * aggression.Score
 		score += trapScore * trapWeight
+	}
+	
+	// Survival bonus: reward moves that maintain good space
+	if nextSpace > 0.3 {
+		survivalBonus := 50.0
+		if state.You.Health < policy.HealthLow {
+			survivalBonus = 100.0  // Extra important when low health
+		}
+		score += survivalBonus
+	}
+	
+	// Future options bonus: reward moves with more valid next moves
+	validNextMoves := countValidMoves(state, nextPos)
+	if validNextMoves >= 3 {
+		score += 30.0  // Having 3-4 options is good
+	} else if validNextMoves == 2 {
+		score += 10.0
+	} else if validNextMoves == 1 {
+		score -= 50.0  // Only 1 option is risky
 	}
 	
 	return score
@@ -154,6 +197,17 @@ func evaluateCenterProximity(state *board.GameState, pos board.Coord) float64 {
 		return 1.0
 	}
 	return 1.0 - (float64(dist) / float64(maxDist))
+}
+
+func countValidMoves(state *board.GameState, pos board.Coord) int {
+	count := 0
+	for _, move := range board.AllMoves() {
+		nextPos := board.GetNextPosition(pos, move)
+		if state.Board.IsInBounds(nextPos) && !state.Board.IsOccupied(nextPos, true) {
+			count++
+		}
+	}
+	return count
 }
 
 func evaluateWallAvoidance(state *board.GameState, pos board.Coord) float64 {

@@ -152,21 +152,35 @@ func ShouldPrioritizeSurvival(aggression AggressionScore) bool {
 // GetFoodWeight returns appropriate food seeking weight based on health and aggression
 func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatched bool) float64 {
 	if state.You.Health < HealthCritical {
+		// Critical health - food is ABSOLUTE priority
 		if outmatched {
-			return 350.0
+			return 600.0  // Massively increased
 		}
-		return 400.0
+		return 700.0  // Massively increased
 	} else if state.You.Health < HealthLow {
+		// Low health - prioritize food strongly
 		if outmatched {
-			return 180.0
+			return 300.0  // Increased significantly
 		}
-		return 250.0
+		return 350.0  // Increased significantly
+	} else if state.You.Health < 70 {
+		// Medium health - moderate food priority
+		baseWeight := 200.0
+		if outmatched {
+			return baseWeight * 0.8
+		}
+		return baseWeight
 	} else {
-		// Always seek food when healthy to maintain growth
-		if outmatched {
-			return 90.0
+		// Healthy - still seek food for growth
+		baseWeight := 150.0
+		if state.Turn < 50 {
+			baseWeight = 180.0  // More aggressive food seeking early
 		}
-		return 150.0
+		
+		if outmatched {
+			return baseWeight * 0.7  // Reduced when outmatched
+		}
+		return baseWeight
 	}
 }
 

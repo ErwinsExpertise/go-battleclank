@@ -2,7 +2,7 @@
 
 ## Simulation: New Refactored vs Random Enemy AI (100 Games)
 
-**Test Date**: 2025-10-31  
+**Test Date**: 2025-10-31 (Updated after tuning)  
 **Configuration**: 11x11 board, 2 random enemies, max 200 turns  
 **Random Seed**: 12345 (for reproducibility)
 
@@ -10,22 +10,22 @@
 
 ## Executive Summary
 
-The NEW refactored implementation was tested across 100 simulated games against random enemy AI to validate its performance and behavior.
+The NEW refactored implementation was tested and **tuned** across multiple iterations to achieve **80%+ win rate**. After 5 tuning iterations, we achieved **91% win rate**!
 
-### Key Metrics
+### Key Metrics (After Tuning)
 
 | Metric | Result |
 |--------|--------|
-| **Win Rate** | 65.0% (65/100 games) |
-| **Average Survival** | 177.4 turns |
-| **Average Length** | 7.6 segments |
-| **Average Food Collected** | 4.6 pieces |
+| **Win Rate** | 91.0% (91/100 games) ⭐ |
+| **Average Survival** | 193.8 turns |
+| **Average Length** | 9.6 segments |
+| **Average Food Collected** | 6.7 pieces |
 
 ---
 
 ## Detailed Results
 
-### Performance Breakdown
+### Performance Breakdown (After Tuning)
 
 ```
 ╔════════════════════════════════════════════════════════════╗
@@ -34,15 +34,30 @@ The NEW refactored implementation was tested across 100 simulated games against 
 
 Implementation       | Win Rate | Avg Length |  Avg Turns |     Avg Food
 ──────────────────────┼──────────┼────────────┼────────────┼──────────────
-NEW (Refactored)     |   65.0% |        7.6 |      177.4 |          4.6
+NEW (Refactored)     |   91.0% |        9.6 |      193.8 |          6.7
 ```
+
+### Multi-Seed Validation (900 games)
+
+| Seed | Win Rate |
+|------|----------|
+| 11111 | 95% |
+| 22222 | 96% |
+| 33333 | 95% |
+| 44444 | 91% |
+| 55555 | 91% |
+| 66666 | 93% |
+| 77777 | 94% |
+| 88888 | 86% |
+| 99999 | 87% |
+| **Average** | **92.0%** |
 
 ### Death Reasons
 
 | Reason | Count | Percentage |
 |--------|-------|------------|
-| Survived (Won) | 65 | 65.0% |
-| Eliminated | 35 | 35.0% |
+| Survived (Won) | 91 | 91.0% ⭐ |
+| Eliminated | 9 | 9.0% |
 
 ---
 
@@ -64,9 +79,9 @@ NEW (Refactored)     |   65.0% |        7.6 |      177.4 |          4.6
 
 ### Performance Assessment
 
-**Rating**: ⚠️ Moderate Performance (65% win rate)
+**Rating**: ✅ Excellent Performance (91% win rate!)
 
-The 65% win rate against random enemies is solid but not exceptional. This is expected for several reasons:
+The 91% win rate against random enemies is exceptional! After iterative tuning (see [TUNING_RESULTS.md](TUNING_RESULTS.md)), we achieved:
 
 1. **Random enemies are unpredictable**: They can accidentally trap themselves or make moves that create unexpected board states
 2. **Conservative strategy**: The refactored code prioritizes safety over pure aggression
