@@ -117,7 +117,9 @@ func move(state GameState) BattlesnakeMoveResponse {
 	}
 
 	// Find the best move
-	// Iterate in a fixed order to ensure deterministic behavior when scores are equal
+	// Iterate in a fixed order to ensure deterministic behavior.
+	// When multiple moves have the same score, we'll consistently pick the first one
+	// in the possibleMoves array (up, down, left, right), ensuring stateless behavior.
 	bestMove := MoveUp
 	bestScore := -math.MaxFloat64
 	for _, move := range possibleMoves {
@@ -147,10 +149,13 @@ func scoreMove(state GameState, move string) float64 {
 
 	// NEW: Check for self-trapping scenarios (multi-turn lookahead)
 	// This helps prevent the snake from moving into positions where it will
-	// collide with itself in the next few turns
+	// collide with itself in the next few turns.
+	// Note: This is a lightweight check that only validates escape routes exist,
+	// not a full recursive simulation, to maintain performance.
 	if !simulateMove(state, move, 1) {
-		// This move leads to a self-trap situation
-		score -= 5000.0
+		// This move leads to a self-trap situation - apply strong penalty
+		// but not as severe as immediate death to allow it as a last resort
+		score -= 3000.0
 	}
 
 	// NEW: Check if we're moving into enemy danger zones
@@ -463,15 +468,20 @@ func isFoodDangerous(state GameState, food Coord) bool {
 			}
 		}
 		
-		// Check if enemy can reach food faster than us (food baiting detection)
+		// Check if enemy can reach food significantly faster than us
+		// This helps avoid food baiting scenarios where enemies camp near food
 		enemyDistToFood := manhattanDistance(snake.Head, food)
-		if enemyDistToFood < myDistToFood {
-			// Enemy is closer to food - likely a trap
+		
+		// Only consider it dangerous if enemy is noticeably closer (2+ moves)
+		// This avoids false positives where enemy happens to be slightly closer
+		// but isn't actually camping or baiting
+		if enemyDistToFood < myDistToFood-1 {
+			// Enemy is significantly closer - potentially dangerous
 			return true
 		}
 		
-		// If enemy can reach at same time and is larger, avoid it
-		if enemyDistToFood == myDistToFood && snake.Length >= state.You.Length {
+		// If enemy can reach at same time/±1 move and is larger, be cautious
+		if abs(enemyDistToFood-myDistToFood) <= 1 && snake.Length >= state.You.Length {
 			return true
 		}
 	}
@@ -543,9 +553,10 @@ func predictEnemyMoves(state GameState) map[Coord][]Battlesnake {
 	return enemyMoves
 }
 
-// simulateMove simulates taking a move and returns whether it leaves us with safe options
-// This helps detect multi-turn self-collision scenarios
-// Returns true if the move is safe, false if it leads to a potential trap
+// simulateMove performs a lightweight check to see if a move leaves adequate escape routes.
+// This is NOT a full multi-turn simulation (too expensive), but rather a quick validation
+// that the immediate next position has sufficient exit options.
+// Returns true if the move appears safe, false if it may lead to a trap.
 func simulateMove(state GameState, move string, turnsAhead int) bool {
 	if turnsAhead <= 0 || turnsAhead > 3 {
 		return true // Only look ahead 1-3 turns for performance
@@ -559,12 +570,16 @@ func simulateMove(state GameState, move string, turnsAhead int) bool {
 		return false
 	}
 	
-	// Create a simulated future state
-	// Make a deep copy of the snake body
+	// Create a simulated future state with our snake moved
+	// Note: This is a simplified simulation that doesn't handle food consumption
+	// or enemy movement, focusing only on our own body position
 	newBody := make([]Coord, len(state.You.Body))
 	newBody[0] = nextPos // New head position
 	
-	// Shift body forward (snake moves)
+	// Shift body forward (snake moves, tail segment leaves)
+	// NOTE: This assumes no food is eaten. If food is at nextPos, the tail
+	// wouldn't move and we'd have one less escape option, making this check
+	// slightly pessimistic (safer) in those cases.
 	for i := 1; i < len(state.You.Body); i++ {
 		newBody[i] = state.You.Body[i-1]
 	}
@@ -575,6 +590,7 @@ func simulateMove(state GameState, move string, turnsAhead int) bool {
 			Width:  state.Board.Width,
 			Height: state.Board.Height,
 			Snakes: make([]Battlesnake, len(state.Board.Snakes)),
+			Food:   state.Board.Food, // Include food positions for more accurate checks
 		},
 		You: Battlesnake{
 			ID:     state.You.ID,
@@ -604,9 +620,11 @@ func simulateMove(state GameState, move string, turnsAhead int) bool {
 		}
 	}
 	
-	// If we have fewer than 2 safe moves, this could be a self-trap
-	// This is a conservative check - we want at least 2 escape options
-	return safeMovesCount >= 2
+	// We need at least 1 escape route to survive. Requiring 2+ is conservative
+	// but helps avoid getting boxed in. In desperate situations, the penalty
+	// is lower than immediate death, so the snake will still take risky moves
+	// if all alternatives are worse.
+	return safeMovesCount >= 1
 }
 
 // evaluateCenterProximity prefers center positions
