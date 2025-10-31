@@ -23,6 +23,7 @@ This Battlesnake implements several optimization strategies to maximize survival
    - Increases food-seeking aggression as health decreases
    - Uses A* pathfinding when health is low (< 50) for accurate navigation
    - Uses Manhattan distance when healthy for better performance
+   - **Avoids dangerous food near enemy snakes** to prevent traps
    - Balances food seeking with survival
 
 4. **Head-to-Head Collision Avoidance**

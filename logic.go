@@ -26,6 +26,20 @@ const (
 	// - 19x19 board: 300-400 nodes - larger board may need more exploration
 	// Average search explores 50-150 nodes, so 200 provides good headroom.
 	MaxAStarNodes = 200
+
+	// Food danger detection constants
+	// FoodDangerRadius defines how close (in Manhattan distance) food must be to an enemy
+	// snake to be considered dangerous. A radius of 2 provides a safety buffer while not
+	// being overly conservative.
+	// Tuning guidance:
+	// - Radius 1: Very aggressive, only avoids food directly adjacent to enemies
+	// - Radius 2: Balanced (default) - avoids traps while still seeking most food
+	// - Radius 3: Conservative - may miss food opportunities but maximizes safety
+	FoodDangerRadius = 2
+
+	// FoodDangerPenalty is the multiplier applied to food scores when food is dangerous.
+	// A penalty of 0.1 means dangerous food is 90% less attractive.
+	FoodDangerPenalty = 0.1
 )
 
 // info returns metadata about the battlesnake
@@ -59,7 +73,7 @@ func end(state GameState) {
 // move is the main decision-making function called on every turn
 func move(state GameState) BattlesnakeMoveResponse {
 	possibleMoves := []string{MoveUp, MoveDown, MoveLeft, MoveRight}
-	
+
 	// Score each possible move
 	moveScores := make(map[string]float64)
 	for _, move := range possibleMoves {
@@ -157,7 +171,7 @@ func isImmediatelyFatal(state GameState, pos Coord) bool {
 func evaluateSpace(state GameState, pos Coord) float64 {
 	visited := make(map[Coord]bool)
 	count := floodFill(state, pos, visited, 0, state.You.Length)
-	
+
 	// Normalize by board size
 	totalSpaces := state.Board.Width * state.Board.Height
 	return float64(count) / float64(totalSpaces)
@@ -177,7 +191,7 @@ func floodFill(state GameState, pos Coord, visited map[Coord]bool, depth int, ma
 	if visited[pos] {
 		return 0
 	}
-	
+
 	// Check if blocked by snake
 	for _, snake := range state.Board.Snakes {
 		for i, segment := range snake.Body {
@@ -204,38 +218,88 @@ func floodFill(state GameState, pos Coord, visited map[Coord]bool, depth int, ma
 }
 
 // evaluateFoodProximity scores based on proximity to nearest food
+// Now also considers if food is dangerous due to nearby enemy snakes
 func evaluateFoodProximity(state GameState, pos Coord) float64 {
 	if len(state.Board.Food) == 0 {
 		return 0
 	}
 
+	var targetFood Coord
+	var distanceScore float64
+
 	// Use A* for better pathfinding when health is low (more accurate around obstacles)
 	if state.You.Health < HealthLow {
-		_, path := findNearestFoodWithAStar(state, pos)
+		food, path := findNearestFoodWithAStar(state, pos)
 		if path != nil && len(path) > 0 {
+			targetFood = food
 			pathLength := len(path)
 			if pathLength == 1 {
-				return 1.0 // Already at food
+				distanceScore = 1.0 // Already at food
+			} else {
+				distanceScore = 1.0 / float64(pathLength)
 			}
-			return 1.0 / float64(pathLength)
+		} else {
+			// If no path found with A*, fall back to Manhattan distance
+			targetFood, distanceScore = findNearestFoodManhattan(state, pos)
 		}
-		// If no path found, fall through to Manhattan distance
+	} else {
+		// Use Manhattan distance for non-critical situations (better performance)
+		targetFood, distanceScore = findNearestFoodManhattan(state, pos)
 	}
 
-	// Use Manhattan distance for non-critical situations (better performance)
+	// Check if the target food is dangerous due to nearby enemy snakes
+	if isFoodDangerous(state, targetFood) {
+		// Significantly reduce food attractiveness if it's near enemy snakes
+		// This prevents the snake from getting trapped near enemy snakes
+		distanceScore *= FoodDangerPenalty
+	}
+
+	return distanceScore
+}
+
+// findNearestFoodManhattan finds the nearest food using Manhattan distance
+func findNearestFoodManhattan(state GameState, pos Coord) (Coord, float64) {
 	minDist := math.MaxInt32
+	var nearestFood Coord
+
 	for _, food := range state.Board.Food {
 		dist := manhattanDistance(pos, food)
 		if dist < minDist {
 			minDist = dist
+			nearestFood = food
 		}
 	}
 
 	// Inverse distance (closer is better)
+	distanceScore := 1.0
 	if minDist == 0 {
-		return 1.0
+		distanceScore = 1.0
+	} else {
+		distanceScore = 1.0 / float64(minDist)
 	}
-	return 1.0 / float64(minDist)
+
+	return nearestFood, distanceScore
+}
+
+// isFoodDangerous checks if food is too close to enemy snakes
+// Food is considered dangerous if it's within FoodDangerRadius spaces of any enemy snake body segment
+func isFoodDangerous(state GameState, food Coord) bool {
+	for _, snake := range state.Board.Snakes {
+		// Skip our own snake
+		if snake.ID == state.You.ID {
+			continue
+		}
+
+		// Check distance to each segment of enemy snake
+		for _, segment := range snake.Body {
+			dist := manhattanDistance(food, segment)
+			if dist <= FoodDangerRadius {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // evaluateHeadCollisionRisk checks for potential head-to-head collisions
@@ -270,7 +334,7 @@ func evaluateCenterProximity(state GameState, pos Coord) float64 {
 	centerY := state.Board.Height / 2
 	dist := manhattanDistance(pos, Coord{X: centerX, Y: centerY})
 	maxDist := centerX + centerY
-	
+
 	if maxDist == 0 {
 		return 1.0
 	}
@@ -285,7 +349,7 @@ func evaluateTailProximity(state GameState, pos Coord) float64 {
 
 	tail := state.You.Body[len(state.You.Body)-1]
 	dist := manhattanDistance(pos, tail)
-	
+
 	if dist == 0 {
 		return 1.0
 	}
