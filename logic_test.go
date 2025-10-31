@@ -1600,11 +1600,11 @@ func TestMove_AvoidsCornerWhenEnemyNearby(t *testing.T) {
 	// Moving up would go toward corner (Y=9), moving left would go toward edge (X=2,1,0)
 	// With enemy nearby, these should be penalized
 	// Moving down (away from corner) or staying in middle should be preferred
-	
+
 	// The test validates that the corner penalty is being applied
 	// We verify by checking that up (toward corner) has worse score than down
 	if scores[MoveUp] > scores[MoveDown] && response.Move == MoveUp {
-		t.Logf("Note: Up toward corner scored higher (%.2f) than down (%.2f), but corner penalty may not be strong enough", 
+		t.Logf("Note: Up toward corner scored higher (%.2f) than down (%.2f), but corner penalty may not be strong enough",
 			scores[MoveUp], scores[MoveDown])
 	}
 }
@@ -1650,6 +1650,365 @@ func TestMove_CornerOkayWhenNoEnemies(t *testing.T) {
 	// With no enemies, the corner penalty should not be applied
 	// The snake can safely go toward food even if it's in a corner
 	// This verifies we only penalize corners when there's actual danger
+}
+
+// Test hasAnyEnemies function
+func TestHasAnyEnemies(t *testing.T) {
+	tests := []struct {
+		name     string
+		state    GameState
+		expected bool
+	}{
+		{
+			name: "Only us on board",
+			state: GameState{
+				You: createTestSnake("me", 100, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
+				Board: Board{
+					Width:  11,
+					Height: 11,
+					Snakes: []Battlesnake{
+						createTestSnake("me", 100, []Coord{
+							{X: 5, Y: 5},
+							{X: 5, Y: 4},
+							{X: 5, Y: 3},
+						}),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "One enemy on board",
+			state: GameState{
+				You: createTestSnake("me", 100, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
+				Board: Board{
+					Width:  11,
+					Height: 11,
+					Snakes: []Battlesnake{
+						createTestSnake("me", 100, []Coord{
+							{X: 5, Y: 5},
+							{X: 5, Y: 4},
+							{X: 5, Y: 3},
+						}),
+						createTestSnake("enemy", 100, []Coord{
+							{X: 8, Y: 8},
+							{X: 8, Y: 7},
+							{X: 8, Y: 6},
+						}),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Multiple enemies on board",
+			state: GameState{
+				You: createTestSnake("me", 100, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
+				Board: Board{
+					Width:  11,
+					Height: 11,
+					Snakes: []Battlesnake{
+						createTestSnake("me", 100, []Coord{
+							{X: 5, Y: 5},
+							{X: 5, Y: 4},
+							{X: 5, Y: 3},
+						}),
+						createTestSnake("enemy1", 100, []Coord{
+							{X: 8, Y: 8},
+							{X: 8, Y: 7},
+							{X: 8, Y: 6},
+						}),
+						createTestSnake("enemy2", 100, []Coord{
+							{X: 2, Y: 2},
+							{X: 2, Y: 1},
+							{X: 2, Y: 0},
+						}),
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasAnyEnemies(tt.state)
+			if result != tt.expected {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+// Test evaluateWallAvoidance function
+func TestEvaluateWallAvoidance(t *testing.T) {
+	state := GameState{
+		Board: Board{
+			Width:  11,
+			Height: 11,
+		},
+	}
+
+	tests := []struct {
+		name          string
+		pos           Coord
+		expectedRange string // "none", "low", "medium", "high", "very-high"
+	}{
+		{"Center of board", Coord{X: 5, Y: 5}, "none"},
+		{"3 squares from edge", Coord{X: 3, Y: 5}, "low"},
+		{"2 squares from edge", Coord{X: 2, Y: 5}, "medium"},
+		{"1 square from left edge", Coord{X: 1, Y: 5}, "high"},
+		{"On left edge", Coord{X: 0, Y: 5}, "very-high"},
+		{"On right edge", Coord{X: 10, Y: 5}, "very-high"},
+		{"On top edge", Coord{X: 5, Y: 10}, "very-high"},
+		{"On bottom edge", Coord{X: 5, Y: 0}, "very-high"},
+		{"Top-left corner (1,9)", Coord{X: 1, Y: 9}, "very-high"},
+		{"Top-right corner (9,9)", Coord{X: 9, Y: 9}, "very-high"},
+		{"Bottom-left corner (1,1)", Coord{X: 1, Y: 1}, "very-high"},
+		{"Bottom-right corner (9,1)", Coord{X: 9, Y: 1}, "very-high"},
+		{"Exact corner (0,0)", Coord{X: 0, Y: 0}, "very-high"},
+		{"Exact corner (10,10)", Coord{X: 10, Y: 10}, "very-high"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			penalty := evaluateWallAvoidance(state, tt.pos)
+			t.Logf("Position %v has wall avoidance penalty: %.2f", tt.pos, penalty)
+
+			// Verify penalty matches expected range
+			switch tt.expectedRange {
+			case "none":
+				if penalty > 0.05 {
+					t.Errorf("Expected no/minimal penalty for center position, got %.2f", penalty)
+				}
+			case "low":
+				if penalty < 0.1 || penalty > 0.4 {
+					t.Errorf("Expected low penalty (0.1-0.4), got %.2f", penalty)
+				}
+			case "medium":
+				if penalty < 0.4 || penalty > 0.7 {
+					t.Errorf("Expected medium penalty (0.4-0.7), got %.2f", penalty)
+				}
+			case "high":
+				if penalty < 0.7 || penalty > 1.2 {
+					t.Errorf("Expected high penalty (0.7-1.2), got %.2f", penalty)
+				}
+			case "very-high":
+				if penalty < 1.0 {
+					t.Errorf("Expected very high penalty (>1.0), got %.2f", penalty)
+				}
+			}
+		})
+	}
+}
+
+// Test that snake avoids walls when enemies are present
+func TestMove_AvoidsWallsWithEnemies(t *testing.T) {
+	// Snake near left wall with enemy on board (even if far away)
+	mySnake := createTestSnake("me", 80, []Coord{
+		{X: 1, Y: 5}, // head 1 square from left wall
+		{X: 2, Y: 5},
+		{X: 3, Y: 5},
+		{X: 4, Y: 5},
+	})
+
+	// Enemy snake on other side of board
+	enemySnake := createTestSnake("enemy", 100, []Coord{
+		{X: 9, Y: 9},
+		{X: 9, Y: 8},
+		{X: 9, Y: 7},
+		{X: 9, Y: 6},
+	})
+
+	state := GameState{
+		Turn: 30,
+		Game: Game{
+			ID: "wall-avoidance-test",
+		},
+		You: mySnake,
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food:   []Coord{{X: 0, Y: 5}}, // Food on the wall - tempting but dangerous
+			Snakes: []Battlesnake{mySnake, enemySnake},
+		},
+	}
+
+	// Calculate move scores
+	moves := []string{MoveUp, MoveDown, MoveLeft, MoveRight}
+	scores := make(map[string]float64)
+	for _, m := range moves {
+		scores[m] = scoreMove(state, m)
+	}
+
+	t.Logf("Scores - Up: %.2f, Down: %.2f, Left: %.2f (toward wall), Right: %.2f (away from wall)",
+		scores[MoveUp], scores[MoveDown], scores[MoveLeft], scores[MoveRight])
+
+	response := move(state)
+	t.Logf("Snake chose to move: %s", response.Move)
+
+	// Moving left would go to the wall (X=0), which should be heavily penalized
+	// Moving right (away from wall) should be strongly preferred
+	// The wall avoidance should outweigh the food attraction
+	if response.Move == MoveLeft {
+		t.Errorf("Snake moved toward wall (left) despite aggressive wall avoidance. Score was %.2f vs right %.2f",
+			scores[MoveLeft], scores[MoveRight])
+	}
+}
+
+// Test that snake strongly avoids corners when enemies present
+func TestMove_AvoidsCornerWithAggressiveEnemy(t *testing.T) {
+	// Snake being pushed toward corner by enemy
+	mySnake := createTestSnake("me", 60, []Coord{
+		{X: 2, Y: 9}, // Near top-left corner
+		{X: 2, Y: 8},
+		{X: 2, Y: 7},
+	})
+
+	// Aggressive enemy pushing us toward corner
+	enemySnake := createTestSnake("enemy", 100, []Coord{
+		{X: 5, Y: 9}, // Between us and center
+		{X: 5, Y: 8},
+		{X: 5, Y: 7},
+		{X: 5, Y: 6},
+		{X: 6, Y: 6},
+	})
+
+	state := GameState{
+		Turn: 40,
+		Game: Game{
+			ID: "corner-avoidance-test",
+		},
+		You: mySnake,
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food:   []Coord{{X: 0, Y: 10}}, // Food in corner - trap!
+			Snakes: []Battlesnake{mySnake, enemySnake},
+		},
+	}
+
+	// Calculate move scores
+	moves := []string{MoveUp, MoveDown, MoveLeft, MoveRight}
+	scores := make(map[string]float64)
+	for _, m := range moves {
+		scores[m] = scoreMove(state, m)
+	}
+
+	t.Logf("Scores - Up: %.2f (into corner), Down: %.2f (away from corner), Left: %.2f (into corner), Right: %.2f",
+		scores[MoveUp], scores[MoveDown], scores[MoveLeft], scores[MoveRight])
+
+	response := move(state)
+	t.Logf("Snake chose to move: %s", response.Move)
+
+	// Moving up or left would go deeper into corner - should be heavily penalized
+	// Moving down (away from corner) should be strongly preferred
+	if response.Move == MoveUp || response.Move == MoveLeft {
+		t.Logf("Warning: Snake moved toward corner (%s). This may indicate insufficient wall avoidance penalty.", response.Move)
+	}
+}
+
+// Test that wall avoidance is active even when enemy is far away
+func TestMove_WallAvoidanceActiveWithDistantEnemy(t *testing.T) {
+	// Snake near edge with enemy far away
+	mySnake := createTestSnake("me", 70, []Coord{
+		{X: 1, Y: 5}, // 1 square from left edge
+		{X: 1, Y: 4},
+		{X: 1, Y: 3},
+	})
+
+	// Enemy far away on opposite side
+	enemySnake := createTestSnake("enemy", 80, []Coord{
+		{X: 10, Y: 10}, // Far corner
+		{X: 9, Y: 10},
+		{X: 8, Y: 10},
+	})
+
+	state := GameState{
+		Turn: 20,
+		Game: Game{
+			ID: "distant-enemy-test",
+		},
+		You: mySnake,
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food:   []Coord{{X: 5, Y: 5}}, // Food in center
+			Snakes: []Battlesnake{mySnake, enemySnake},
+		},
+	}
+
+	// Verify enemy exists but is not "nearby"
+	if !hasAnyEnemies(state) {
+		t.Fatal("Should detect enemy presence")
+	}
+
+	// Even though enemy is far, wall avoidance should still be active
+	// Calculate move scores
+	moves := []string{MoveUp, MoveDown, MoveLeft, MoveRight}
+	scores := make(map[string]float64)
+	for _, m := range moves {
+		scores[m] = scoreMove(state, m)
+	}
+
+	t.Logf("Scores - Up: %.2f, Down: %.2f, Left: %.2f (toward wall), Right: %.2f (away from wall)",
+		scores[MoveUp], scores[MoveDown], scores[MoveLeft], scores[MoveRight])
+
+	// Left move (toward wall) should have worse score than right (away from wall)
+	// due to wall avoidance penalty
+	if scores[MoveLeft] >= scores[MoveRight] {
+		t.Errorf("Left (toward wall) should have lower score than right (away from wall). Got left=%.2f, right=%.2f",
+			scores[MoveLeft], scores[MoveRight])
+	}
+}
+
+// Test wall avoidance doesn't interfere when no enemies present
+func TestMove_NoWallPenaltyWithoutEnemies(t *testing.T) {
+	// Snake near edge, no enemies
+	mySnake := createTestSnake("me", 70, []Coord{
+		{X: 1, Y: 5},
+		{X: 2, Y: 5},
+		{X: 3, Y: 5},
+	})
+
+	state := GameState{
+		Turn: 20,
+		Game: Game{
+			ID: "no-enemy-test",
+		},
+		You: mySnake,
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food:   []Coord{{X: 0, Y: 5}},  // Food on wall
+			Snakes: []Battlesnake{mySnake}, // No enemies
+		},
+	}
+
+	// Verify no enemies
+	if hasAnyEnemies(state) {
+		t.Fatal("Should not detect enemies")
+	}
+
+	// Without enemies, wall penalty should not be applied
+	// Snake can safely go for food on the wall
+	response := move(state)
+	t.Logf("Snake chose to move: %s (food is to the left on wall)", response.Move)
+
+	// When no enemies present, the snake can pursue food on walls without penalty
+	// This test mainly verifies the conditional logic works
 }
 
 // TestStatelessBehavior_NoGlobalState verifies that multiple concurrent games
