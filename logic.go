@@ -40,6 +40,15 @@ const (
 	// FoodDangerPenalty is the multiplier applied to food scores when food is dangerous.
 	// A penalty of 0.1 means dangerous food is 90% less attractive.
 	FoodDangerPenalty = 0.1
+
+	// EnemyProximityRadius defines how close (in Manhattan distance) an enemy snake
+	// must be to our head to be considered "nearby". When enemies are within this
+	// radius, tail-chasing behavior is disabled to avoid circling near threats.
+	// Tuning guidance:
+	// - Radius 2: Very cautious - disables circling even with distant enemies
+	// - Radius 3: Balanced (default) - reasonable safety zone
+	// - Radius 4-5: More relaxed - only disables circling when enemies are very close
+	EnemyProximityRadius = 3
 )
 
 // info returns metadata about the battlesnake
@@ -135,8 +144,9 @@ func scoreMove(state GameState, move string) float64 {
 		score += centerFactor * 10.0
 	}
 
-	// Tail chasing when safe
-	if state.You.Health > HealthCritical {
+	// Tail chasing when safe - but not when enemies are nearby
+	// When enemies are nearby, avoid circling to prevent becoming a sitting target
+	if state.You.Health > HealthCritical && !hasEnemiesNearby(state) {
 		tailFactor := evaluateTailProximity(state, nextPos)
 		score += tailFactor * 50.0
 	}
@@ -367,6 +377,28 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+// hasEnemiesNearby checks if any enemy snakes are within EnemyProximityRadius
+// of our head. Returns true if enemies are nearby, indicating we should avoid
+// circling/tail-chasing behavior to prevent becoming a sitting target.
+func hasEnemiesNearby(state GameState) bool {
+	myHead := state.You.Head
+
+	for _, snake := range state.Board.Snakes {
+		// Skip our own snake
+		if snake.ID == state.You.ID {
+			continue
+		}
+
+		// Check if enemy head is within proximity radius
+		dist := manhattanDistance(myHead, snake.Head)
+		if dist <= EnemyProximityRadius {
+			return true
+		}
+	}
+
+	return false
 }
 
 // getNextPosition returns the coordinate resulting from a move
