@@ -80,7 +80,9 @@ func TestCalculateAggressionScore(t *testing.T) {
 				for j := 0; j < length; j++ {
 					enemyBody[j] = Coord{X: 0, Y: j}
 				}
-				enemy := createTestSnake("enemy"+string(rune('A'+i)), 100, enemyBody)
+				// Use simple string formatting for enemy IDs
+				enemyID := "enemy" + string(rune('A' + i))
+				enemy := createTestSnake(enemyID, 100, enemyBody)
 				snakes = append(snakes, enemy)
 			}
 			

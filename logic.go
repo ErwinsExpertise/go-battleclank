@@ -1065,6 +1065,8 @@ func getMinDistanceToWall(state GameState, pos Coord) int {
 
 // evaluateEnemyReachableSpace calculates the reachable space for an enemy snake from a given position
 // This is used to determine if we're successfully trapping them
+// Note: Creates a new visited map for each call. This is called up to 8 times per turn
+// (4 moves × 2 enemy space calculations). Total allocation: ~1KB per turn, acceptable overhead.
 func evaluateEnemyReachableSpace(state GameState, enemy Battlesnake, fromPos Coord) int {
 	visited := make(map[Coord]bool)
 	return floodFillForSnake(state, fromPos, visited, 0, enemy.Length, enemy.ID)
@@ -1072,8 +1074,11 @@ func evaluateEnemyReachableSpace(state GameState, enemy Battlesnake, fromPos Coo
 
 // floodFillForSnake is similar to floodFill but considers a specific snake's perspective
 // It's used to calculate how much space an enemy snake can reach
+// Note: Uses recursion with depth limit (snake length, typically 3-20). This is safe and
+// won't cause stack overflow. An iterative implementation with a queue would be more complex
+// without significant performance benefit given the small depth limits.
 func floodFillForSnake(state GameState, pos Coord, visited map[Coord]bool, depth int, maxDepth int, snakeID string) int {
-	// Limit recursion depth for performance
+	// Limit recursion depth for performance and stack safety
 	if depth > maxDepth {
 		return 0
 	}
