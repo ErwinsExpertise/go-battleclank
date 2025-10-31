@@ -41,7 +41,6 @@ builds:
 
 archives:
   - id: default
-    format: tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -50,9 +49,8 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    format_overrides:
-      - goos: windows
-        format: zip
+      {{- if eq .Os "windows" }}.zip
+      {{- else }}.tar.gz{{ end }}
     files:
       - README.md
       - LICENSE
@@ -129,12 +127,17 @@ release:
     - [STRATEGY_REVIEW.md](https://github.com/ErwinsExpertise/go-battleclank/blob/main/STRATEGY_REVIEW.md)
     - [ASTAR_IMPLEMENTATION.md](https://github.com/ErwinsExpertise/go-battleclank/blob/main/ASTAR_IMPLEMENTATION.md)
 
-# Docker images
-dockers:
-  - image_templates:
+# Docker images (using new dockers_v2 format)
+dockers_v2:
+  - ids:
+      - go-battleclank
+    image_templates:
       - "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}-amd64"
-    use: buildx
+      - "ghcr.io/erwinsexpertise/go-battleclank:latest-amd64"
     dockerfile: Dockerfile
+    use: buildx
+    goos: linux
+    goarch: amd64
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -142,11 +145,15 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
     
-  - image_templates:
+  - ids:
+      - go-battleclank
+    image_templates:
       - "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}-arm64"
-    use: buildx
-    goarch: arm64
+      - "ghcr.io/erwinsexpertise/go-battleclank:latest-arm64"
     dockerfile: Dockerfile
+    use: buildx
+    goos: linux
+    goarch: arm64
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -162,8 +169,8 @@ docker_manifests:
   
   - name_template: "ghcr.io/erwinsexpertise/go-battleclank:latest"
     image_templates:
-      - "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}-amd64"
-      - "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}-arm64"
+      - "ghcr.io/erwinsexpertise/go-battleclank:latest-amd64"
+      - "ghcr.io/erwinsexpertise/go-battleclank:latest-arm64"
 
 # Announce releases
 announce:
