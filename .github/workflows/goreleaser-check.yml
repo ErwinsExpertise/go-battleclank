@@ -10,6 +10,9 @@ on:
       - 'go.sum'
       - '**.go'
 
+permissions:
+  contents: read
+
 jobs:
   goreleaser-check:
     runs-on: ubuntu-latest

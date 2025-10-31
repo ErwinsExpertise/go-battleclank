@@ -19,7 +19,13 @@ const (
 	MaxHealth      = 100
 
 	// A* algorithm constants
-	MaxAStarNodes = 200 // Maximum nodes to explore in A* search
+	// MaxAStarNodes limits the number of nodes explored in A* search to prevent timeouts.
+	// Tuning guidance:
+	// - 11x11 board: 200 nodes (default) - balances accuracy and performance
+	// - 7x7 board: 100 nodes - smaller board requires fewer nodes
+	// - 19x19 board: 300-400 nodes - larger board may need more exploration
+	// Average search explores 50-150 nodes, so 200 provides good headroom.
+	MaxAStarNodes = 200
 )
 
 // info returns metadata about the battlesnake
@@ -463,6 +469,9 @@ func isPositionBlocked(state GameState, pos Coord) bool {
 	for _, snake := range state.Board.Snakes {
 		for i, segment := range snake.Body {
 			// Skip tails that will move (snake hasn't just eaten)
+			// When a snake eats food, its health is reset to MaxHealth and
+			// the tail doesn't move on that turn (body grows). In all other
+			// cases, the tail moves forward so that position will be empty.
 			if i == len(snake.Body)-1 && snake.Health != MaxHealth {
 				continue
 			}
