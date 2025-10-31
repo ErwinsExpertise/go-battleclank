@@ -1,0 +1,170 @@
+# GoReleaser configuration for go-battleclank
+# Documentation: https://goreleaser.com
+
+version: 2
+
+before:
+  hooks:
+    # Ensure dependencies are up to date
+    - go mod tidy
+    # Run tests before building
+    - go test ./...
+
+builds:
+  - id: go-battleclank
+    binary: go-battleclank
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+    # Ignore certain combinations
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    flags:
+      - -trimpath
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - ALGORITHMS.md
+      - USAGE.md
+      - STRATEGY_REVIEW.md
+      - ASTAR_IMPLEMENTATION.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: 'New Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance Improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: 'Documentation'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: 'Other Changes'
+      order: 999
+
+release:
+  github:
+    owner: ErwinsExpertise
+    name: go-battleclank
+  draft: false
+  prerelease: auto
+  mode: replace
+  name_template: "Release {{.Version}}"
+  header: |
+    ## go-battleclank {{.Version}}
+    
+    A competitive Battlesnake implementation in Go with advanced decision-making algorithms.
+    
+    ### Installation
+    
+    Download the appropriate binary for your platform below and run it:
+    
+    ```bash
+    ./go-battleclank
+    # Or on Windows: go-battleclank.exe
+    ```
+    
+    The server will start on `http://0.0.0.0:8000` by default.
+    
+  footer: |
+    ---
+    
+    **Full Changelog**: https://github.com/ErwinsExpertise/go-battleclank/compare/{{ .PreviousTag }}...{{ .Tag }}
+    
+    ### What's New
+    
+    For detailed algorithm documentation, see:
+    - [ALGORITHMS.md](https://github.com/ErwinsExpertise/go-battleclank/blob/main/ALGORITHMS.md)
+    - [STRATEGY_REVIEW.md](https://github.com/ErwinsExpertise/go-battleclank/blob/main/STRATEGY_REVIEW.md)
+    - [ASTAR_IMPLEMENTATION.md](https://github.com/ErwinsExpertise/go-battleclank/blob/main/ASTAR_IMPLEMENTATION.md)
+
+# Docker images
+dockers:
+  - image_templates:
+      - "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}-amd64"
+    use: buildx
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    
+  - image_templates:
+      - "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}-arm64"
+    use: buildx
+    goarch: arm64
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+docker_manifests:
+  - name_template: "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}-amd64"
+      - "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}-arm64"
+  
+  - name_template: "ghcr.io/erwinsexpertise/go-battleclank:latest"
+    image_templates:
+      - "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}-amd64"
+      - "ghcr.io/erwinsexpertise/go-battleclank:{{ .Version }}-arm64"
+
+# Announce releases
+announce:
+  skip: '{{gt .Patch 0}}'  # Only announce major/minor releases

@@ -40,31 +40,55 @@ This Battlesnake implements several optimization strategies to maximize survival
 - `POST /move` - Called each turn to get the next move
 - `POST /end` - Called when a game ends
 
-## Building and Running
+## Installation
 
-### Prerequisites
+### Download Pre-built Binaries
 
-- Go 1.24 or higher
+Download the latest release for your platform from the [releases page](https://github.com/ErwinsExpertise/go-battleclank/releases).
 
-### Build
+Available platforms:
+- Linux (amd64, arm64, armv7)
+- macOS (amd64, arm64/Apple Silicon)
+- Windows (amd64)
 
+Extract and run:
 ```bash
-go build
+./go-battleclank
+# Or on Windows: go-battleclank.exe
 ```
 
-### Run
+### Using Docker
 
 ```bash
+docker pull ghcr.io/erwinsexpertise/go-battleclank:latest
+docker run -p 8000:8000 ghcr.io/erwinsexpertise/go-battleclank:latest
+```
+
+### Building from Source
+
+Prerequisites: Go 1.24 or higher
+
+```bash
+git clone https://github.com/ErwinsExpertise/go-battleclank.git
+cd go-battleclank
+go build
 ./go-battleclank
 ```
 
-Or set a custom port:
+### Configuration
 
+Set a custom port:
 ```bash
 PORT=8080 ./go-battleclank
 ```
 
 The server will start on `http://0.0.0.0:8000` by default.
+
+### Check Version
+
+```bash
+./go-battleclank --version
+```
 
 ## Testing
 

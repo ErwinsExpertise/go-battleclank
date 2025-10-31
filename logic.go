@@ -25,13 +25,18 @@ const (
 // info returns metadata about the battlesnake
 func info() BattlesnakeInfoResponse {
 	log.Println("INFO")
+	// Use build version if available, otherwise default
+	buildVersion := version
+	if buildVersion == "dev" {
+		buildVersion = "1.0.0"
+	}
 	return BattlesnakeInfoResponse{
 		APIVersion: "1",
 		Author:     "go-battleclank",
 		Color:      "#FF6B35",
 		Head:       "trans-rights-scarf",
 		Tail:       "bolt",
-		Version:    "1.0.0",
+		Version:    buildVersion,
 	}
 }
 
