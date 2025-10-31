@@ -31,19 +31,19 @@ func createTestSnake(id string, health int, body []Coord) Battlesnake {
 // Test info function
 func TestInfo(t *testing.T) {
 	response := info()
-	
+
 	if response.APIVersion != "1" {
 		t.Errorf("Expected APIVersion to be '1', got '%s'", response.APIVersion)
 	}
-	
+
 	if response.Color == "" {
 		t.Error("Color should not be empty")
 	}
-	
+
 	if response.Head == "" {
 		t.Error("Head should not be empty")
 	}
-	
+
 	if response.Tail == "" {
 		t.Error("Tail should not be empty")
 	}
@@ -275,7 +275,7 @@ func TestEvaluateHeadCollisionRisk(t *testing.T) {
 	// Position where larger enemy could move to
 	riskPos := Coord{X: 5, Y: 6}
 	risk := evaluateHeadCollisionRisk(state, riskPos)
-	
+
 	if risk <= 0 {
 		t.Errorf("Expected positive risk for position near larger enemy head, got %f", risk)
 	}
@@ -327,7 +327,7 @@ func TestMove(t *testing.T) {
 		{X: 5, Y: 4},
 		{X: 5, Y: 3},
 	})
-	
+
 	state := GameState{
 		Turn: 1,
 		Game: Game{
@@ -343,7 +343,7 @@ func TestMove(t *testing.T) {
 	}
 
 	response := move(state)
-	
+
 	// Should return a valid move
 	validMoves := map[string]bool{
 		MoveUp:    true,
@@ -351,11 +351,11 @@ func TestMove(t *testing.T) {
 		MoveLeft:  true,
 		MoveRight: true,
 	}
-	
+
 	if !validMoves[response.Move] {
 		t.Errorf("Invalid move returned: %s", response.Move)
 	}
-	
+
 	// Should not move down (into own body)
 	if response.Move == MoveDown {
 		t.Error("Should not move into own body")
@@ -369,7 +369,7 @@ func TestScoreMove(t *testing.T) {
 		{X: 5, Y: 4},
 		{X: 5, Y: 3},
 	})
-	
+
 	state := GameState{
 		Turn: 1,
 		You:  mySnake,
@@ -801,7 +801,7 @@ func BenchmarkMoveEvaluation(b *testing.B) {
 		{X: 5, Y: 2},
 		{X: 5, Y: 1},
 	})
-	
+
 	enemySnake := createTestSnake("enemy", 80, []Coord{
 		{X: 3, Y: 3},
 		{X: 3, Y: 2},
@@ -836,7 +836,7 @@ func TestMove_PrioritizesFoodOverCircling(t *testing.T) {
 		{X: 5, Y: 3},
 		{X: 5, Y: 2}, // tail
 	})
-	
+
 	state := GameState{
 		Turn: 10,
 		Game: Game{
@@ -853,11 +853,219 @@ func TestMove_PrioritizesFoodOverCircling(t *testing.T) {
 	}
 
 	response := move(state)
-	
+
 	// With food directly above and moderate health, should move up toward food
 	// rather than following tail (which would be down, left, or right)
 	if response.Move != MoveUp {
 		t.Errorf("Expected snake to move toward food (up), but moved %s. This indicates circular tail-chasing behavior.", response.Move)
+	}
+}
+
+// Test isFoodDangerous - food near enemy snakes
+func TestIsFoodDangerous(t *testing.T) {
+	state := GameState{
+		You: createTestSnake("me", 100, []Coord{
+			{X: 0, Y: 0},
+			{X: 0, Y: 1},
+			{X: 0, Y: 2},
+		}),
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{
+				createTestSnake("me", 100, []Coord{
+					{X: 0, Y: 0},
+					{X: 0, Y: 1},
+					{X: 0, Y: 2},
+				}),
+				createTestSnake("enemy1", 100, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 6},
+					{X: 5, Y: 7},
+					{X: 5, Y: 8},
+				}),
+			},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		food     Coord
+		expected bool
+	}{
+		{"Food far from enemy", Coord{X: 0, Y: 10}, false},
+		{"Food directly on enemy body", Coord{X: 5, Y: 5}, true},
+		{"Food 1 space from enemy", Coord{X: 5, Y: 4}, true},
+		{"Food 2 spaces from enemy", Coord{X: 5, Y: 3}, true},
+		{"Food 3 spaces from enemy (safe)", Coord{X: 5, Y: 2}, false},
+		{"Food adjacent to enemy head", Coord{X: 6, Y: 5}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isFoodDangerous(state, tt.food)
+			if result != tt.expected {
+				t.Errorf("Expected %v for food at %v, got %v", tt.expected, tt.food, result)
+			}
+		})
+	}
+}
+
+// Test isFoodDangerous - no enemy snakes
+func TestIsFoodDangerous_NoEnemies(t *testing.T) {
+	state := GameState{
+		You: createTestSnake("me", 100, []Coord{
+			{X: 5, Y: 5},
+			{X: 5, Y: 4},
+			{X: 5, Y: 3},
+		}),
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Snakes: []Battlesnake{
+				createTestSnake("me", 100, []Coord{
+					{X: 5, Y: 5},
+					{X: 5, Y: 4},
+					{X: 5, Y: 3},
+				}),
+			},
+		},
+	}
+
+	// No enemy snakes, so no food should be dangerous
+	result := isFoodDangerous(state, Coord{X: 8, Y: 8})
+	if result {
+		t.Error("Food should not be dangerous when there are no enemy snakes")
+	}
+}
+
+// Test evaluateFoodProximity with dangerous food
+func TestEvaluateFoodProximity_DangerousFood(t *testing.T) {
+	state := GameState{
+		You: createTestSnake("me", 80, []Coord{
+			{X: 0, Y: 0},
+			{X: 0, Y: 1},
+			{X: 0, Y: 2},
+		}),
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food: []Coord{
+				{X: 5, Y: 5}, // Near enemy snake
+			},
+			Snakes: []Battlesnake{
+				createTestSnake("me", 80, []Coord{
+					{X: 0, Y: 0},
+					{X: 0, Y: 1},
+					{X: 0, Y: 2},
+				}),
+				createTestSnake("enemy", 100, []Coord{
+					{X: 5, Y: 7}, // Enemy looping near food at (5,5)
+					{X: 5, Y: 8},
+					{X: 4, Y: 8},
+					{X: 4, Y: 7},
+					{X: 4, Y: 6},
+					{X: 5, Y: 6},
+				}),
+			},
+		},
+	}
+
+	pos := Coord{X: 0, Y: 0}
+	score := evaluateFoodProximity(state, pos)
+
+	// Score should be significantly reduced due to dangerous food
+	// Normal score would be 1/10 = 0.1, but with danger penalty it should be ~0.01
+	if score >= 0.05 {
+		t.Errorf("Expected very low score for dangerous food, got %f", score)
+	}
+}
+
+// Test evaluateFoodProximity with safe food
+func TestEvaluateFoodProximity_SafeFood(t *testing.T) {
+	state := GameState{
+		You: createTestSnake("me", 80, []Coord{
+			{X: 0, Y: 0},
+			{X: 0, Y: 1},
+			{X: 0, Y: 2},
+		}),
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food: []Coord{
+				{X: 2, Y: 2}, // Far from enemy snake
+			},
+			Snakes: []Battlesnake{
+				createTestSnake("me", 80, []Coord{
+					{X: 0, Y: 0},
+					{X: 0, Y: 1},
+					{X: 0, Y: 2},
+				}),
+				createTestSnake("enemy", 100, []Coord{
+					{X: 8, Y: 8}, // Enemy far away
+					{X: 8, Y: 9},
+					{X: 8, Y: 10},
+				}),
+			},
+		},
+	}
+
+	pos := Coord{X: 0, Y: 0}
+	score := evaluateFoodProximity(state, pos)
+
+	// Score should not be penalized since food is safe
+	if score <= 0 {
+		t.Errorf("Expected positive score for safe food, got %f", score)
+	}
+}
+
+// Test move avoids food in corner with looping enemy snake
+func TestMove_AvoidsFoodNearLoopingSnake(t *testing.T) {
+	// Scenario: Food in corner (10, 10) with enemy snake looping nearby
+	mySnake := createTestSnake("me", 40, []Coord{
+		{X: 5, Y: 5}, // head
+		{X: 5, Y: 4},
+		{X: 5, Y: 3},
+	})
+
+	enemySnake := createTestSnake("enemy", 100, []Coord{
+		{X: 10, Y: 9}, // Looping near food at corner (10,10)
+		{X: 9, Y: 9},
+		{X: 9, Y: 10},
+		{X: 8, Y: 10},
+		{X: 8, Y: 9},
+		{X: 8, Y: 8},
+	})
+
+	state := GameState{
+		Turn: 30,
+		Game: Game{
+			ID: "test-game",
+		},
+		You: mySnake,
+		Board: Board{
+			Width:  11,
+			Height: 11,
+			Food: []Coord{
+				{X: 10, Y: 10}, // Food in corner near enemy
+				{X: 1, Y: 1},   // Safer food option
+			},
+			Snakes: []Battlesnake{mySnake, enemySnake},
+		},
+	}
+
+	// Test that the dangerous food is recognized
+	dangerousFood := Coord{X: 10, Y: 10}
+	isDangerous := isFoodDangerous(state, dangerousFood)
+	if !isDangerous {
+		t.Error("Food at (10,10) should be recognized as dangerous due to nearby enemy snake")
+	}
+
+	// Test that safe food is not marked as dangerous
+	safeFood := Coord{X: 1, Y: 1}
+	isSafe := !isFoodDangerous(state, safeFood)
+	if !isSafe {
+		t.Error("Food at (1,1) should be recognized as safe")
 	}
 }
 
@@ -875,7 +1083,7 @@ func TestMove_CircularBehaviorWithFood(t *testing.T) {
 		{X: 4, Y: 6},
 		{X: 4, Y: 5}, // tail at (4,5) - to the left of head
 	})
-	
+
 	state := GameState{
 		Turn: 60, // Late game - no center preference
 		Game: Game{
@@ -898,9 +1106,9 @@ func TestMove_CircularBehaviorWithFood(t *testing.T) {
 		scores[m] = scoreMove(state, m)
 		t.Logf("Move %s: score %.2f", m, scores[m])
 	}
-	
+
 	response := move(state)
-	
+
 	// With health 80 and food far away:
 	// - Food seeking is ACTIVE with weight 50 (prevents circling)
 	// - Tail chasing is ON (active when health > 30)
@@ -908,7 +1116,7 @@ func TestMove_CircularBehaviorWithFood(t *testing.T) {
 	// The snake now balances tail following with food awareness
 	t.Logf("Snake moved: %s with score %.2f", response.Move, scores[response.Move])
 	t.Logf("Snake health: %d, Food seeking is now always active", state.You.Health)
-	
+
 	// This test verifies that food seeking is active at all health levels
 	// preventing the circular behavior that was the original issue
 }
