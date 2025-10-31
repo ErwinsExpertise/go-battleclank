@@ -225,11 +225,12 @@ func scoreMove(state GameState, move string) float64 {
 			foodWeight = 180.0 // Moderate reduction when outmatched
 		}
 	} else {
-		// Healthy: aggressive food seeking to maintain dominance
-		// Increased from 50 to 100 to encourage active growth
-		foodWeight = 100.0
+		// Healthy: ALWAYS aggressively seek food to maintain dominance and growth
+		// Increased from 100 to 150 to eliminate circling behavior
+		// Snake should always be hunting, never standing still
+		foodWeight = 150.0
 		if outmatched {
-			foodWeight = 60.0 // Still seek food when outmatched
+			foodWeight = 90.0 // Still seek food actively when outmatched
 		}
 	}
 	score += foodFactor * foodWeight
@@ -249,11 +250,14 @@ func scoreMove(state GameState, move string) float64 {
 		score += centerFactor * 15.0
 	}
 
-	// Tail chasing when safe - but not when enemies are nearby
-	// When enemies are nearby, avoid circling to prevent becoming a sitting target
-	if state.You.Health > HealthCritical && !hasEnemiesNearby(state) {
+	// Tail following is now DISABLED to prevent circular behavior
+	// The snake should always be hunting for food or prey, never standing still
+	// Only use tail as fallback when no other options exist (very low weight)
+	// Note: Using HealthLow (50) as threshold to ensure we're healthy enough for this fallback
+	if state.You.Health > HealthLow && !hasEnemiesNearby(state) && len(state.Board.Food) == 0 {
+		// Only follow tail when no food exists (rare case)
 		tailFactor := evaluateTailProximity(state, nextPos)
-		score += tailFactor * 50.0
+		score += tailFactor * 5.0 // Reduced from 50 to 5 - minimal weight
 	}
 
 	// Penalize corner/edge positions when enemies exist (not just nearby)
@@ -486,16 +490,40 @@ func findNearestFoodManhattan(state GameState, pos Coord) (Coord, float64) {
 	return nearestFood, distanceScore
 }
 
-// isFoodDangerous checks if food is too close to enemy snakes
+// isFoodDangerous checks if food is too close to enemy snakes or in dangerous positions
 // Food is considered dangerous if:
 // 1. It's within FoodDangerRadius spaces of any enemy snake body segment
 // 2. An enemy can reach it significantly faster than us (3+ moves)
 // 3. Enemy reaches at same time and is much larger (2+ length advantage)
+// 4. It's on or very near a wall when enemies exist (limits escape routes)
 func isFoodDangerous(state GameState, food Coord) bool {
 	myDistToFood := manhattanDistance(state.You.Head, food)
 	
 	// When health is critical, be more willing to take risks
 	isCritical := state.You.Health < HealthCritical
+	
+	// Check if food is ON a wall when enemies exist
+	// Food on walls is dangerous because it limits escape routes
+	// Only skip this check when we're at critical health (must risk it to survive)
+	// OR when we're already on/near a wall ourselves (no additional danger)
+	if !isCritical && hasAnyEnemies(state) {
+		// Calculate our distance from walls using helper
+		ourMinDistToWall := getMinDistanceToWall(state, state.You.Head)
+		
+		// Check if food is directly ON any wall (distance = 0)
+		foodDistFromLeft := food.X
+		foodDistFromRight := state.Board.Width - 1 - food.X
+		foodDistFromBottom := food.Y
+		foodDistFromTop := state.Board.Height - 1 - food.Y
+		foodOnWall := (foodDistFromLeft == 0 || foodDistFromRight == 0 || foodDistFromBottom == 0 || foodDistFromTop == 0)
+		
+		// Only mark as dangerous if food is on wall AND we're not already ON a wall
+		// If we're already ON a wall (distance == 0), food on same/adjacent wall is no more dangerous
+		// But if we're 1+ squares away, going to the wall is dangerous
+		if foodOnWall && ourMinDistToWall >= 1 {
+			return true // Food on wall and we'd have to move to/toward the wall
+		}
+	}
 	
 	for _, snake := range state.Board.Snakes {
 		// Skip our own snake
@@ -1061,6 +1089,20 @@ func getMinDistanceToWall(state GameState, pos Coord) int {
 	}
 	
 	return minDist
+}
+
+// minInt returns the minimum of multiple integers
+func minInt(values ...int) int {
+	if len(values) == 0 {
+		return 0
+	}
+	min := values[0]
+	for _, v := range values[1:] {
+		if v < min {
+			min = v
+		}
+	}
+	return min
 }
 
 // evaluateEnemyReachableSpace calculates the reachable space for an enemy snake from a given position
