@@ -13,6 +13,7 @@ Automated neural network training system that runs continuously without manual i
 - **Auto-Restart**: Bash script restarts training on unexpected crashes
 - **Progress Tracking**: Comprehensive logging of all iterations
 - **Best Config Tracking**: Always maintains best configuration found
+- **Git Integration**: Automatically commits improved weights to repository with detailed commit messages
 
 ## Quick Start
 
@@ -197,6 +198,80 @@ cat nn_training_results/training_log.jsonl | jq -s '[.[].win_rate] | add / lengt
 - Warning after 100 iterations without improvement
 - Consider stopping or adjusting perturbation magnitude
 - May indicate local optimum reached
+
+## Git Integration
+
+### Automatic Commits
+
+When an improved configuration is found, the system automatically:
+
+1. **Commits** `config.yaml` to the git repository
+2. **Creates detailed commit message** with:
+   - New win rate and improvement percentage
+   - Iteration number and total games tested
+   - Timestamp of improvement
+3. **Pushes** to remote repository (if configured)
+
+### Commit Message Format
+
+```
+Automated training improvement: 48.50% win rate (+1.50%)
+
+Iteration: 142
+Total games tested: 4260
+Total improvements: 8
+Timestamp: 2025-11-01T15:30:45.123456
+
+[Automated commit by continuous training system]
+```
+
+### Git Configuration
+
+The system automatically configures git if needed:
+- User: "Automated Training Bot"
+- Email: "training-bot@battlesnake.local"
+
+To use your own git identity:
+```bash
+git config user.name "Your Name"
+git config user.email "your.email@example.com"
+```
+
+### Remote Push
+
+If a git remote is configured, improvements are automatically pushed:
+```bash
+# Verify remote is set
+git remote -v
+
+# Add remote if needed
+git remote add origin https://github.com/username/repo.git
+```
+
+### Viewing Improvement History
+
+```bash
+# View automated commits
+git log --grep="Automated training improvement"
+
+# View all improvements with stats
+git log --grep="Automated training" --oneline --stat
+
+# See specific improvement details
+git show <commit-hash>
+```
+
+### Disabling Auto-Push
+
+To commit locally but not push automatically, remove the remote:
+```bash
+# Temporarily rename remote
+git remote rename origin origin-backup
+
+# Training will commit but not push
+# Restore when ready
+git remote rename origin-backup origin
+```
 
 ## Troubleshooting
 

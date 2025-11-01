@@ -142,6 +142,57 @@ class ContinuousTrainer:
         with open(self.best_config_file, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
     
+    def git_commit_improvement(self, win_rate, improvement):
+        """Commit improved weights to git repository"""
+        try:
+            # Configure git if not already configured
+            subprocess.run(['git', 'config', '--get', 'user.name'], 
+                         capture_output=True, check=False)
+            result = subprocess.run(['git', 'config', '--get', 'user.name'], 
+                                  capture_output=True, text=True)
+            if not result.stdout.strip():
+                subprocess.run(['git', 'config', 'user.name', 'Automated Training Bot'], check=False)
+                subprocess.run(['git', 'config', 'user.email', 'training-bot@battlesnake.local'], check=False)
+            
+            # Stage config.yaml
+            subprocess.run(['git', 'add', 'config.yaml'], check=True, capture_output=True)
+            
+            # Create commit message with improvement details
+            commit_msg = (
+                f"Automated training improvement: {win_rate:.2%} win rate (+{improvement:.2%})\n\n"
+                f"Iteration: {self.state['iteration']}\n"
+                f"Total games tested: {self.state['total_games']}\n"
+                f"Total improvements: {self.state['improvements']}\n"
+                f"Timestamp: {datetime.now().isoformat()}\n\n"
+                f"[Automated commit by continuous training system]"
+            )
+            
+            # Commit
+            subprocess.run(['git', 'commit', '-m', commit_msg], 
+                         check=True, capture_output=True)
+            
+            # Push to origin (if remote exists)
+            result = subprocess.run(['git', 'remote', 'get-url', 'origin'], 
+                                  capture_output=True, check=False)
+            if result.returncode == 0:
+                subprocess.run(['git', 'push', 'origin', 'HEAD'], 
+                             check=True, capture_output=True, timeout=60)
+                print(f"   ✓ Committed and pushed to git repository")
+            else:
+                print(f"   ✓ Committed to git repository (no remote to push)")
+            
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"   ⚠ Warning: Could not commit to git: {e}")
+            return False
+        except subprocess.TimeoutExpired:
+            print(f"   ⚠ Warning: Git push timeout (commit saved locally)")
+            return False
+        except Exception as e:
+            print(f"   ⚠ Warning: Git commit failed: {e}")
+            return False
+    
     def random_perturbation(self, config, magnitude=0.1):
         """Apply random perturbation to weights"""
         import random
@@ -273,6 +324,10 @@ class ContinuousTrainer:
                 self.state['improvements'] += 1
                 self.state['last_improvement_iteration'] = iteration
                 # Config already saved
+                
+                # Commit improvement to git
+                print(f"   📝 Committing improvement to git...")
+                self.git_commit_improvement(win_rate, improvement)
             else:
                 print(f"\n⚪ No improvement: {win_rate:.1%} (best: {self.state['best_win_rate']:.1%})")
                 # Restore best config
