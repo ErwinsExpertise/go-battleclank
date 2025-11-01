@@ -71,7 +71,7 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	// NEW: Ratio-based trap detection (matches baseline snake)
 	// Use 50% of penalties against random opponents - they won't exploit traps
 	_, trapLevel := heuristics.EvaluateSpaceRatio(state, nextPos, g.MaxDepth)
-	trapPenalty := heuristics.GetSpaceTrapPenalty(trapLevel) * 0.5
+	trapPenalty := heuristics.GetSpaceTrapPenalty(trapLevel) * 0.15
 	score -= trapPenalty
 	
 	// Calculate space for both current and next position
@@ -86,7 +86,7 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	
 	// NEW: One-move lookahead for dead end detection (matches baseline snake)
 	// Use 50% of penalty against random opponents
-	deadEndPenalty := heuristics.EvaluateDeadEndAhead(state, nextPos, g.MaxDepth) * 0.5
+	deadEndPenalty := heuristics.EvaluateDeadEndAhead(state, nextPos, g.MaxDepth) * 0.15
 	score -= deadEndPenalty
 	
 	// Calculate aggression score and situational awareness

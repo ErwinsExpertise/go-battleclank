@@ -83,14 +83,13 @@ class BenchmarkRunner:
     def run_game(self, game_num):
         """Run a single game and return the winner"""
         try:
-            # Add battlesnake to PATH
+            # Get battlesnake path
             gopath = subprocess.check_output(['go', 'env', 'GOPATH'], text=True).strip()
-            env = os.environ.copy()
-            env['PATH'] = f"{gopath}/bin:{env['PATH']}"
+            battlesnake_path = f"{gopath}/bin/battlesnake"
             
             result = subprocess.run(
                 [
-                    'battlesnake', 'play',
+                    battlesnake_path, 'play',
                     '-W', str(self.board_size),
                     '-H', str(self.board_size),
                     '-t', str(self.max_turns),
@@ -103,7 +102,6 @@ class BenchmarkRunner:
                 ],
                 capture_output=True,
                 text=True,
-                env=env,
                 timeout=60
             )
             
