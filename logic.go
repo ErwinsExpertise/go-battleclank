@@ -163,22 +163,11 @@ func scoreMove(state GameState, move string) float64 {
 		return -10000.0
 	}
 
-	// CRITICAL: Check for food death traps (from baseline analysis)
-	// This must be checked before other evaluations as it prevents fatal mistakes
-	foodDeathTrapPenalty := evaluateFoodDeathTrap(state, nextPos, nextPos)
-	if foodDeathTrapPenalty > 0 {
-		score -= foodDeathTrapPenalty
-	}
-
-	// CRITICAL: Check for ratio-based trap detection (from baseline analysis)
-	// Applies graduated penalties based on space-to-body-length ratio
-	trapPenalty := evaluateTrapPenalty(state, nextPos)
-	score -= trapPenalty
-
-	// HIGH PRIORITY: One-move lookahead to detect dead-ends
-	// Checks if this move leads to limited future options
-	lookaheadPenalty := evaluateOneMoveAhead(state, move)
-	score -= lookaheadPenalty
+	// TESTING: Temporarily disabled new trap detection to establish baseline
+	// foodDeathTrapPenalty := evaluateFoodDeathTrap(state, nextPos, nextPos)
+	// trapPenalty := evaluateTrapPenalty(state, nextPos)
+	// lookaheadPenalty := evaluateOneMoveAhead(state, move)
+	// score -= foodDeathTrapPenalty + trapPenalty + lookaheadPenalty
 
 	// OLD: Disabled multi-turn lookahead in favor of new ratio-based trap detection
 	// The new trap detection (ratio-based + one-move lookahead) is more accurate
@@ -436,6 +425,69 @@ func floodFill(state GameState, pos Coord, visited map[Coord]bool, depth int, ma
 	count += floodFill(state, Coord{X: pos.X, Y: pos.Y + 1}, visited, depth+1, maxDepth)
 	count += floodFill(state, Coord{X: pos.X, Y: pos.Y - 1}, visited, depth+1, maxDepth)
 
+	return count
+}
+
+// floodFillBFS uses iterative BFS to count reachable spaces (like baseline snake)
+// This is more accurate than depth-limited recursion
+func floodFillBFS(state GameState, startPos Coord) int {
+	visited := make(map[Coord]bool)
+	queue := []Coord{startPos}
+	visited[startPos] = true
+	count := 0
+	
+	// Cap at board size to prevent infinite loops
+	maxNodes := state.Board.Width * state.Board.Height
+	
+	for len(queue) > 0 && count < maxNodes {
+		pos := queue[0]
+		queue = queue[1:]
+		count++
+		
+		// Check all 4 directions
+		directions := []Coord{
+			{X: pos.X + 1, Y: pos.Y},
+			{X: pos.X - 1, Y: pos.Y},
+			{X: pos.X, Y: pos.Y + 1},
+			{X: pos.X, Y: pos.Y - 1},
+		}
+		
+		for _, nextPos := range directions {
+			// Skip if already visited
+			if visited[nextPos] {
+				continue
+			}
+			
+			// Skip if out of bounds
+			if nextPos.X < 0 || nextPos.X >= state.Board.Width || nextPos.Y < 0 || nextPos.Y >= state.Board.Height {
+				continue
+			}
+			
+			// Skip if blocked by snake body (excluding tails that will move)
+			blocked := false
+			for _, snake := range state.Board.Snakes {
+				for i, segment := range snake.Body {
+					// Skip tails that will move (last segment unless snake just ate)
+					if i == len(snake.Body)-1 {
+						continue
+					}
+					if nextPos.X == segment.X && nextPos.Y == segment.Y {
+						blocked = true
+						break
+					}
+				}
+				if blocked {
+					break
+				}
+			}
+			
+			if !blocked {
+				visited[nextPos] = true
+				queue = append(queue, nextPos)
+			}
+		}
+	}
+	
 	return count
 }
 
