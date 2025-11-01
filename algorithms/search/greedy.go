@@ -230,6 +230,14 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		score += trapScore * trapWeight
 	}
 	
+	// NEW: Starvation strategy - cut off opponent from food and trap them
+	// Active when we have health + length advantage
+	if state.You.Health > 50 && float64(state.You.Length) > getAverageEnemyLength(state) {
+		starvationScore := heuristics.EvaluateStarvationOpportunity(state, nextPos, g.MaxDepth)
+		// High weight: 300 - starvation is a powerful win condition
+		score += starvationScore * 300.0
+	}
+	
 	// Survival bonus: MASSIVELY reward moves that maintain good space
 	if nextSpace > 0.3 {
 		survivalBonus := 120.0  // Large bonus for good space
