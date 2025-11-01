@@ -44,6 +44,15 @@ type GreedySearch struct {
 	TrappingWeight float64
 	TrappingSpaceCutoffThreshold float64
 	TrappingTrappedRatio float64
+	
+	// Food urgency multipliers
+	FoodUrgencyCritical float64
+	FoodUrgencyLow      float64
+	FoodUrgencyNormal   float64
+	
+	// Late game parameters
+	LateGameTurnThreshold    int
+	LateGameCautionMultiplier float64
 }
 
 // NewGreedySearch creates a new greedy search using config values
@@ -73,6 +82,13 @@ func NewGreedySearch() *GreedySearch {
 		TrappingWeight:       cfg.Trapping.Weight,
 		TrappingSpaceCutoffThreshold: cfg.Trapping.SpaceCutoffThreshold,
 		TrappingTrappedRatio: cfg.Trapping.TrappedRatio,
+		
+		FoodUrgencyCritical: cfg.FoodUrgency.Critical,
+		FoodUrgencyLow:      cfg.FoodUrgency.Low,
+		FoodUrgencyNormal:   cfg.FoodUrgency.Normal,
+		
+		LateGameTurnThreshold:    cfg.LateGame.TurnThreshold,
+		LateGameCautionMultiplier: cfg.LateGame.CautionMultiplier,
 	}
 }
 
@@ -193,12 +209,13 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	foodFactor := heuristics.EvaluateFoodProximity(state, nextPos, g.UseAStar, g.MaxAStarNodes)
 	foodWeight := policy.GetFoodWeight(state, aggression, outmatched)
 	
-	// INCREMENTAL IMPROVEMENT 1: Simple health-based urgency (lightweight)
-	// Just a multiplier based on health - no complex logic
+	// Food urgency multipliers from config
 	if state.You.Health < policy.HealthCritical {
-		foodWeight *= 1.8  // Critical health: big boost (was 2.0, reduced for balance)
+		foodWeight *= g.FoodUrgencyCritical
 	} else if state.You.Health < policy.HealthLow {
-		foodWeight *= 1.4  // Low health: moderate boost (was 1.5, reduced)
+		foodWeight *= g.FoodUrgencyLow
+	} else {
+		foodWeight *= g.FoodUrgencyNormal
 	}
 	
 	// Be more aggressive with food when we have advantage
@@ -214,11 +231,10 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		headRiskMultiplier = 0.7  // 30% less cautious when aggressive
 	}
 	
-	// INCREMENTAL IMPROVEMENT 2: Very conservative late-game adjustment
-	// Only in late game (120+ turns) and only slight adjustment
-	if state.Turn > 120 && state.You.Health > policy.HealthLow {
+	// Late-game caution from config
+	if state.Turn > g.LateGameTurnThreshold && state.You.Health > policy.HealthLow {
 		enemiesAlive := len(state.Board.Snakes) - 1
-		// If we're in final 1v1 and have length advantage, be slightly more cautious
+		// If we're in final 1v1 and have length advantage, be more cautious
 		if enemiesAlive == 1 {
 			avgLen := 0
 			for _, snake := range state.Board.Snakes {
@@ -228,7 +244,7 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 				}
 			}
 			if state.You.Length > avgLen {
-				headRiskMultiplier *= 1.10  // Just 10% more cautious (was 15%, reduced)
+				headRiskMultiplier *= g.LateGameCautionMultiplier
 			}
 		}
 	}
