@@ -68,6 +68,11 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		return -10000.0
 	}
 	
+	// NEW: Ratio-based trap detection (matches baseline snake)
+	_, trapLevel := heuristics.EvaluateSpaceRatio(state, nextPos, g.MaxDepth)
+	trapPenalty := heuristics.GetSpaceTrapPenalty(trapLevel)
+	score -= trapPenalty
+	
 	// Calculate space for both current and next position
 	mySpace := heuristics.EvaluateSpace(state, myHead, g.MaxDepth)
 	nextSpace := heuristics.EvaluateSpace(state, nextPos, g.MaxDepth)
@@ -77,6 +82,10 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		// Moving here cuts our space by 70%+ - dangerous!
 		score -= 1000.0
 	}
+	
+	// NEW: One-move lookahead for dead end detection (matches baseline snake)
+	deadEndPenalty := heuristics.EvaluateDeadEndAhead(state, nextPos, g.MaxDepth)
+	score -= deadEndPenalty
 	
 	// Calculate aggression score and situational awareness
 	aggression := policy.CalculateAggressionScore(state, mySpace)
@@ -109,6 +118,25 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	}
 	
 	score += spaceFactor * spaceWeight
+	
+	// NEW: Food death trap detection (matches baseline snake)
+	// If moving to food, check if we'll be trapped after eating
+	isFoodAtPos := false
+	for _, food := range state.Board.Food {
+		if food.X == nextPos.X && food.Y == nextPos.Y {
+			isFoodAtPos = true
+			break
+		}
+	}
+	
+	if isFoodAtPos {
+		// Check if eating this food would trap us (70% threshold)
+		isTrap, _ := heuristics.EvaluateFoodTrapRatio(state, nextPos, g.MaxDepth)
+		if isTrap {
+			// Food death trap - very dangerous (-800 matches baseline)
+			score -= 800.0
+		}
+	}
 	
 	// Food seeking (outmatched already calculated above)
 	foodFactor := heuristics.EvaluateFoodProximity(state, nextPos, g.UseAStar, g.MaxAStarNodes)
