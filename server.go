@@ -29,11 +29,12 @@ func HandleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	useRefactored := os.Getenv("USE_REFACTORED") == "true"
-	if useRefactored {
-		startRefactored(state)
-	} else {
+	// Use refactored logic by default unless explicitly disabled
+	useLegacy := os.Getenv("USE_LEGACY") == "true"
+	if useLegacy {
 		start(state)
+	} else {
+		startRefactored(state)
 	}
 
 	// Nothing to respond with here
@@ -49,14 +50,14 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if we should use refactored logic
-	useRefactored := os.Getenv("USE_REFACTORED") == "true"
+	// Use refactored logic by default unless explicitly disabled
+	useLegacy := os.Getenv("USE_LEGACY") == "true"
 	
 	var response BattlesnakeMoveResponse
-	if useRefactored {
-		response = moveRefactored(state)
-	} else {
+	if useLegacy {
 		response = move(state)
+	} else {
+		response = moveRefactored(state)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -76,11 +77,12 @@ func HandleEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	useRefactored := os.Getenv("USE_REFACTORED") == "true"
-	if useRefactored {
-		endRefactored(state)
-	} else {
+	// Use refactored logic by default unless explicitly disabled
+	useLegacy := os.Getenv("USE_LEGACY") == "true"
+	if useLegacy {
 		end(state)
+	} else {
+		endRefactored(state)
 	}
 
 	// Nothing to respond with here
