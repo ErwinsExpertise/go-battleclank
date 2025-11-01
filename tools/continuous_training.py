@@ -91,8 +91,19 @@ class ContinuousTrainer:
             )
             
             # Parse output for win rate
+            # Look for "Wins:   X (YY.Y%)" format
             for line in result.stdout.split('\n'):
-                if 'Win rate:' in line or 'win rate:' in line:
+                if 'Wins:' in line or 'wins:' in line:
+                    # Extract percentage from parentheses
+                    import re
+                    match = re.search(r'\((\d+\.?\d*)%\)', line)
+                    if match:
+                        try:
+                            return float(match.group(1)) / 100.0
+                        except:
+                            pass
+                # Also support legacy "Win rate:" format
+                elif 'Win rate:' in line or 'win rate:' in line:
                     # Extract percentage
                     parts = line.split(':')
                     if len(parts) >= 2:
