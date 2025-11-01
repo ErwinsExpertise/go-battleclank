@@ -8,6 +8,11 @@ import "github.com/ErwinsExpertise/go-battleclank/engine/board"
 // This matches the baseline's algorithm (VecDeque-based BFS, not recursion)
 // maxDepth limits the search for performance (baseline caps at 121 for 11x11 board)
 func FloodFill(state *board.GameState, start board.Coord, maxDepth int) int {
+	// Check if starting position is valid and not blocked
+	if !state.Board.IsInBounds(start) || state.Board.IsOccupied(start, true) {
+		return 0
+	}
+	
 	// Use slice as queue (more efficient than recursive approach)
 	queue := []board.Coord{start}
 	visited := make(map[board.Coord]bool)

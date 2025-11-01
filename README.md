@@ -121,6 +121,34 @@ Run with coverage:
 go test -v -cover ./...
 ```
 
+## Development Setup
+
+For development, testing, and training, use the quick setup script to install all dependencies and build all binaries:
+
+```bash
+./tools/quick_setup.sh
+```
+
+This script will:
+- Check and install Python3 and pip3 (if needed on Ubuntu)
+- Verify Go and Rust/Cargo are installed (provides install instructions if missing)
+- Install Python dependencies from `requirements.txt`
+- Install the battlesnake CLI tool
+- Build both the Go snake (`go-battleclank`) and Rust baseline snake
+- Make all scripts executable
+- Verify all binaries are present
+
+**Prerequisites:**
+- Ubuntu 22.04 or 24.04 (other Linux distros should work with minor adjustments)
+- Go 1.24 or higher
+- Rust/Cargo (script will provide installation instructions if not present)
+
+After setup, you can run:
+- `python3 tools/run_benchmark.py 100` - Run live benchmarks against Rust baseline
+- `./tools/start_training.sh` - Start continuous training
+- `python3 tools/optimize_weights.py` - Optimize decision weights
+- `./tools/automated_test_cycle.sh` - Run full test cycle
+
 ### Benchmarking
 
 Run performance benchmarks against simulated opponents:

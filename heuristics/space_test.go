@@ -59,7 +59,9 @@ func TestEvaluateSpace(t *testing.T) {
 	}
 	
 	// In an empty board, should have access to most of the space
-	score := EvaluateSpace(state, board.Coord{X: 5, Y: 5}, 10)
+	// Use board area as maxDepth to explore full board (11*11 = 121)
+	maxDepth := state.Board.Width * state.Board.Height
+	score := EvaluateSpace(state, board.Coord{X: 5, Y: 5}, maxDepth)
 	
 	if score <= 0 || score > 1 {
 		t.Errorf("EvaluateSpace returned %.2f, expected value between 0 and 1", score)
