@@ -170,16 +170,56 @@ func (bt *BatchTester) runSingleGame(gameID int) GameOutcome {
 		// Remove dead snakes
 		state = bt.removeDeadSnakes(state)
 		
+		// Check if all enemies are dead (early win)
+		enemiesAlive := 0
+		for _, snake := range state.Board.Snakes {
+			if snake.ID != "you" && snake.Health > 0 {
+				enemiesAlive++
+			}
+		}
+		if enemiesAlive == 0 {
+			// We won! All enemies eliminated
+			outcome.Winner = true
+			outcome.Turns = turn + 1
+			outcome.DeathReason = "eliminated-all-enemies"
+			return outcome
+		}
+		
 		// Spawn food randomly
 		if turn%5 == 0 && len(state.Board.Food) < 3 {
 			state = bt.spawnFood(state)
 		}
 	}
 	
-	// Survived max turns
-	outcome.Winner = true
+	// Reached max turns - determine winner by comparing with remaining snakes
 	outcome.Turns = bt.Config.MaxTurns
 	outcome.DeathReason = "survived"
+	
+	// Check if we're the last snake alive
+	aliveSnakes := 0
+	ourLength := 0
+	longestEnemyLength := 0
+	
+	for _, snake := range state.Board.Snakes {
+		if snake.Health > 0 {
+			aliveSnakes++
+			if snake.ID == "you" {
+				ourLength = snake.Length
+			} else if snake.Length > longestEnemyLength {
+				longestEnemyLength = snake.Length
+			}
+		}
+	}
+	
+	// Win conditions:
+	// 1. We're the only snake alive
+	// 2. We survived and are longer than all enemies
+	if aliveSnakes == 1 || ourLength > longestEnemyLength {
+		outcome.Winner = true
+	} else {
+		outcome.Winner = false
+		outcome.DeathReason = "outlasted"  // Lost on length/survival comparison
+	}
 	
 	return outcome
 }

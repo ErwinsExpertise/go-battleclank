@@ -30,14 +30,14 @@ type GreedySearch struct {
 // NewGreedySearch creates a new greedy search with tuned weights for 80%+ win rate
 func NewGreedySearch() *GreedySearch {
 	return &GreedySearch{
-		SpaceWeight:         180.0,  // Significantly increased - space is survival
-		HeadCollisionWeight: 650.0,  // Increased - avoid deaths
-		CenterWeight:        8.0,    // Decreased - less important than survival
-		WallPenaltyWeight:   250.0,  // Decreased - sometimes walls are OK
-		CutoffWeight:        450.0,  // Increased - being boxed in is bad
-		MaxDepth:            25,     // Deep lookahead for space
+		SpaceWeight:         250.0,  // CRITICAL: space = survival against random opponents
+		HeadCollisionWeight: 600.0,  // Important but not as much vs random
+		CenterWeight:        10.0,   // Moderate - helps with positioning
+		WallPenaltyWeight:   150.0,  // Lower - walls aren't as dangerous vs random
+		CutoffWeight:        350.0,  // Moderate - escape routes matter
+		MaxDepth:            35,     // Deep lookahead for comprehensive space evaluation
 		UseAStar:            true,
-		MaxAStarNodes:       300,    // More nodes for better food paths
+		MaxAStarNodes:       400,    // More thorough pathfinding
 	}
 }
 
@@ -68,6 +68,12 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		return -10000.0
 	}
 	
+	// NEW: Ratio-based trap detection (matches baseline snake)
+	// Use 50% of penalties against random opponents - they won't exploit traps
+	_, trapLevel := heuristics.EvaluateSpaceRatio(state, nextPos, g.MaxDepth)
+	trapPenalty := heuristics.GetSpaceTrapPenalty(trapLevel) * 0.5
+	score -= trapPenalty
+	
 	// Calculate space for both current and next position
 	mySpace := heuristics.EvaluateSpace(state, myHead, g.MaxDepth)
 	nextSpace := heuristics.EvaluateSpace(state, nextPos, g.MaxDepth)
@@ -77,6 +83,11 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		// Moving here cuts our space by 70%+ - dangerous!
 		score -= 1000.0
 	}
+	
+	// NEW: One-move lookahead for dead end detection (matches baseline snake)
+	// Use 50% of penalty against random opponents
+	deadEndPenalty := heuristics.EvaluateDeadEndAhead(state, nextPos, g.MaxDepth) * 0.5
+	score -= deadEndPenalty
 	
 	// Calculate aggression score and situational awareness
 	aggression := policy.CalculateAggressionScore(state, mySpace)
@@ -109,6 +120,31 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	}
 	
 	score += spaceFactor * spaceWeight
+	
+	// NEW: Food death trap detection (matches baseline snake)
+	// If moving to food, check if we'll be trapped after eating
+	isFoodAtPos := false
+	for _, food := range state.Board.Food {
+		if food.X == nextPos.X && food.Y == nextPos.Y {
+			isFoodAtPos = true
+			break
+		}
+	}
+	
+	if isFoodAtPos {
+		// Check if eating this food would trap us (70% threshold)
+		isTrap, _ := heuristics.EvaluateFoodTrapRatio(state, nextPos, g.MaxDepth)
+		if isTrap {
+			// Food death trap - dangerous but reduce penalty if health is critical
+			foodTrapPenalty := 800.0
+			if state.You.Health < policy.HealthCritical {
+				foodTrapPenalty = 400.0  // Risk it when starving
+			} else if state.You.Health < policy.HealthLow {
+				foodTrapPenalty = 600.0  // Reduced risk when low health
+			}
+			score -= foodTrapPenalty
+		}
+	}
 	
 	// Food seeking (outmatched already calculated above)
 	foodFactor := heuristics.EvaluateFoodProximity(state, nextPos, g.UseAStar, g.MaxAStarNodes)
@@ -146,23 +182,44 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		score += trapScore * trapWeight
 	}
 	
-	// Survival bonus: reward moves that maintain good space
+	// Survival bonus: MASSIVELY reward moves that maintain good space
 	if nextSpace > 0.3 {
-		survivalBonus := 50.0
+		survivalBonus := 120.0  // Large bonus for good space
 		if state.You.Health < policy.HealthLow {
-			survivalBonus = 100.0  // Extra important when low health
+			survivalBonus = 200.0  // Huge bonus when vulnerable
 		}
 		score += survivalBonus
+	} else if nextSpace > 0.2 {
+		// Still reward decent space
+		score += 60.0
 	}
 	
 	// Future options bonus: reward moves with more valid next moves
 	validNextMoves := countValidMoves(state, nextPos)
 	if validNextMoves >= 3 {
-		score += 30.0  // Having 3-4 options is good
+		score += 50.0  // Increased from 30 - having options is very valuable
 	} else if validNextMoves == 2 {
-		score += 10.0
+		score += 20.0  // Increased from 10
 	} else if validNextMoves == 1 {
-		score -= 50.0  // Only 1 option is risky
+		score -= 80.0  // Increased penalty - very risky
+	}
+	
+	// Length advantage bonus: reward being longer than enemies
+	lengthAdvantage := 0
+	for _, snake := range state.Board.Snakes {
+		if snake.ID != state.You.ID {
+			if state.You.Length > snake.Length {
+				lengthAdvantage++
+			}
+		}
+	}
+	if lengthAdvantage > 0 {
+		score += float64(lengthAdvantage) * 30.0  // Moderate bonus for being longer
+	}
+	
+	// Health maintenance: bonus for maintaining good health
+	if state.You.Health > 80 {
+		score += 20.0  // Bonus for being healthy
 	}
 	
 	return score

@@ -102,3 +102,68 @@ func IsTrapSafe(state *board.GameState, nextPos board.Coord, maxDepth int) bool 
 	// Need reasonable amount of space after trap attempt
 	return mySpace > 0.15 // At least 15% of board
 }
+
+// EvaluateDeadEndAhead performs one-move lookahead to detect dead ends
+// Returns penalty if all future moves lead to significantly worse space
+// This matches baseline snake's lookahead logic
+func EvaluateDeadEndAhead(state *board.GameState, currentPos board.Coord, maxDepth int) float64 {
+	// Calculate current space ratio
+	currentSpace := FloodFill(state, currentPos, maxDepth)
+	bodyLength := state.You.Length
+	currentRatio := float64(currentSpace) / float64(bodyLength)
+	
+	if currentSpace == 0 {
+		return 0.0 // Already trapped, no point in lookahead
+	}
+	
+	// Simulate one move ahead for each possible direction
+	worstNextRatio := currentRatio
+	
+	directions := []string{"up", "down", "left", "right"}
+	for _, dir := range directions {
+		nextPos := getNextPosForDir(currentPos, dir, state)
+		if nextPos == nil {
+			continue // Invalid move
+		}
+		
+		// Check if this move is valid
+		if !state.Board.IsInBounds(*nextPos) || state.Board.IsOccupied(*nextPos, true) {
+			continue
+		}
+		
+		// Calculate space after this move
+		simState := simulateOurMove(state, *nextPos)
+		futureSpace := FloodFill(simState, *nextPos, maxDepth)
+		futureRatio := float64(futureSpace) / float64(bodyLength)
+		
+		if futureRatio < worstNextRatio {
+			worstNextRatio = futureRatio
+		}
+	}
+	
+	// If worst future ratio < 80% of current ratio, apply penalty
+	// This means all paths lead to significantly worse space
+	if worstNextRatio < currentRatio*0.8 {
+		return 200.0 // Dead end penalty
+	}
+	
+	return 0.0
+}
+
+// getNextPosForDir returns the next position for a given direction
+func getNextPosForDir(pos board.Coord, dir string, state *board.GameState) *board.Coord {
+	var nextPos board.Coord
+	switch dir {
+	case "up":
+		nextPos = board.Coord{X: pos.X, Y: pos.Y + 1}
+	case "down":
+		nextPos = board.Coord{X: pos.X, Y: pos.Y - 1}
+	case "left":
+		nextPos = board.Coord{X: pos.X - 1, Y: pos.Y}
+	case "right":
+		nextPos = board.Coord{X: pos.X + 1, Y: pos.Y}
+	default:
+		return nil
+	}
+	return &nextPos
+}
