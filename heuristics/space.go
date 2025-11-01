@@ -108,11 +108,12 @@ const (
 )
 
 // SpaceTrapPenalties maps trap levels to penalty values
+// MATCHED TO BASELINE: trap_penalty=-250, severe=-450, critical=-600
 var SpaceTrapPenalties = map[SpaceTrapLevel]float64{
-	SpaceSafe:     0.0,
-	SpaceModerate: 250.0,
-	SpaceSevere:   450.0,
-	SpaceCritical: 600.0,
+	SpaceSafe:     0.0,    // 80%+ ratio - safe
+	SpaceModerate: 250.0,  // 60-80% ratio - baseline: -250
+	SpaceSevere:   450.0,  // 40-60% ratio - baseline: -450
+	SpaceCritical: 600.0,  // <40% ratio - baseline: -600
 }
 
 // EvaluateSpaceRatio calculates space-to-body-length ratio and returns trap level
