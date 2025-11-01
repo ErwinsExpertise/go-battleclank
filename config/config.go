@@ -1,7 +1,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 	"sync"
@@ -83,11 +82,12 @@ type Config struct {
 var (
 	globalConfig *Config
 	once         sync.Once
+	mu           sync.RWMutex
 )
 
 // Load reads configuration from file
 func Load(filename string) (*Config, error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -116,12 +116,48 @@ func GetConfig() *Config {
 			config = GetDefaultConfig()
 		}
 
+		mu.Lock()
 		globalConfig = config
-		log.Printf("Configuration loaded: algorithm=%s, space_weight=%.1f", 
-			config.Search.Algorithm, config.Weights.Space)
+		mu.Unlock()
+		
+		log.Printf("✓ Configuration loaded successfully:")
+		log.Printf("  - Algorithm: %s", config.Search.Algorithm)
+		log.Printf("  - Space weight: %.1f", config.Weights.Space)
+		log.Printf("  - Head collision weight: %.1f", config.Weights.HeadCollision)
+		log.Printf("  - Food trap penalty: %.1f", config.Traps.FoodTrap)
+		log.Printf("  - Pursuit distance 2: %.1f", config.Pursuit.Distance2)
+		log.Printf("  - Trapping weight: %.1f", config.Trapping.Weight)
 	})
 
+	mu.RLock()
+	defer mu.RUnlock()
 	return globalConfig
+}
+
+// ReloadConfig forces a reload of the configuration from file
+// This is useful for training when config values are updated
+func ReloadConfig() error {
+	configPath := os.Getenv("BATTLESNAKE_CONFIG")
+	if configPath == "" {
+		configPath = "config.yaml"
+	}
+
+	config, err := Load(configPath)
+	if err != nil {
+		return err
+	}
+
+	mu.Lock()
+	globalConfig = config
+	mu.Unlock()
+	
+	log.Printf("✓ Configuration reloaded:")
+	log.Printf("  - Algorithm: %s", config.Search.Algorithm)
+	log.Printf("  - Space weight: %.1f", config.Weights.Space)
+	log.Printf("  - Head collision weight: %.1f", config.Weights.HeadCollision)
+	log.Printf("  - Food trap penalty: %.1f", config.Traps.FoodTrap)
+	
+	return nil
 }
 
 // GetDefaultConfig returns baseline-matched default configuration
@@ -188,5 +224,5 @@ func (c *Config) Save(filename string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0644)
 }
