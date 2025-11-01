@@ -30,6 +30,7 @@ baseline/Cargo.lock
 
 # Benchmark results (keep recent ones manually)
 benchmark_results_live/
+nn_training_results/
 
 # IDE files
 .idea/
