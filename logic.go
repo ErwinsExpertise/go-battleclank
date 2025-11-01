@@ -163,16 +163,29 @@ func scoreMove(state GameState, move string) float64 {
 		return -10000.0
 	}
 
-	// NEW: Check for self-trapping scenarios (multi-turn lookahead)
-	// This helps prevent the snake from moving into positions where it will
-	// collide with itself in the next few turns.
-	// Note: This is a lightweight check that only validates escape routes exist,
-	// not a full recursive simulation, to maintain performance.
-	if !simulateMove(state, move, 1) {
-		// This move leads to a self-trap situation - apply strong penalty
-		// but not as severe as immediate death to allow it as a last resort
-		score -= 3000.0
+	// CRITICAL: Check for food death traps (from baseline analysis)
+	// This must be checked before other evaluations as it prevents fatal mistakes
+	foodDeathTrapPenalty := evaluateFoodDeathTrap(state, nextPos, nextPos)
+	if foodDeathTrapPenalty > 0 {
+		score -= foodDeathTrapPenalty
 	}
+
+	// CRITICAL: Check for ratio-based trap detection (from baseline analysis)
+	// Applies graduated penalties based on space-to-body-length ratio
+	trapPenalty := evaluateTrapPenalty(state, nextPos)
+	score -= trapPenalty
+
+	// HIGH PRIORITY: One-move lookahead to detect dead-ends
+	// Checks if this move leads to limited future options
+	lookaheadPenalty := evaluateOneMoveAhead(state, move)
+	score -= lookaheadPenalty
+
+	// OLD: Disabled multi-turn lookahead in favor of new ratio-based trap detection
+	// The new trap detection (ratio-based + one-move lookahead) is more accurate
+	// and less computationally expensive
+	// if !simulateMove(state, move, 1) {
+	// 	score -= 3000.0
+	// }
 
 	// NEW: Check if we're moving into enemy danger zones
 	// Predict where enemies can move next turn
@@ -1468,4 +1481,148 @@ func findNearestFoodWithAStar(state GameState, pos Coord) (Coord, []Coord) {
 	}
 
 	return nearestFood, shortestPath
+}
+
+// evaluateSpaceRatio calculates the ratio of available space to snake body length
+// This is used for ratio-based trap detection as implemented in the baseline snake
+// Returns the ratio (e.g., 0.5 = 50% of body length in available space)
+func evaluateSpaceRatio(state GameState, pos Coord) float64 {
+	visited := make(map[Coord]bool)
+	spaceCount := floodFill(state, pos, visited, 0, state.You.Length*2) // Increased maxDepth for better accuracy
+	bodyLength := float64(state.You.Length)
+	
+	if bodyLength == 0 {
+		return 1.0
+	}
+	
+	ratio := float64(spaceCount) / bodyLength
+	return ratio
+}
+
+// evaluateTrapPenalty returns a penalty based on space-to-body-length ratio
+// Implements graduated trap detection similar to baseline snake:
+// - Critical trap (< 40%): -400 (reduced from -600 to not be too conservative)
+// - Severe trap (40-60%): -300 (reduced from -450)
+// - Moderate trap (60-80%): -150 (reduced from -250)
+// - Good space (80%+): 0
+func evaluateTrapPenalty(state GameState, pos Coord) float64 {
+	ratio := evaluateSpaceRatio(state, pos)
+	
+	if ratio < 0.40 {
+		// Critical trap - very dangerous
+		return 400.0
+	} else if ratio < 0.60 {
+		// Severe trap - bad situation
+		return 300.0
+	} else if ratio < 0.80 {
+		// Moderate trap - concerning
+		return 150.0
+	}
+	
+	// Good space - no penalty
+	return 0.0
+}
+
+// evaluateFoodDeathTrap checks if eating food would trap the snake
+// Simulates eating the food (tail doesn't move) and checks remaining space
+// Returns true if it's a food death trap (< 70% of body length in remaining space)
+func evaluateFoodDeathTrap(state GameState, pos Coord, foodPos Coord) float64 {
+	// Only check if this position is food
+	isFood := false
+	for _, food := range state.Board.Food {
+		if pos.X == food.X && pos.Y == food.Y {
+			isFood = true
+			break
+		}
+	}
+	
+	if !isFood {
+		return 0.0 // Not eating food, no trap risk
+	}
+	
+	// Simulate the state after eating food
+	// When eating food, the snake grows (tail doesn't move)
+	simState := GameState{
+		Game:  state.Game,
+		Turn:  state.Turn,
+		Board: state.Board,
+		You:   state.You,
+	}
+	
+	// Update our snake to have the new head (simulating the move)
+	// but keep the tail (simulating growth from eating)
+	newBody := make([]Coord, len(state.You.Body)+1)
+	newBody[0] = pos
+	copy(newBody[1:], state.You.Body)
+	
+	simState.You = Battlesnake{
+		ID:     state.You.ID,
+		Name:   state.You.Name,
+		Health: MaxHealth,
+		Body:   newBody,
+		Head:   pos,
+		Length: state.You.Length + 1,
+	}
+	
+	// Update the board snakes as well
+	for i, snake := range simState.Board.Snakes {
+		if snake.ID == state.You.ID {
+			simState.Board.Snakes[i] = simState.You
+			break
+		}
+	}
+	
+	// Calculate available space after eating
+	visited := make(map[Coord]bool)
+	spaceCount := floodFill(simState, pos, visited, 0, simState.You.Length*2)
+	ratio := float64(spaceCount) / float64(simState.You.Length)
+	
+	// Baseline uses 70% threshold for food death traps
+	// Using 500 instead of 800 to not be overly conservative
+	if ratio < 0.70 {
+		// This food would trap us - apply strong penalty
+		return 500.0
+	}
+	
+	return 0.0
+}
+
+// evaluateOneMoveLooka head checks if a move leads to a dead end
+// Simulates one move ahead and checks if the worst-case future space ratio drops significantly
+// Returns penalty if the move leads to reduced future options
+func evaluateOneMoveAhead(state GameState, move string) float64 {
+	myHead := state.You.Head
+	nextPos := getNextPosition(myHead, move)
+	
+	// Get current space ratio
+	currentRatio := evaluateSpaceRatio(state, myHead)
+	
+	// Simulate all 4 possible moves from next position
+	possibleMoves := []string{MoveUp, MoveDown, MoveLeft, MoveRight}
+	worstFutureRatio := 1.0
+	
+	for _, futureMove := range possibleMoves {
+		futurePos := getNextPosition(nextPos, futureMove)
+		
+		// Skip if immediately fatal
+		if isImmediatelyFatal(state, futurePos) {
+			continue
+		}
+		
+		// Calculate space ratio for this future position
+		futureRatio := evaluateSpaceRatio(state, futurePos)
+		
+		if futureRatio < worstFutureRatio {
+			worstFutureRatio = futureRatio
+		}
+	}
+	
+	// If worst future ratio is less than 80% of current ratio, apply penalty
+	// This indicates we're moving into a position with limited future options
+	// Using 100 instead of 200 to not be overly conservative
+	if worstFutureRatio < currentRatio * 0.80 {
+		return 100.0
+	}
+	
+	return 0.0
 }

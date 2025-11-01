@@ -21,6 +21,15 @@ go.work
 go-battleclank
 benchmark
 compare-implementations
+tools/benchmark_vs_baseline
+tools/live_benchmark
+
+# Rust build artifacts
+baseline/target/
+baseline/Cargo.lock
+
+# Benchmark results (keep recent ones manually)
+benchmark_results_live/
 
 # IDE files
 .idea/
