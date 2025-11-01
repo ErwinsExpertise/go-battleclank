@@ -108,15 +108,28 @@ func withServerID(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // HandleReloadConfig responds to POST /reload-config to reload configuration
+// Note: This endpoint allows runtime config reload, but it's recommended to restart
+// the server for training to ensure all strategy instances use the new config
 func HandleReloadConfig(w http.ResponseWriter, r *http.Request) {
-	// Import config package
-	// Note: This endpoint is for training/development use
 	log.Println("Received config reload request")
 	
-	// This is a placeholder - actual reload will be implemented
-	// For now, return success
+	err := config.ReloadConfig()
+	if err != nil {
+		log.Printf("Error reloading config: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "error",
+			"message": "Failed to reload config: " + err.Error(),
+		})
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok","message":"Config reload functionality available - restart server to apply changes"}`))
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": "Config reloaded successfully. Note: Existing strategy instances will continue using old config until next move.",
+	})
 }
 
 // RunServer starts the Battlesnake HTTP server

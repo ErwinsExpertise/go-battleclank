@@ -186,7 +186,7 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	score += pursuitBonus
 	
 	// AGGRESSIVE TRAPPING: Additional trap detection
-	trapBonus := evaluateAggressiveTrapping(state, nextPos, mySpace, aggression.Score, g.TrappingSpaceCutoffThreshold, g.TrappingTrappedRatio)
+	trapBonus := g.evaluateAggressiveTrapping(state, nextPos, mySpace, aggression.Score)
 	score += trapBonus * g.TrappingWeight
 	
 	// Food seeking (outmatched already calculated above)
@@ -410,7 +410,7 @@ func evaluateWallAvoidance(state *board.GameState, pos board.Coord) float64 {
 
 // evaluateAggressiveTrapping calculates bonus for moves that trap the enemy
 // Returns 0.0-1.0 score bonus for trapping opportunities
-func evaluateAggressiveTrapping(state *board.GameState, nextPos board.Coord, mySpace float64, aggression float64, spaceCutoffThreshold float64, trappedRatio float64) float64 {
+func (g *GreedySearch) evaluateAggressiveTrapping(state *board.GameState, nextPos board.Coord, mySpace float64, aggression float64) float64 {
 // Only trap when aggressive (good health, length advantage)
 if aggression < 0.6 {
 return 0.0
@@ -449,13 +449,13 @@ spaceReduction := float64(enemySpace - enemySpaceAfter)
 if spaceReduction > 0 {
 reductionRatio := spaceReduction / float64(enemySpace)
 
-if reductionRatio > spaceCutoffThreshold {  // Enemy loses significant space
+if reductionRatio > g.TrappingSpaceCutoffThreshold {  // Enemy loses significant space
 trapScore += reductionRatio * 0.5
 }
 
 // Extra bonus if enemy gets trapped (low space relative to body)
 enemyRatio := float64(enemySpaceAfter) / float64(enemy.Length)
-if enemyRatio < trappedRatio {  // Enemy trapped
+if enemyRatio < g.TrappingTrappedRatio {  // Enemy trapped
 trapScore += 0.3
 }
 }

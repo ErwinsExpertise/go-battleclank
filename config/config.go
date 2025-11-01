@@ -1,7 +1,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 	"sync"
@@ -88,7 +87,7 @@ var (
 
 // Load reads configuration from file
 func Load(filename string) (*Config, error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -225,5 +224,5 @@ func (c *Config) Save(filename string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0644)
 }

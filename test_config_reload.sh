@@ -33,9 +33,12 @@ grep "Space weight:" server.log | head -1
 echo
 
 # Modify config
-echo "5. Modifying config.yaml (changing space weight from 5.0 to 10.0)..."
-sed -i 's/space: 5\.0/space: 10.0/' config.yaml
-echo "   ✓ Config modified"
+echo "5. Modifying config.yaml (changing space weight)..."
+# Read current space value
+CURRENT_SPACE=$(grep "  space:" config.yaml | awk '{print $2}')
+NEW_SPACE="10.0"
+sed -i "s/  space: ${CURRENT_SPACE}/  space: ${NEW_SPACE}/" config.yaml
+echo "   ✓ Config modified (space: ${CURRENT_SPACE} → ${NEW_SPACE})"
 echo
 
 # Kill and restart server
@@ -50,11 +53,12 @@ echo
 
 # Verify new config was loaded
 echo "7. Verifying new config values loaded..."
-if grep -q "Space weight: 10.0" server2.log; then
+if grep -q "Space weight: ${NEW_SPACE}" server2.log; then
     echo "   ✓ SUCCESS: New config values loaded!"
-    echo "   Space weight changed from 5.0 to 10.0"
+    echo "   Space weight changed from ${CURRENT_SPACE} to ${NEW_SPACE}"
 else
     echo "   ✗ FAILED: Config not updated"
+    grep "Space weight:" server2.log | head -1
     exit 1
 fi
 echo
