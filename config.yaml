@@ -1,0 +1,75 @@
+# Battlesnake Configuration
+# All tunable weights and parameters for easy adjustment
+
+# Search Strategy
+search:
+  algorithm: "hybrid"  # Options: greedy, hybrid, lookahead, mcts
+  max_depth: 121       # Maximum flood fill depth (11x11 = 121)
+  use_astar: true
+  max_astar_nodes: 400
+
+# Core Weights (matched to baseline)
+weights:
+  space: 5.0              # Points per accessible square
+  head_collision: 500.0   # Penalty/bonus for head-to-head encounters
+  center_control: 2.0     # Bonus for center positioning
+  wall_penalty: 5.0       # Penalty for being near walls
+  cutoff: 200.0           # Penalty for dead-end ahead
+  food: 1.0               # Base food seeking weight (scaled by policy)
+
+# Trap Detection Penalties
+traps:
+  moderate: 250.0    # 60-80% space ratio
+  severe: 450.0      # 40-60% space ratio
+  critical: 600.0    # <40% space ratio
+  food_trap: 800.0   # Eating food leads to trap (70% threshold)
+  food_trap_threshold: 0.7
+
+# Aggressive Pursuit (when longer than enemy)
+pursuit:
+  distance_2: 100.0  # Almost in range
+  distance_3: 50.0   # Closing in
+  distance_4: 25.0   # Still relevant
+  distance_5: 10.0   # On radar
+
+# Aggressive Trapping
+trapping:
+  weight: 400.0
+  space_cutoff_threshold: 0.2  # Enemy space reduced by 20%+
+  trapped_ratio: 0.6           # Enemy space/body < 0.6 = trapped
+
+# Health-Based Food Seeking Multipliers
+food_urgency:
+  critical: 1.8   # Health < 30
+  low: 1.4        # Health < 50
+  normal: 1.0     # Health >= 50
+
+# Late Game Adjustments
+late_game:
+  turn_threshold: 150
+  caution_multiplier: 1.1  # 10% more cautious in 1v1 endgame
+
+# Hybrid Strategy Parameters
+hybrid:
+  # When to use lookahead (critical situations)
+  use_lookahead_on_critical: true
+  lookahead_depth: 3
+  
+  # When to use MCTS (endgame)
+  use_mcts_in_endgame: true
+  mcts_iterations: 100
+  mcts_timeout_ms: 200
+  
+  # Criticality thresholds
+  critical_health: 30
+  critical_space_ratio: 3.0  # accessible_space / body_length
+  critical_nearby_enemies: 2
+
+# Optimization Settings (for neural network tuning)
+optimization:
+  enabled: false
+  learning_rate: 0.001
+  batch_size: 32
+  episodes: 1000
+  exploration_rate: 0.1
+  discount_factor: 0.95
