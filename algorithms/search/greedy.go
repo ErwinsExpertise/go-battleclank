@@ -37,7 +37,7 @@ func NewGreedySearch() *GreedySearch {
 		CutoffWeight:        350.0,  // Moderate - escape routes matter
 		MaxDepth:            35,     // Deep lookahead for comprehensive space evaluation
 		UseAStar:            true,
-		MaxAStarNodes:       400,    // More thorough pathfinding
+		MaxAStarNodes:       800,    // More thorough pathfinding
 	}
 }
 
