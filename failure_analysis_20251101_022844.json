@@ -1,0 +1,529 @@
+{
+  "timestamp": "20251101_022844",
+  "num_games": 100,
+  "wins": 32,
+  "losses": 65,
+  "win_rate": 32.0,
+  "failures": [
+    {
+      "game": 3,
+      "turns": 96,
+      "details": {
+        "final_turns": 96,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 4,
+      "turns": 155,
+      "details": {
+        "final_turns": 155,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 7,
+      "turns": 144,
+      "details": {
+        "final_turns": 144,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 8,
+      "turns": 118,
+      "details": {
+        "final_turns": 118,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 9,
+      "turns": 115,
+      "details": {
+        "final_turns": 115,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 10,
+      "turns": 79,
+      "details": {
+        "final_turns": 79,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 11,
+      "turns": 27,
+      "details": {
+        "final_turns": 27,
+        "turn_category": "early_game"
+      }
+    },
+    {
+      "game": 14,
+      "turns": 222,
+      "details": {
+        "final_turns": 222,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 15,
+      "turns": 148,
+      "details": {
+        "final_turns": 148,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 17,
+      "turns": 99,
+      "details": {
+        "final_turns": 99,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 18,
+      "turns": 70,
+      "details": {
+        "final_turns": 70,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 19,
+      "turns": 104,
+      "details": {
+        "final_turns": 104,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 20,
+      "turns": 85,
+      "details": {
+        "final_turns": 85,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 21,
+      "turns": 268,
+      "details": {
+        "final_turns": 268,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 26,
+      "turns": 175,
+      "details": {
+        "final_turns": 175,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 29,
+      "turns": 135,
+      "details": {
+        "final_turns": 135,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 30,
+      "turns": 48,
+      "details": {
+        "final_turns": 48,
+        "turn_category": "early_game"
+      }
+    },
+    {
+      "game": 31,
+      "turns": 224,
+      "details": {
+        "final_turns": 224,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 32,
+      "turns": 311,
+      "details": {
+        "final_turns": 311,
+        "turn_category": "very_late_game"
+      }
+    },
+    {
+      "game": 34,
+      "turns": 194,
+      "details": {
+        "final_turns": 194,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 35,
+      "turns": 88,
+      "details": {
+        "final_turns": 88,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 37,
+      "turns": 81,
+      "details": {
+        "final_turns": 81,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 39,
+      "turns": 187,
+      "details": {
+        "final_turns": 187,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 42,
+      "turns": 159,
+      "details": {
+        "final_turns": 159,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 43,
+      "turns": 227,
+      "details": {
+        "final_turns": 227,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 45,
+      "turns": 143,
+      "details": {
+        "final_turns": 143,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 46,
+      "turns": 266,
+      "details": {
+        "final_turns": 266,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 48,
+      "turns": 243,
+      "details": {
+        "final_turns": 243,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 49,
+      "turns": 144,
+      "details": {
+        "final_turns": 144,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 50,
+      "turns": 66,
+      "details": {
+        "final_turns": 66,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 51,
+      "turns": 49,
+      "details": {
+        "final_turns": 49,
+        "turn_category": "early_game"
+      }
+    },
+    {
+      "game": 52,
+      "turns": 118,
+      "details": {
+        "final_turns": 118,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 53,
+      "turns": 228,
+      "details": {
+        "final_turns": 228,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 54,
+      "turns": 103,
+      "details": {
+        "final_turns": 103,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 57,
+      "turns": 285,
+      "details": {
+        "final_turns": 285,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 59,
+      "turns": 121,
+      "details": {
+        "final_turns": 121,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 60,
+      "turns": 167,
+      "details": {
+        "final_turns": 167,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 62,
+      "turns": 192,
+      "details": {
+        "final_turns": 192,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 63,
+      "turns": 109,
+      "details": {
+        "final_turns": 109,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 64,
+      "turns": 100,
+      "details": {
+        "final_turns": 100,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 65,
+      "turns": 210,
+      "details": {
+        "final_turns": 210,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 69,
+      "turns": 175,
+      "details": {
+        "final_turns": 175,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 70,
+      "turns": 132,
+      "details": {
+        "final_turns": 132,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 72,
+      "turns": 155,
+      "details": {
+        "final_turns": 155,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 73,
+      "turns": 51,
+      "details": {
+        "final_turns": 51,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 74,
+      "turns": 77,
+      "details": {
+        "final_turns": 77,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 75,
+      "turns": 200,
+      "details": {
+        "final_turns": 200,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 76,
+      "turns": 145,
+      "details": {
+        "final_turns": 145,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 77,
+      "turns": 87,
+      "details": {
+        "final_turns": 87,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 78,
+      "turns": 40,
+      "details": {
+        "final_turns": 40,
+        "turn_category": "early_game"
+      }
+    },
+    {
+      "game": 79,
+      "turns": 79,
+      "details": {
+        "final_turns": 79,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 80,
+      "turns": 144,
+      "details": {
+        "final_turns": 144,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 81,
+      "turns": 170,
+      "details": {
+        "final_turns": 170,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 83,
+      "turns": 110,
+      "details": {
+        "final_turns": 110,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 84,
+      "turns": 157,
+      "details": {
+        "final_turns": 157,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 85,
+      "turns": 65,
+      "details": {
+        "final_turns": 65,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 87,
+      "turns": 97,
+      "details": {
+        "final_turns": 97,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 89,
+      "turns": 29,
+      "details": {
+        "final_turns": 29,
+        "turn_category": "early_game"
+      }
+    },
+    {
+      "game": 90,
+      "turns": 252,
+      "details": {
+        "final_turns": 252,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 92,
+      "turns": 119,
+      "details": {
+        "final_turns": 119,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 93,
+      "turns": 275,
+      "details": {
+        "final_turns": 275,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 94,
+      "turns": 169,
+      "details": {
+        "final_turns": 169,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 98,
+      "turns": 108,
+      "details": {
+        "final_turns": 108,
+        "turn_category": "mid_game"
+      }
+    },
+    {
+      "game": 99,
+      "turns": 169,
+      "details": {
+        "final_turns": 169,
+        "turn_category": "late_game"
+      }
+    },
+    {
+      "game": 100,
+      "turns": 79,
+      "details": {
+        "final_turns": 79,
+        "turn_category": "mid_game"
+      }
+    }
+  ]
+}

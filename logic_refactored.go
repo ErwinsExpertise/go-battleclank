@@ -17,7 +17,7 @@ func moveRefactored(state GameState) BattlesnakeMoveResponse {
 	// Convert API state to internal board representation
 	internalState := convertToInternalState(state)
 	
-	// Create greedy search strategy
+	// Use greedy search with tuned penalties
 	strategy := search.NewGreedySearch()
 	
 	// Find best move
