@@ -54,10 +54,6 @@ archives:
     files:
       - README.md
       - LICENSE
-      - ALGORITHMS.md
-      - USAGE.md
-      - STRATEGY_REVIEW.md
-      - ASTAR_IMPLEMENTATION.md
 
 checksum:
   name_template: 'checksums.txt'
