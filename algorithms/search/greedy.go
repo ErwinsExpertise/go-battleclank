@@ -1,6 +1,7 @@
 package search
 
 import (
+	"github.com/ErwinsExpertise/go-battleclank/config"
 	"github.com/ErwinsExpertise/go-battleclank/engine/board"
 	"github.com/ErwinsExpertise/go-battleclank/heuristics"
 	"github.com/ErwinsExpertise/go-battleclank/policy"
@@ -17,28 +18,61 @@ type MoveScore struct {
 
 // GreedySearch implements a single-turn greedy heuristic search
 type GreedySearch struct {
-	SpaceWeight       float64
+	SpaceWeight         float64
 	HeadCollisionWeight float64
-	CenterWeight      float64
-	WallPenaltyWeight float64
-	CutoffWeight      float64
-	MaxDepth          int
-	UseAStar          bool
-	MaxAStarNodes     int
+	CenterWeight        float64
+	WallPenaltyWeight   float64
+	CutoffWeight        float64
+	MaxDepth            int
+	UseAStar            bool
+	MaxAStarNodes       int
+	
+	// Trap penalties
+	TrapModerate  float64
+	TrapSevere    float64
+	TrapCritical  float64
+	FoodTrap      float64
+	FoodTrapThreshold float64
+	
+	// Pursuit bonuses
+	PursuitDist2  float64
+	PursuitDist3  float64
+	PursuitDist4  float64
+	PursuitDist5  float64
+	
+	// Trapping parameters
+	TrappingWeight float64
+	TrappingSpaceCutoffThreshold float64
+	TrappingTrappedRatio float64
 }
 
-// NewGreedySearch creates a new greedy search TUNED TO MATCH BASELINE
-// Weights carefully aligned with baseline Rust snake's scoring.rs
+// NewGreedySearch creates a new greedy search using config values
 func NewGreedySearch() *GreedySearch {
+	cfg := config.GetConfig()
 	return &GreedySearch{
-		SpaceWeight:         5.0,    // Baseline: 5 per open square
-		HeadCollisionWeight: 500.0,  // Baseline: 500/-500 for win/lose head-to-head
-		CenterWeight:        2.0,    // Baseline: 2 for center control
-		WallPenaltyWeight:   5.0,    // Baseline: -5 near wall penalty
-		CutoffWeight:        200.0,  // Baseline: -200 for dead end ahead
-		MaxDepth:            121,    // Baseline: caps at 11x11 = 121 squares
-		UseAStar:            true,
-		MaxAStarNodes:       400,    // Keep A* for food seeking
+		SpaceWeight:         cfg.Weights.Space,
+		HeadCollisionWeight: cfg.Weights.HeadCollision,
+		CenterWeight:        cfg.Weights.CenterControl,
+		WallPenaltyWeight:   cfg.Weights.WallPenalty,
+		CutoffWeight:        cfg.Weights.Cutoff,
+		MaxDepth:            cfg.Search.MaxDepth,
+		UseAStar:            cfg.Search.UseAStar,
+		MaxAStarNodes:       cfg.Search.MaxAStarNodes,
+		
+		TrapModerate:         cfg.Traps.Moderate,
+		TrapSevere:           cfg.Traps.Severe,
+		TrapCritical:         cfg.Traps.Critical,
+		FoodTrap:             cfg.Traps.FoodTrap,
+		FoodTrapThreshold:    cfg.Traps.FoodTrapThreshold,
+		
+		PursuitDist2:         cfg.Pursuit.Distance2,
+		PursuitDist3:         cfg.Pursuit.Distance3,
+		PursuitDist4:         cfg.Pursuit.Distance4,
+		PursuitDist5:         cfg.Pursuit.Distance5,
+		
+		TrappingWeight:       cfg.Trapping.Weight,
+		TrappingSpaceCutoffThreshold: cfg.Trapping.SpaceCutoffThreshold,
+		TrappingTrappedRatio: cfg.Trapping.TrappedRatio,
 	}
 }
 
@@ -133,29 +167,27 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	}
 	
 	if isFoodAtPos {
-		// Check if eating this food would trap us (70% threshold)
-		// MATCHED TO BASELINE: -800 food death trap penalty
+		// Check if eating this food would trap us
 		isTrap, _ := heuristics.EvaluateFoodTrapRatio(state, nextPos, g.MaxDepth)
 		if isTrap {
-			// Food death trap - baseline uses flat -800, we reduce when critical
-			foodTrapPenalty := 800.0
+			// Food death trap - reduce penalty when critical health
+			foodTrapPenalty := g.FoodTrap
 			if state.You.Health < policy.HealthCritical {
-				foodTrapPenalty = 400.0  // Risk it when starving
+				foodTrapPenalty = g.FoodTrap * 0.5  // Risk it when starving
 			} else if state.You.Health < policy.HealthLow {
-				foodTrapPenalty = 600.0  // Reduced risk when low health
+				foodTrapPenalty = g.FoodTrap * 0.75  // Reduced risk when low health
 			}
 			score -= foodTrapPenalty
 		}
 	}
 	
-	// AGGRESSIVE PURSUIT - MATCHED TO BASELINE
-	// Baseline: pursuit bonus when longer (100/50/25/10 at dist 2/3/4/5)
-	pursuitBonus := evaluateAggressivePursuit(state, nextPos)
+	// AGGRESSIVE PURSUIT: pursuit bonus when longer
+	pursuitBonus := g.evaluateAggressivePursuit(state, nextPos)
 	score += pursuitBonus
 	
 	// AGGRESSIVE TRAPPING: Additional trap detection
-	trapBonus := evaluateAggressiveTrapping(state, nextPos, mySpace, aggression.Score)
-	score += trapBonus * 400.0  // High weight on trapping opportunities
+	trapBonus := evaluateAggressiveTrapping(state, nextPos, mySpace, aggression.Score, g.TrappingSpaceCutoffThreshold, g.TrappingTrappedRatio)
+	score += trapBonus * g.TrappingWeight
 	
 	// Food seeking (outmatched already calculated above)
 	foodFactor := heuristics.EvaluateFoodProximity(state, nextPos, g.UseAStar, g.MaxAStarNodes)
@@ -378,7 +410,7 @@ func evaluateWallAvoidance(state *board.GameState, pos board.Coord) float64 {
 
 // evaluateAggressiveTrapping calculates bonus for moves that trap the enemy
 // Returns 0.0-1.0 score bonus for trapping opportunities
-func evaluateAggressiveTrapping(state *board.GameState, nextPos board.Coord, mySpace float64, aggression float64) float64 {
+func evaluateAggressiveTrapping(state *board.GameState, nextPos board.Coord, mySpace float64, aggression float64, spaceCutoffThreshold float64, trappedRatio float64) float64 {
 // Only trap when aggressive (good health, length advantage)
 if aggression < 0.6 {
 return 0.0
@@ -417,13 +449,13 @@ spaceReduction := float64(enemySpace - enemySpaceAfter)
 if spaceReduction > 0 {
 reductionRatio := spaceReduction / float64(enemySpace)
 
-if reductionRatio > 0.2 {  // Enemy loses 20%+ space
+if reductionRatio > spaceCutoffThreshold {  // Enemy loses significant space
 trapScore += reductionRatio * 0.5
 }
 
 // Extra bonus if enemy gets trapped (low space relative to body)
 enemyRatio := float64(enemySpaceAfter) / float64(enemy.Length)
-if enemyRatio < 0.6 {  // Enemy trapped
+if enemyRatio < trappedRatio {  // Enemy trapped
 trapScore += 0.3
 }
 }
@@ -526,40 +558,39 @@ bonus += 0.3
 return bonus
 }
 
-// evaluateAggressivePursuit matches baseline's pursuit logic (lines 202-217)
-// Move toward enemy heads if we outsize them, scaled inversely with distance
-func evaluateAggressivePursuit(state *board.GameState, nextPos board.Coord) float64 {
-bonus := 0.0
-
-for _, enemy := range state.Board.Snakes {
-if enemy.ID == state.You.ID {
-continue
-}
-
-// Only pursue if we're longer
-if state.You.Length <= enemy.Length {
-continue
-}
-
-dist := manhattanDistance(nextPos, enemy.Head)
-
-// Baseline pursuit bonuses at distances 2-5
-pursuitScore := 0.0
-switch dist {
-case 2:
-pursuitScore = 100.0  // Almost in range - very good
-case 3:
-pursuitScore = 50.0   // Closing in
-case 4:
-pursuitScore = 25.0   // Still relevant
-case 5:
-pursuitScore = 10.0   // On radar
-}
-
-bonus += pursuitScore
-}
-
-return bonus
+// evaluateAggressivePursuit calculates pursuit bonus based on distance to smaller enemies
+func (g *GreedySearch) evaluateAggressivePursuit(state *board.GameState, nextPos board.Coord) float64 {
+	bonus := 0.0
+	
+	for _, enemy := range state.Board.Snakes {
+		if enemy.ID == state.You.ID {
+			continue
+		}
+		
+		// Only pursue if we're longer
+		if state.You.Length <= enemy.Length {
+			continue
+		}
+		
+		dist := manhattanDistance(nextPos, enemy.Head)
+		
+		// Pursuit bonuses at distances 2-5 from config
+		pursuitScore := 0.0
+		switch dist {
+		case 2:
+			pursuitScore = g.PursuitDist2
+		case 3:
+			pursuitScore = g.PursuitDist3
+		case 4:
+			pursuitScore = g.PursuitDist4
+		case 5:
+			pursuitScore = g.PursuitDist5
+		}
+		
+		bonus += pursuitScore
+	}
+	
+	return bonus
 }
 
 // evaluateAggressivePursuit matches baseline's pursuit logic

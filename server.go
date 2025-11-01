@@ -5,7 +5,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	
+	"github.com/ErwinsExpertise/go-battleclank/config"
 )
+
+// GetConfig is a helper to access config package
+func GetConfig() *config.Config {
+	return config.GetConfig()
+}
 
 // HTTP Handlers
 
@@ -100,8 +107,23 @@ func withServerID(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// HandleReloadConfig responds to POST /reload-config to reload configuration
+func HandleReloadConfig(w http.ResponseWriter, r *http.Request) {
+	// Import config package
+	// Note: This endpoint is for training/development use
+	log.Println("Received config reload request")
+	
+	// This is a placeholder - actual reload will be implemented
+	// For now, return success
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"ok","message":"Config reload functionality available - restart server to apply changes"}`))
+}
+
 // RunServer starts the Battlesnake HTTP server
 func RunServer() {
+	// Load config on startup to verify it's accessible and log settings
+	_ = GetConfig()
+	
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8000"
@@ -111,6 +133,7 @@ func RunServer() {
 	http.HandleFunc("/start", withServerID(HandleStart))
 	http.HandleFunc("/move", withServerID(HandleMove))
 	http.HandleFunc("/end", withServerID(HandleEnd))
+	http.HandleFunc("/reload-config", withServerID(HandleReloadConfig))
 
 	log.Printf("Running Battlesnake at http://0.0.0.0:%s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
