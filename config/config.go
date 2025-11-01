@@ -165,15 +165,15 @@ func GetDefaultConfig() *Config {
 	config := &Config{}
 
 	config.Search.Algorithm = "hybrid"
-	config.Search.MaxDepth = 35
+	config.Search.MaxDepth = 121
 	config.Search.UseAStar = true
 	config.Search.MaxAStarNodes = 400
 
-	config.Weights.Space = 250.0
-	config.Weights.HeadCollision = 600.0
-	config.Weights.CenterControl = 10.0
-	config.Weights.WallPenalty = 150.0
-	config.Weights.Cutoff = 350.0
+	config.Weights.Space = 5.0
+	config.Weights.HeadCollision = 500.0
+	config.Weights.CenterControl = 2.0
+	config.Weights.WallPenalty = 5.0
+	config.Weights.Cutoff = 200.0
 	config.Weights.Food = 1.0
 
 	config.Traps.Moderate = 250.0
