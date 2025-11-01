@@ -1,0 +1,103 @@
+{
+  "Config": {
+    "NumGames": 10,
+    "BoardWidth": 11,
+    "BoardHeight": 11,
+    "MaxTurns": 500,
+    "NumSnakes": 2
+  },
+  "TotalGames": 10,
+  "Wins": 4,
+  "Losses": 6,
+  "Draws": 0,
+  "WinRate": 40,
+  "DeathsStarve": 0,
+  "DeathsCollision": 0,
+  "DeathsHeadToHead": 0,
+  "DeathsTimeout": 0,
+  "AvgTurns": 387.4,
+  "AvgFinalLength": 22.2,
+  "AvgFoodEaten": 19.3,
+  "Games": [
+    {
+      "GameNumber": 1,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 30,
+      "FoodEaten": 28,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 2,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 47,
+      "FoodEaten": 44,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 3,
+      "Winner": "baseline-snake",
+      "Turns": 310,
+      "OurLength": 10,
+      "FoodEaten": 7,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 4,
+      "Winner": "baseline-snake",
+      "Turns": 252,
+      "OurLength": 12,
+      "FoodEaten": 9,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 5,
+      "Winner": "baseline-snake",
+      "Turns": 291,
+      "OurLength": 8,
+      "FoodEaten": 5,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 6,
+      "Winner": "baseline-snake",
+      "Turns": 479,
+      "OurLength": 28,
+      "FoodEaten": 25,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 7,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 29,
+      "FoodEaten": 26,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 8,
+      "Winner": "baseline-snake",
+      "Turns": 442,
+      "OurLength": 20,
+      "FoodEaten": 17,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 9,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 35,
+      "FoodEaten": 32,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 10,
+      "Winner": "baseline-snake",
+      "Turns": 100,
+      "OurLength": 3,
+      "FoodEaten": 0,
+      "DeathCause": "eliminated"
+    }
+  ]
+}
