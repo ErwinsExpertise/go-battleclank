@@ -1,0 +1,823 @@
+{
+  "Config": {
+    "NumGames": 100,
+    "BoardWidth": 11,
+    "BoardHeight": 11,
+    "MaxTurns": 500,
+    "NumSnakes": 2
+  },
+  "TotalGames": 100,
+  "Wins": 29,
+  "Losses": 71,
+  "Draws": 0,
+  "WinRate": 28.999999999999996,
+  "DeathsStarve": 0,
+  "DeathsCollision": 0,
+  "DeathsHeadToHead": 0,
+  "DeathsTimeout": 0,
+  "AvgTurns": 383.54,
+  "AvgFinalLength": 20.44,
+  "AvgFoodEaten": 17.46,
+  "Games": [
+    {
+      "GameNumber": 1,
+      "Winner": "baseline-snake",
+      "Turns": 249,
+      "OurLength": 10,
+      "FoodEaten": 7,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 2,
+      "Winner": "baseline-snake",
+      "Turns": 358,
+      "OurLength": 16,
+      "FoodEaten": 13,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 3,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 38,
+      "FoodEaten": 35,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 4,
+      "Winner": "baseline-snake",
+      "Turns": 329,
+      "OurLength": 16,
+      "FoodEaten": 13,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 5,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 28,
+      "FoodEaten": 25,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 6,
+      "Winner": "baseline-snake",
+      "Turns": 374,
+      "OurLength": 18,
+      "FoodEaten": 15,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 7,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 33,
+      "FoodEaten": 30,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 8,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 23,
+      "FoodEaten": 20,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 9,
+      "Winner": "baseline-snake",
+      "Turns": 427,
+      "OurLength": 19,
+      "FoodEaten": 16,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 10,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 34,
+      "FoodEaten": 31,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 11,
+      "Winner": "baseline-snake",
+      "Turns": 490,
+      "OurLength": 28,
+      "FoodEaten": 25,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 12,
+      "Winner": "baseline-snake",
+      "Turns": 265,
+      "OurLength": 10,
+      "FoodEaten": 7,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 13,
+      "Winner": "baseline-snake",
+      "Turns": 249,
+      "OurLength": 14,
+      "FoodEaten": 11,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 14,
+      "Winner": "baseline-snake",
+      "Turns": 468,
+      "OurLength": 29,
+      "FoodEaten": 26,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 15,
+      "Winner": "baseline-snake",
+      "Turns": 407,
+      "OurLength": 22,
+      "FoodEaten": 19,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 16,
+      "Winner": "baseline-snake",
+      "Turns": 391,
+      "OurLength": 22,
+      "FoodEaten": 19,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 17,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 35,
+      "FoodEaten": 33,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 18,
+      "Winner": "baseline-snake",
+      "Turns": 146,
+      "OurLength": 6,
+      "FoodEaten": 3,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 19,
+      "Winner": "baseline-snake",
+      "Turns": 294,
+      "OurLength": 11,
+      "FoodEaten": 8,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 20,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 27,
+      "FoodEaten": 24,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 21,
+      "Winner": "baseline-snake",
+      "Turns": 206,
+      "OurLength": 8,
+      "FoodEaten": 5,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 22,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 39,
+      "FoodEaten": 36,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 23,
+      "Winner": "baseline-snake",
+      "Turns": 358,
+      "OurLength": 15,
+      "FoodEaten": 12,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 24,
+      "Winner": "baseline-snake",
+      "Turns": 354,
+      "OurLength": 10,
+      "FoodEaten": 7,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 25,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 46,
+      "FoodEaten": 43,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 26,
+      "Winner": "baseline-snake",
+      "Turns": 269,
+      "OurLength": 13,
+      "FoodEaten": 10,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 27,
+      "Winner": "baseline-snake",
+      "Turns": 370,
+      "OurLength": 19,
+      "FoodEaten": 16,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 28,
+      "Winner": "baseline-snake",
+      "Turns": 406,
+      "OurLength": 18,
+      "FoodEaten": 15,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 29,
+      "Winner": "baseline-snake",
+      "Turns": 418,
+      "OurLength": 20,
+      "FoodEaten": 17,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 30,
+      "Winner": "baseline-snake",
+      "Turns": 431,
+      "OurLength": 21,
+      "FoodEaten": 18,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 31,
+      "Winner": "baseline-snake",
+      "Turns": 443,
+      "OurLength": 23,
+      "FoodEaten": 20,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 32,
+      "Winner": "baseline-snake",
+      "Turns": 404,
+      "OurLength": 29,
+      "FoodEaten": 26,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 33,
+      "Winner": "baseline-snake",
+      "Turns": 298,
+      "OurLength": 12,
+      "FoodEaten": 9,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 34,
+      "Winner": "baseline-snake",
+      "Turns": 246,
+      "OurLength": 7,
+      "FoodEaten": 4,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 35,
+      "Winner": "baseline-snake",
+      "Turns": 405,
+      "OurLength": 25,
+      "FoodEaten": 22,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 36,
+      "Winner": "baseline-snake",
+      "Turns": 420,
+      "OurLength": 18,
+      "FoodEaten": 15,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 37,
+      "Winner": "baseline-snake",
+      "Turns": 358,
+      "OurLength": 15,
+      "FoodEaten": 12,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 38,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 20,
+      "FoodEaten": 17,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 39,
+      "Winner": "baseline-snake",
+      "Turns": 256,
+      "OurLength": 19,
+      "FoodEaten": 16,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 40,
+      "Winner": "baseline-snake",
+      "Turns": 468,
+      "OurLength": 21,
+      "FoodEaten": 18,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 41,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 22,
+      "FoodEaten": 19,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 42,
+      "Winner": "baseline-snake",
+      "Turns": 325,
+      "OurLength": 17,
+      "FoodEaten": 14,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 43,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 32,
+      "FoodEaten": 29,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 44,
+      "Winner": "baseline-snake",
+      "Turns": 371,
+      "OurLength": 24,
+      "FoodEaten": 21,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 45,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 32,
+      "FoodEaten": 29,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 46,
+      "Winner": "baseline-snake",
+      "Turns": 339,
+      "OurLength": 19,
+      "FoodEaten": 16,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 47,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 37,
+      "FoodEaten": 34,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 48,
+      "Winner": "baseline-snake",
+      "Turns": 485,
+      "OurLength": 28,
+      "FoodEaten": 25,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 49,
+      "Winner": "baseline-snake",
+      "Turns": 372,
+      "OurLength": 21,
+      "FoodEaten": 18,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 50,
+      "Winner": "baseline-snake",
+      "Turns": 225,
+      "OurLength": 8,
+      "FoodEaten": 5,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 51,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 25,
+      "FoodEaten": 22,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 52,
+      "Winner": "baseline-snake",
+      "Turns": 482,
+      "OurLength": 24,
+      "FoodEaten": 21,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 53,
+      "Winner": "baseline-snake",
+      "Turns": 334,
+      "OurLength": 15,
+      "FoodEaten": 12,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 54,
+      "Winner": "baseline-snake",
+      "Turns": 422,
+      "OurLength": 35,
+      "FoodEaten": 32,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 55,
+      "Winner": "baseline-snake",
+      "Turns": 270,
+      "OurLength": 22,
+      "FoodEaten": 19,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 56,
+      "Winner": "baseline-snake",
+      "Turns": 305,
+      "OurLength": 9,
+      "FoodEaten": 6,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 57,
+      "Winner": "baseline-snake",
+      "Turns": 367,
+      "OurLength": 16,
+      "FoodEaten": 13,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 58,
+      "Winner": "baseline-snake",
+      "Turns": 282,
+      "OurLength": 14,
+      "FoodEaten": 11,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 59,
+      "Winner": "baseline-snake",
+      "Turns": 488,
+      "OurLength": 20,
+      "FoodEaten": 17,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 60,
+      "Winner": "baseline-snake",
+      "Turns": 385,
+      "OurLength": 14,
+      "FoodEaten": 11,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 61,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 41,
+      "FoodEaten": 38,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 62,
+      "Winner": "baseline-snake",
+      "Turns": 295,
+      "OurLength": 23,
+      "FoodEaten": 20,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 63,
+      "Winner": "baseline-snake",
+      "Turns": 239,
+      "OurLength": 13,
+      "FoodEaten": 10,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 64,
+      "Winner": "baseline-snake",
+      "Turns": 436,
+      "OurLength": 19,
+      "FoodEaten": 16,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 65,
+      "Winner": "baseline-snake",
+      "Turns": 149,
+      "OurLength": 6,
+      "FoodEaten": 3,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 66,
+      "Winner": "baseline-snake",
+      "Turns": 201,
+      "OurLength": 5,
+      "FoodEaten": 2,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 67,
+      "Winner": "baseline-snake",
+      "Turns": 308,
+      "OurLength": 9,
+      "FoodEaten": 6,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 68,
+      "Winner": "baseline-snake",
+      "Turns": 445,
+      "OurLength": 17,
+      "FoodEaten": 14,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 69,
+      "Winner": "baseline-snake",
+      "Turns": 478,
+      "OurLength": 17,
+      "FoodEaten": 14,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 70,
+      "Winner": "baseline-snake",
+      "Turns": 203,
+      "OurLength": 6,
+      "FoodEaten": 3,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 71,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 33,
+      "FoodEaten": 30,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 72,
+      "Winner": "baseline-snake",
+      "Turns": 240,
+      "OurLength": 11,
+      "FoodEaten": 8,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 73,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 17,
+      "FoodEaten": 14,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 74,
+      "Winner": "baseline-snake",
+      "Turns": 255,
+      "OurLength": 17,
+      "FoodEaten": 14,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 75,
+      "Winner": "baseline-snake",
+      "Turns": 412,
+      "OurLength": 14,
+      "FoodEaten": 11,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 76,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 17,
+      "FoodEaten": 14,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 77,
+      "Winner": "baseline-snake",
+      "Turns": 231,
+      "OurLength": 11,
+      "FoodEaten": 8,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 78,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 18,
+      "FoodEaten": 15,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 79,
+      "Winner": "baseline-snake",
+      "Turns": 367,
+      "OurLength": 14,
+      "FoodEaten": 11,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 80,
+      "Winner": "baseline-snake",
+      "Turns": 370,
+      "OurLength": 21,
+      "FoodEaten": 18,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 81,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 40,
+      "FoodEaten": 37,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 82,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 21,
+      "FoodEaten": 18,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 83,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 37,
+      "FoodEaten": 34,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 84,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 41,
+      "FoodEaten": 39,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 85,
+      "Winner": "baseline-snake",
+      "Turns": 242,
+      "OurLength": 11,
+      "FoodEaten": 8,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 86,
+      "Winner": "baseline-snake",
+      "Turns": 283,
+      "OurLength": 15,
+      "FoodEaten": 12,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 87,
+      "Winner": "baseline-snake",
+      "Turns": 286,
+      "OurLength": 9,
+      "FoodEaten": 6,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 88,
+      "Winner": "baseline-snake",
+      "Turns": 375,
+      "OurLength": 27,
+      "FoodEaten": 24,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 89,
+      "Winner": "baseline-snake",
+      "Turns": 207,
+      "OurLength": 8,
+      "FoodEaten": 5,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 90,
+      "Winner": "baseline-snake",
+      "Turns": 339,
+      "OurLength": 14,
+      "FoodEaten": 11,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 91,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 39,
+      "FoodEaten": 36,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 92,
+      "Winner": "baseline-snake",
+      "Turns": 282,
+      "OurLength": 15,
+      "FoodEaten": 12,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 93,
+      "Winner": "baseline-snake",
+      "Turns": 363,
+      "OurLength": 29,
+      "FoodEaten": 26,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 94,
+      "Winner": "baseline-snake",
+      "Turns": 126,
+      "OurLength": 7,
+      "FoodEaten": 4,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 95,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 27,
+      "FoodEaten": 24,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 96,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 25,
+      "FoodEaten": 22,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 97,
+      "Winner": "baseline-snake",
+      "Turns": 356,
+      "OurLength": 14,
+      "FoodEaten": 11,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 98,
+      "Winner": "baseline-snake",
+      "Turns": 357,
+      "OurLength": 16,
+      "FoodEaten": 13,
+      "DeathCause": "eliminated"
+    },
+    {
+      "GameNumber": 99,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 29,
+      "FoodEaten": 26,
+      "DeathCause": "survived"
+    },
+    {
+      "GameNumber": 100,
+      "Winner": "go-snake",
+      "Turns": 500,
+      "OurLength": 20,
+      "FoodEaten": 17,
+      "DeathCause": "survived"
+    }
+  ]
+}

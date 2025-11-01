@@ -121,6 +121,29 @@ Run with coverage:
 go test -v -cover ./...
 ```
 
+### Benchmarking
+
+Run performance benchmarks against simulated opponents:
+
+```bash
+# Build the benchmark tool
+go build -o benchmark_vs_baseline tools/benchmark_vs_baseline.go
+
+# Run 100 games (default)
+./benchmark_vs_baseline
+
+# Run custom number of games
+./benchmark_vs_baseline 50
+```
+
+The benchmark tool provides:
+- Win/loss statistics
+- Cause of death analysis
+- Performance metrics (turns survived, food collected, final length)
+- JSON output for further analysis
+
+**Note**: Current benchmark tests against random opponent moves. For testing against the actual Rust baseline snake, both snakes must be running simultaneously and connected via the Battlesnake CLI.
+
 ## Project Structure
 
 - `main.go` - Entry point
@@ -174,11 +197,24 @@ Fatal moves (out of bounds, snake collision) receive a score of -10000.
 4. **Multi-Factor Decision Making**: Combines multiple heuristics for robust choices
 5. **Always Hunting**: Eliminates circular tail-chasing behavior, snake continuously seeks food or optimal positioning
 
+### Recent Improvements
+
+The refactored engine (now default) includes several enhancements designed to match and exceed baseline opponent strategies:
+
+1. **Ratio-Based Trap Detection**: Uses space-to-body-length ratios (40%, 60%, 80% thresholds) for graduated trap warnings
+2. **Food Death Trap Detection**: Checks if eating food would trap the snake (70% threshold since tail doesn't move)
+3. **One-Move Lookahead**: Simulates future positions to detect dead-end paths before committing
+4. **Enhanced Space Evaluation**: Proper ratio calculations instead of absolute space counts
+5. **Survival Priority System**: Clear penalty hierarchy (death -10000, critical trap -600, severe trap -450, etc.)
+
+These improvements are documented in [BASELINE_ANALYSIS.md](BASELINE_ANALYSIS.md).
+
 ### Future Enhancements
 
-The strategy review identifies several potential improvements:
-- **A* Pathfinding**: More accurate food seeking around obstacles
-- **2-Turn Lookahead**: Tactical planning for better positioning
+Potential areas for further improvement:
+- **2-Turn Lookahead**: Extended tactical planning
+- **BFS Flood Fill**: Iterative approach instead of recursive for consistency
+- **Aggressive Pursuit**: Enhanced hunting logic for smaller opponents
 - **Machine Learning**: DQN and reinforcement learning approaches
 - **Genetic Algorithms**: Automated weight optimization
 

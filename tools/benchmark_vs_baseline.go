@@ -172,7 +172,7 @@ func runSingleGame(config BenchmarkConfig, gameNum int) GameResult {
 func PrintResults(results BenchmarkResults) {
 	fmt.Println("\n================================================")
 	fmt.Println("  Benchmark Results Summary")
-	fmt.Println("================================================\n")
+	fmt.Println("================================================")
 	
 	fmt.Printf("Configuration:\n")
 	fmt.Printf("  Board Size: %dx%d\n", results.Config.BoardWidth, results.Config.BoardHeight)
@@ -206,7 +206,7 @@ func PrintResults(results BenchmarkResults) {
 		fmt.Println("✗ BELOW TARGET: Win rate < 60%")
 	}
 	
-	fmt.Println("\n================================================\n")
+	fmt.Println("\n================================================")
 }
 
 // SaveResults saves results to JSON file
