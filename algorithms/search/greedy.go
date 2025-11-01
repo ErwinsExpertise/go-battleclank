@@ -161,6 +161,14 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	foodFactor := heuristics.EvaluateFoodProximity(state, nextPos, g.UseAStar, g.MaxAStarNodes)
 	foodWeight := policy.GetFoodWeight(state, aggression, outmatched)
 	
+	// INCREMENTAL IMPROVEMENT 1: Simple health-based urgency (lightweight)
+	// Just a multiplier based on health - no complex logic
+	if state.You.Health < policy.HealthCritical {
+		foodWeight *= 1.8  // Critical health: big boost (was 2.0, reduced for balance)
+	} else if state.You.Health < policy.HealthLow {
+		foodWeight *= 1.4  // Low health: moderate boost (was 1.5, reduced)
+	}
+	
 	// Be more aggressive with food when we have advantage
 	if aggression.Score > 0.6 {
 		foodWeight *= 1.3  // 30% boost when aggressive
@@ -173,6 +181,26 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	if aggression.Score > 0.6 {
 		headRiskMultiplier = 0.7  // 30% less cautious when aggressive
 	}
+	
+	// INCREMENTAL IMPROVEMENT 2: Very conservative late-game adjustment
+	// Only in late game (120+ turns) and only slight adjustment
+	if state.Turn > 120 && state.You.Health > policy.HealthLow {
+		enemiesAlive := len(state.Board.Snakes) - 1
+		// If we're in final 1v1 and have length advantage, be slightly more cautious
+		if enemiesAlive == 1 {
+			avgLen := 0
+			for _, snake := range state.Board.Snakes {
+				if snake.ID != state.You.ID {
+					avgLen = snake.Length
+					break
+				}
+			}
+			if state.You.Length > avgLen {
+				headRiskMultiplier *= 1.10  // Just 10% more cautious (was 15%, reduced)
+			}
+		}
+	}
+	
 	score -= headRisk * g.HeadCollisionWeight * headRiskMultiplier
 	
 	// Center proximity (early game or when healthy)
