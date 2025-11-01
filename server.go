@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	
+
 	"github.com/ErwinsExpertise/go-battleclank/config"
 )
 
@@ -57,15 +57,7 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use refactored logic by default unless explicitly disabled
-	useLegacy := os.Getenv("USE_LEGACY") == "true"
-	
-	var response BattlesnakeMoveResponse
-	if useLegacy {
-		response = move(state)
-	} else {
-		response = moveRefactored(state)
-	}
+	response := moveRefactored(state)
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(response)
@@ -84,15 +76,8 @@ func HandleEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use refactored logic by default unless explicitly disabled
-	useLegacy := os.Getenv("USE_LEGACY") == "true"
-	if useLegacy {
-		end(state)
-	} else {
-		endRefactored(state)
-	}
+	endRefactored(state)
 
-	// Nothing to respond with here
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -112,7 +97,7 @@ func withServerID(next http.HandlerFunc) http.HandlerFunc {
 // the server for training to ensure all strategy instances use the new config
 func HandleReloadConfig(w http.ResponseWriter, r *http.Request) {
 	log.Println("Received config reload request")
-	
+
 	err := config.ReloadConfig()
 	if err != nil {
 		log.Printf("Error reloading config: %v", err)
@@ -123,7 +108,7 @@ func HandleReloadConfig(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -136,7 +121,7 @@ func HandleReloadConfig(w http.ResponseWriter, r *http.Request) {
 func RunServer() {
 	// Load config on startup to verify it's accessible and log settings
 	_ = GetConfig()
-	
+
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8000"
