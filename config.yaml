@@ -29,7 +29,7 @@ pursuit:
 search:
   algorithm: hybrid
   max_astar_nodes: 400
-  max_depth: 121
+  max_depth: 35
   use_astar: true
 trapping:
   space_cutoff_threshold: 0.2
@@ -42,9 +42,9 @@ traps:
   moderate: 250.0
   severe: 450.0
 weights:
-  center_control: 2.0
-  cutoff: 200.0
+  center_control: 10.0
+  cutoff: 350.0
   food: 1.0
-  head_collision: 500.0
-  space: 5.0
-  wall_penalty: 5.0
+  head_collision: 600.0
+  space: 250.0
+  wall_penalty: 150.0
