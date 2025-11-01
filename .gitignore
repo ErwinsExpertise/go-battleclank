@@ -19,6 +19,7 @@ go.work
 
 # Compiled binaries
 go-battleclank
+battlesnake
 benchmark
 compare-implementations
 tools/benchmark_vs_baseline
