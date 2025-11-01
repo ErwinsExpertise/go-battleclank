@@ -1,7 +1,7 @@
 # go-battleclank
 
 A competitive Battlesnake implementation in Go with advanced decision-making algorithms.
-
+  
 ## Architecture
 
 ### Stateless Design
