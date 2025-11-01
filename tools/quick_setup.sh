@@ -21,20 +21,26 @@ cd "$(dirname "$0")/.."
 
 echo "Step 1: Checking system dependencies..."
 
-# Check Python3
+# Check Python3 and pip3
+NEED_INSTALL=false
 if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}❌ Python3 not found! Installing...${NC}"
-    sudo apt-get update && sudo apt-get install -y python3 python3-pip
+    echo -e "${RED}❌ Python3 not found!${NC}"
+    NEED_INSTALL=true
 else
     echo -e "${GREEN}✓ Python3 found: $(python3 --version)${NC}"
 fi
 
-# Check pip3
 if ! command -v pip3 &> /dev/null; then
-    echo -e "${RED}❌ pip3 not found! Installing...${NC}"
-    sudo apt-get update && sudo apt-get install -y python3-pip
+    echo -e "${RED}❌ pip3 not found!${NC}"
+    NEED_INSTALL=true
 else
     echo -e "${GREEN}✓ pip3 found${NC}"
+fi
+
+# Install Python3 and pip3 if needed (single apt-get update)
+if [ "$NEED_INSTALL" = true ]; then
+    echo "Installing Python3 and pip3..."
+    sudo apt-get update && sudo apt-get install -y python3 python3-pip
 fi
 
 # Check Go
@@ -47,10 +53,12 @@ echo -e "${GREEN}✓ Go found: $(go version)${NC}"
 
 # Check Rust/Cargo
 if ! command -v cargo &> /dev/null; then
-    echo -e "${YELLOW}⚠ Rust/Cargo not found! Installing...${NC}"
-    echo "Installing Rust via rustup (this may take a few minutes)..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    source "$HOME/.cargo/env"
+    echo -e "${YELLOW}⚠ Rust/Cargo not found!${NC}"
+    echo "To install Rust, please run:"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+    echo "  source \$HOME/.cargo/env"
+    echo "Or install via your package manager (e.g., 'sudo apt install cargo' on Ubuntu 24.04+)"
+    exit 1
 else
     echo -e "${GREEN}✓ Rust/Cargo found: $(cargo --version)${NC}"
 fi
@@ -58,8 +66,8 @@ fi
 echo
 echo "Step 2: Installing Python dependencies..."
 if [ -f "requirements.txt" ]; then
-    echo "Installing from requirements.txt..."
-    pip3 install -r requirements.txt --quiet
+    echo "Installing from requirements.txt (user-local)..."
+    pip3 install --user -r requirements.txt --quiet
     echo -e "${GREEN}✓ Python dependencies installed${NC}"
 else
     echo -e "${YELLOW}⚠ requirements.txt not found, skipping...${NC}"
