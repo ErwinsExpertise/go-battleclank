@@ -1,11 +1,12 @@
 package search
 
 import (
+	"math"
+	
 	"github.com/ErwinsExpertise/go-battleclank/config"
 	"github.com/ErwinsExpertise/go-battleclank/engine/board"
 	"github.com/ErwinsExpertise/go-battleclank/heuristics"
 	"github.com/ErwinsExpertise/go-battleclank/policy"
-	"math"
 )
 
 // Package search provides pluggable search strategies for move selection
