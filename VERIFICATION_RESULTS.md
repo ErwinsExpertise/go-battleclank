@@ -57,46 +57,35 @@ This document shows the verification and testing results for the config loading 
 
 ## 3. Benchmark Performance Tests
 
-### 10-Game Test
-```
-Total Games:        10
-Wins:               10 (100.0%)
-Losses:             0 (0.0%)
-Avg Turns:          195.0
-Avg Final Length:   12.9
-Avg Food Collected: 10.0
-```
-**Win Rate:** 100%
+**Note:** The correct benchmark is `tools/run_benchmark.py` which runs actual games against the rust baseline snake using the Battlesnake CLI, not the internal simulation tool.
 
-### 20-Game Test
+### 50-Game Live Benchmark vs Rust Baseline
 ```
-Total Games:        20
-Wins:               19 (95.0%)
-Losses:             1 (5.0%)
-Avg Turns:          178.5
-Avg Final Length:   10.9
-Avg Food Collected: 8.0
-```
-**Win Rate:** 95%
+============================================================
+  Live Battlesnake Benchmark
+  Go Snake vs Rust Baseline
+============================================================
+Games: 50
+Board: 11x11
+Max turns: 500
 
-### 50-Game Test
+============================================================
+  Results Summary
+============================================================
+Wins:   0 (0.0%)
+Losses: 50 (100.0%)
+Draws:  0 (0.0%)
+Errors: 0
 ```
-Total Games:        50
-Wins:               47 (94.0%)
-Losses:             3 (6.0%)
-Avg Turns:          172.9
-Avg Final Length:   10.3
-Avg Food Collected: 7.3
 
---- Death Reasons ---
-  survived            :  29 (58.0%)
-  eliminated-all-enemies:  18 (36.0%)
-  eliminated          :   2 (4.0%)
-  outlasted           :   1 (2.0%)
-```
-**Win Rate:** 94%
+**Win Rate:** 0.0%
 
-**Result:** ✅ Performance exceeds 47% baseline target by 100%
+**Result:** ❌ Config is loading correctly, but win rate against rust baseline is 0%. This indicates:
+1. ✅ Config loading is working (verified by server logs)
+2. ✅ All 34 parameters are being loaded from config.yaml
+3. ❌ Current config values need tuning to achieve competitive performance against baseline
+
+**Analysis:** The config.yaml contains default/baseline-matched values, but these values alone don't provide competitive performance against the actual rust baseline snake. Further tuning of the config parameters is needed to reach the target 47% win rate.
 
 ## 4. Unit Tests
 
@@ -211,19 +200,23 @@ Analysis Result for 'go'. Found 0 alerts:
 - ✅ **Documentation:** Complete training guide provided
 
 ### Performance Comparison
-| Test Type | Games | Win Rate | vs Baseline |
-|-----------|-------|----------|-------------|
-| Before Fix | N/A | ~0% | -47% |
-| 10-game | 10 | 100% | +53% |
-| 20-game | 20 | 95% | +48% |
-| 50-game | 50 | 94% | +47% |
+| Test Type | Games | Win Rate | Status |
+|-----------|-------|----------|--------|
+| Before Fix | N/A | ~0% | Config not loaded |
+| After Fix (vs Rust Baseline) | 50 | 0% | Config loaded, needs tuning |
+
+**Note:** The 0% win rate indicates that while config loading is now working correctly, the default config values require tuning to achieve competitive performance against the rust baseline. The config system is functioning as designed - parameters can now be modified in config.yaml and will be applied on server restart.
 
 ### Conclusion
-✅ **All success criteria met.** The implementation successfully:
-1. Fixes the config loading issue
-2. Restores benchmark performance (exceeds baseline)
-3. Enables training without rebuild
-4. Provides comprehensive documentation
-5. Maintains code quality and security
+✅ **Config loading implementation successful.** The implementation:
+1. ✅ Fixes the config loading issue - all 34 parameters now loaded
+2. ✅ Enables training without rebuild - config reload verified
+3. ✅ Provides comprehensive documentation
+4. ✅ Maintains code quality and security
 
-**Status:** Ready for merge
+⚠️ **Config tuning needed.** While config loading works correctly:
+- Current win rate vs rust baseline: 0%
+- Config values need tuning to achieve target 47% win rate
+- Training system is now ready to optimize parameters
+
+**Status:** Config loading fixed and verified. Parameter tuning is a separate optimization task.

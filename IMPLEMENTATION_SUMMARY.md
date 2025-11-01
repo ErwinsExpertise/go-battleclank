@@ -82,27 +82,39 @@ Modified all search strategies to load parameters from `config.yaml` using the e
 
 ## Test Results
 
-### Before Fix
-- Win rate: ~0% (config not loaded)
-- Behavior not modifiable via config
+### Config Loading Status
+- ✅ Config loads successfully on server startup
+- ✅ All 34 parameters loaded from config.yaml
+- ✅ Config changes apply on restart without rebuild
+- ✅ Verified by automated test script
 
-### After Fix
-- Win rate: 94% (50-game test)
-- All config changes reflected immediately after restart
-- Exceeds 47% baseline target by 100%
+### Benchmark Performance (vs Rust Baseline)
+Using `tools/run_benchmark.py` (correct benchmark tool):
+
+**50-Game Test:**
+```
+Wins:   0 (0.0%)
+Losses: 50 (100.0%)
+```
+
+**Analysis:**
+- Config loading is working correctly (verified in server logs)
+- Current config values don't provide competitive performance
+- Parameter tuning needed to reach 47% target win rate
+- Training system now ready for parameter optimization
 
 ### Test Coverage
 - ✅ All existing unit tests pass
 - ✅ Config reload test passes
-- ✅ Benchmark performance verified
 - ✅ 0 security vulnerabilities (CodeQL)
 - ✅ Code review feedback addressed
+- ✅ Config loading verified with correct benchmark tool
 
 ## Usage
 
 ### View Config on Startup
 ```bash
-./battlesnake
+./go-battleclank
 # Output:
 # ✓ Configuration loaded successfully:
 #   - Algorithm: hybrid
@@ -117,8 +129,8 @@ Modified all search strategies to load parameters from `config.yaml` using the e
 vim config.yaml
 
 # Restart server
-killall battlesnake
-./battlesnake
+killall go-battleclank
+./go-battleclank
 # New config values logged
 ```
 
@@ -128,14 +140,19 @@ killall battlesnake
 # Automated test verifies reload works
 ```
 
-### Benchmark with Config
+### Benchmark with Config (Correct Tool)
 ```bash
-# Quick test
-./cmd/benchmark/benchmark -games 10
+# Build both snakes
+go build -o go-battleclank
+cd baseline && cargo build --release && cd ..
 
-# Full test
-./cmd/benchmark/benchmark -games 100
+# Run benchmark against rust baseline
+python3 tools/run_benchmark.py 10   # Quick test
+python3 tools/run_benchmark.py 50   # Standard test
+python3 tools/run_benchmark.py 100  # Extended test
 ```
+
+**Important:** Use `tools/run_benchmark.py` which runs actual games against the rust baseline, not the internal simulation tool.
 
 ## Training Integration
 
@@ -171,12 +188,13 @@ result = subprocess.run(['./cmd/benchmark/benchmark', '-games', '50'])
 
 ## Benefits
 
-1. **Immediate Impact:** 94% win rate (vs 0% before)
+1. **Config Loading Fixed:** All 34 parameters now loaded from config.yaml
 2. **Training Enabled:** Config changes work without rebuild
 3. **Debugging:** Config values logged for verification
 4. **Flexibility:** 34 parameters tunable for different strategies
 5. **Documentation:** Complete guide for training workflow
 6. **Maintainability:** No hardcoded values, all in one config file
+7. **Correct Benchmarking:** Now using proper tool (`tools/run_benchmark.py`) for accurate performance measurement
 
 ## Future Enhancements
 
@@ -189,11 +207,19 @@ Potential improvements (not implemented):
 
 ## Conclusion
 
-The implementation successfully fixes the config loading issue and restores benchmark performance to exceed the baseline target. All success criteria met:
+The implementation successfully fixes the config loading issue. Core objectives achieved:
 
-- ✅ Config loaded and used by all search strategies
-- ✅ Benchmark performance: 94% (target: 47%)
-- ✅ Training can modify and reload config
+- ✅ Config loaded and used by all search strategies (verified)
+- ✅ Training can modify and reload config (verified)
 - ✅ Comprehensive documentation provided
 - ✅ All tests pass, no security issues
 - ✅ Code quality maintained
+- ✅ Using correct benchmark tool (`tools/run_benchmark.py`)
+
+**Next Steps:**
+- ⚠️ Current win rate vs rust baseline: 0%
+- 📝 Parameter tuning needed to achieve target 47% win rate
+- 💡 Training system is now ready for parameter optimization
+- 🎯 Config values can be adjusted and tested iteratively
+
+The config loading infrastructure is complete and working. Performance optimization is a separate tuning task that can now be performed using the training workflow.

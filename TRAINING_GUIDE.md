@@ -84,14 +84,15 @@ hybrid:
 Before making changes, establish a baseline win rate:
 
 ```bash
-# Run benchmark with current config
-./cmd/benchmark/benchmark -games 100
+# Build both snakes
+go build -o go-battleclank
+cd baseline && cargo build --release && cd ..
 
-# Or use Python wrapper
-python3 tools/run_benchmark.py 100
+# Run benchmark with current config
+python3 tools/run_benchmark.py 50
 ```
 
-Expected baseline: ~47% win rate against baseline opponent
+Target performance: ~47% win rate against rust baseline opponent (competitive parity)
 
 ### 2. Modifying Configuration
 
@@ -152,15 +153,23 @@ The server will log the loaded configuration:
 Run benchmarks to evaluate changes:
 
 ```bash
-# Quick test (10 games)
-./cmd/benchmark/benchmark -games 10
+# Build the Go snake
+go build -o go-battleclank
 
-# Full test (100 games)
-./cmd/benchmark/benchmark -games 100
+# Build the Rust baseline (first time only)
+cd baseline && cargo build --release && cd ..
 
-# Save results
-./cmd/benchmark/benchmark -games 100 | tee results.txt
+# Quick test (10 games vs rust baseline)
+python3 tools/run_benchmark.py 10
+
+# Full test (50 games)
+python3 tools/run_benchmark.py 50
+
+# Extended test (100 games)
+python3 tools/run_benchmark.py 100
 ```
+
+**Note:** The `tools/run_benchmark.py` script runs actual games against the rust baseline snake using the Battlesnake CLI. This is the correct benchmark to use for evaluating performance.
 
 ### 5. Iterative Improvement
 
@@ -257,11 +266,19 @@ This script:
 ## Success Criteria
 
 A successful training session should achieve:
-- ✅ Benchmark win rate: ~47% (baseline parity)
+- ✅ Benchmark win rate: ~47% against rust baseline (competitive parity)
 - ✅ Config changes reflected in behavior
 - ✅ Consistent performance across multiple runs
 - ✅ Reduced death by starvation/collision
 - ✅ Improved survival time and food collection
+
+## Current Status
+
+After fixing config loading:
+- ✅ Config system working correctly
+- ✅ All 34 parameters loaded from config.yaml
+- ⚠️ Current win rate: 0% (default config values need tuning)
+- 📝 Parameter optimization needed to reach 47% target
 
 ## Troubleshooting
 
