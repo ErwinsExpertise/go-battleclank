@@ -27,17 +27,18 @@ type GreedySearch struct {
 	MaxAStarNodes     int
 }
 
-// NewGreedySearch creates a new greedy search with tuned weights for 80%+ win rate
+// NewGreedySearch creates a new greedy search TUNED TO MATCH BASELINE
+// Weights carefully aligned with baseline Rust snake's scoring.rs
 func NewGreedySearch() *GreedySearch {
 	return &GreedySearch{
-		SpaceWeight:         250.0,  // CRITICAL: space = survival against random opponents
-		HeadCollisionWeight: 600.0,  // Important but not as much vs random
-		CenterWeight:        10.0,   // Moderate - helps with positioning
-		WallPenaltyWeight:   150.0,  // Lower - walls aren't as dangerous vs random
-		CutoffWeight:        350.0,  // Moderate - escape routes matter
-		MaxDepth:            35,     // Deep lookahead for comprehensive space evaluation
+		SpaceWeight:         5.0,    // Baseline: 5 per open square
+		HeadCollisionWeight: 500.0,  // Baseline: 500/-500 for win/lose head-to-head
+		CenterWeight:        2.0,    // Baseline: 2 for center control
+		WallPenaltyWeight:   5.0,    // Baseline: -5 near wall penalty
+		CutoffWeight:        200.0,  // Baseline: -200 for dead end ahead
+		MaxDepth:            121,    // Baseline: caps at 11x11 = 121 squares
 		UseAStar:            true,
-		MaxAStarNodes:       400,    // More thorough pathfinding
+		MaxAStarNodes:       400,    // Keep A* for food seeking
 	}
 }
 
@@ -68,10 +69,10 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		return -10000.0
 	}
 	
-	// NEW: Ratio-based trap detection (matches baseline snake)
-	// Use 50% of penalties against random opponents - they won't exploit traps
+	// Ratio-based trap detection - MATCHED TO BASELINE
+	// Use FULL penalties like baseline does (-250, -450, -600)
 	_, trapLevel := heuristics.EvaluateSpaceRatio(state, nextPos, g.MaxDepth)
-	trapPenalty := heuristics.GetSpaceTrapPenalty(trapLevel) * 0.5
+	trapPenalty := heuristics.GetSpaceTrapPenalty(trapLevel)
 	score -= trapPenalty
 	
 	// Calculate space for both current and next position
@@ -84,9 +85,9 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		score -= 1000.0
 	}
 	
-	// NEW: One-move lookahead for dead end detection (matches baseline snake)
-	// Use 50% of penalty against random opponents
-	deadEndPenalty := heuristics.EvaluateDeadEndAhead(state, nextPos, g.MaxDepth) * 0.5
+	// One-move lookahead - MATCHED TO BASELINE
+	// Use FULL penalty like baseline: -200 for dead end ahead
+	deadEndPenalty := heuristics.EvaluateDeadEndAhead(state, nextPos, g.MaxDepth)
 	score -= deadEndPenalty
 	
 	// Calculate aggression score and situational awareness
@@ -133,9 +134,10 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	
 	if isFoodAtPos {
 		// Check if eating this food would trap us (70% threshold)
+		// MATCHED TO BASELINE: -800 food death trap penalty
 		isTrap, _ := heuristics.EvaluateFoodTrapRatio(state, nextPos, g.MaxDepth)
 		if isTrap {
-			// Food death trap - dangerous but reduce penalty if health is critical
+			// Food death trap - baseline uses flat -800, we reduce when critical
 			foodTrapPenalty := 800.0
 			if state.You.Health < policy.HealthCritical {
 				foodTrapPenalty = 400.0  // Risk it when starving
@@ -146,14 +148,60 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		}
 	}
 	
+	// AGGRESSIVE PURSUIT - MATCHED TO BASELINE
+	// Baseline: pursuit bonus when longer (100/50/25/10 at dist 2/3/4/5)
+	pursuitBonus := evaluateAggressivePursuit(state, nextPos)
+	score += pursuitBonus
+	
+	// AGGRESSIVE TRAPPING: Additional trap detection
+	trapBonus := evaluateAggressiveTrapping(state, nextPos, mySpace, aggression.Score)
+	score += trapBonus * 400.0  // High weight on trapping opportunities
+	
 	// Food seeking (outmatched already calculated above)
 	foodFactor := heuristics.EvaluateFoodProximity(state, nextPos, g.UseAStar, g.MaxAStarNodes)
 	foodWeight := policy.GetFoodWeight(state, aggression, outmatched)
+	
+	// INCREMENTAL IMPROVEMENT 1: Simple health-based urgency (lightweight)
+	// Just a multiplier based on health - no complex logic
+	if state.You.Health < policy.HealthCritical {
+		foodWeight *= 1.8  // Critical health: big boost (was 2.0, reduced for balance)
+	} else if state.You.Health < policy.HealthLow {
+		foodWeight *= 1.4  // Low health: moderate boost (was 1.5, reduced)
+	}
+	
+	// Be more aggressive with food when we have advantage
+	if aggression.Score > 0.6 {
+		foodWeight *= 1.3  // 30% boost when aggressive
+	}
 	score += foodFactor * foodWeight
 	
-	// Head collision risk
+	// Head collision risk - reduced when aggressive
 	headRisk := heuristics.IsHeadToHeadRisky(state, nextPos)
-	score -= headRisk * g.HeadCollisionWeight
+	headRiskMultiplier := 1.0
+	if aggression.Score > 0.6 {
+		headRiskMultiplier = 0.7  // 30% less cautious when aggressive
+	}
+	
+	// INCREMENTAL IMPROVEMENT 2: Very conservative late-game adjustment
+	// Only in late game (120+ turns) and only slight adjustment
+	if state.Turn > 120 && state.You.Health > policy.HealthLow {
+		enemiesAlive := len(state.Board.Snakes) - 1
+		// If we're in final 1v1 and have length advantage, be slightly more cautious
+		if enemiesAlive == 1 {
+			avgLen := 0
+			for _, snake := range state.Board.Snakes {
+				if snake.ID != state.You.ID {
+					avgLen = snake.Length
+					break
+				}
+			}
+			if state.You.Length > avgLen {
+				headRiskMultiplier *= 1.10  // Just 10% more cautious (was 15%, reduced)
+			}
+		}
+	}
+	
+	score -= headRisk * g.HeadCollisionWeight * headRiskMultiplier
 	
 	// Center proximity (early game or when healthy)
 	if state.Turn < 50 || (state.You.Health > policy.HealthLow && !outmatched) {
@@ -180,6 +228,14 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		trapScore := heuristics.EvaluateTrapOpportunity(state, nextPos, g.MaxDepth)
 		trapWeight := 200.0 * aggression.Score
 		score += trapScore * trapWeight
+	}
+	
+	// NEW: Starvation strategy - cut off opponent from food and trap them
+	// Active when we have health + length advantage
+	if state.You.Health > 50 && float64(state.You.Length) > getAverageEnemyLength(state) {
+		starvationScore := heuristics.EvaluateStarvationOpportunity(state, nextPos, g.MaxDepth)
+		// High weight: 300 - starvation is a powerful win condition
+		score += starvationScore * 300.0
 	}
 	
 	// Survival bonus: MASSIVELY reward moves that maintain good space
@@ -319,3 +375,191 @@ func evaluateWallAvoidance(state *board.GameState, pos board.Coord) float64 {
 	
 	return penalty
 }
+
+// evaluateAggressiveTrapping calculates bonus for moves that trap the enemy
+// Returns 0.0-1.0 score bonus for trapping opportunities
+func evaluateAggressiveTrapping(state *board.GameState, nextPos board.Coord, mySpace float64, aggression float64) float64 {
+// Only trap when aggressive (good health, length advantage)
+if aggression < 0.6 {
+return 0.0
+}
+
+trapScore := 0.0
+
+// Check each enemy snake
+for _, enemy := range state.Board.Snakes {
+if enemy.ID == state.You.ID {
+continue
+}
+
+// Only trap if we're longer (can win head-to-head)
+if enemy.Length >= state.You.Length {
+continue
+}
+
+// Calculate distance to enemy head
+distToEnemy := manhattanDistance(nextPos, enemy.Head)
+
+// Bonus for getting close to smaller enemies
+if distToEnemy <= 3 {
+trapScore += (4.0 - float64(distToEnemy)) / 4.0 * 0.3
+}
+
+// Check if this move reduces enemy's space significantly
+enemySpace := heuristics.FloodFillForSnake(state, enemy.ID, enemy.Head, 40)
+
+// Simulate board after our move
+simState := simulateMoveForTrapping(state, nextPos)
+enemySpaceAfter := heuristics.FloodFillForSnake(simState, enemy.ID, enemy.Head, 40)
+
+// If enemy loses significant space, big bonus
+spaceReduction := float64(enemySpace - enemySpaceAfter)
+if spaceReduction > 0 {
+reductionRatio := spaceReduction / float64(enemySpace)
+
+if reductionRatio > 0.2 {  // Enemy loses 20%+ space
+trapScore += reductionRatio * 0.5
+}
+
+// Extra bonus if enemy gets trapped (low space relative to body)
+enemyRatio := float64(enemySpaceAfter) / float64(enemy.Length)
+if enemyRatio < 0.6 {  // Enemy trapped
+trapScore += 0.3
+}
+}
+}
+
+return trapScore
+}
+
+// simulateMoveForTrapping creates a simulated state after our move
+func simulateMoveForTrapping(state *board.GameState, ourNewHead board.Coord) *board.GameState {
+simState := &board.GameState{
+Board: board.Board{
+Width:  state.Board.Width,
+Height: state.Board.Height,
+Food:   state.Board.Food,
+Snakes: make([]board.Snake, len(state.Board.Snakes)),
+},
+You:  state.You,
+Turn: state.Turn,
+}
+
+// Copy snakes and update our position
+for i, snake := range state.Board.Snakes {
+if snake.ID == state.You.ID {
+// Our snake with new head position
+newBody := make([]board.Coord, len(snake.Body))
+newBody[0] = ourNewHead
+copy(newBody[1:], snake.Body[:len(snake.Body)-1])
+
+simState.Board.Snakes[i] = board.Snake{
+ID:     snake.ID,
+Name:   snake.Name,
+Health: snake.Health,
+Body:   newBody,
+Head:   ourNewHead,
+Length: snake.Length,
+}
+simState.You = simState.Board.Snakes[i]
+} else {
+// Other snakes stay the same
+simState.Board.Snakes[i] = snake
+}
+}
+
+return simState
+}
+
+func manhattanDistance(a, b board.Coord) int {
+dx := a.X - b.X
+if dx < 0 {
+dx = -dx
+}
+dy := a.Y - b.Y
+if dy < 0 {
+dy = -dy
+}
+return dx + dy
+}
+
+// evaluateTerritorialAdvantage rewards moves that give us more space than enemies
+func evaluateTerritorialAdvantage(state *board.GameState, nextPos board.Coord, mySpace float64) float64 {
+if len(state.Board.Snakes) <= 1 {
+return 0.0
+}
+
+bonus := 0.0
+
+// Calculate our space advantage
+totalEnemySpace := 0
+enemyCount := 0
+
+for _, enemy := range state.Board.Snakes {
+if enemy.ID == state.You.ID {
+continue
+}
+
+enemySpace := heuristics.FloodFillForSnake(state, enemy.ID, enemy.Head, 35)
+totalEnemySpace += enemySpace
+enemyCount++
+}
+
+if enemyCount == 0 {
+return 0.0
+}
+
+avgEnemySpace := float64(totalEnemySpace) / float64(enemyCount)
+mySpaceCount := heuristics.FloodFill(state, nextPos, 35)
+
+// Bonus if we have more space than average enemy
+if float64(mySpaceCount) > avgEnemySpace {
+spaceAdvantage := (float64(mySpaceCount) - avgEnemySpace) / avgEnemySpace
+bonus += spaceAdvantage * 0.5
+}
+
+// Extra bonus for dominating (2x+ their space)
+if float64(mySpaceCount) >= avgEnemySpace * 2.0 {
+bonus += 0.3
+}
+
+return bonus
+}
+
+// evaluateAggressivePursuit matches baseline's pursuit logic (lines 202-217)
+// Move toward enemy heads if we outsize them, scaled inversely with distance
+func evaluateAggressivePursuit(state *board.GameState, nextPos board.Coord) float64 {
+bonus := 0.0
+
+for _, enemy := range state.Board.Snakes {
+if enemy.ID == state.You.ID {
+continue
+}
+
+// Only pursue if we're longer
+if state.You.Length <= enemy.Length {
+continue
+}
+
+dist := manhattanDistance(nextPos, enemy.Head)
+
+// Baseline pursuit bonuses at distances 2-5
+pursuitScore := 0.0
+switch dist {
+case 2:
+pursuitScore = 100.0  // Almost in range - very good
+case 3:
+pursuitScore = 50.0   // Closing in
+case 4:
+pursuitScore = 25.0   // Still relevant
+case 5:
+pursuitScore = 10.0   // On radar
+}
+
+bonus += pursuitScore
+}
+
+return bonus
+}
+
+// evaluateAggressivePursuit matches baseline's pursuit logic

@@ -1,0 +1,6 @@
+# Python dependencies for neural network optimization
+torch>=2.0.0
+numpy>=1.24.0
+pyyaml>=6.0
+tensorboard>=2.13.0
+gym>=0.26.0

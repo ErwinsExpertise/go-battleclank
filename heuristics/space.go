@@ -4,79 +4,106 @@ import "github.com/ErwinsExpertise/go-battleclank/engine/board"
 
 // Package heuristics provides reusable heuristic functions for evaluating game states
 
-// FloodFill counts reachable spaces from a position using BFS/flood-fill algorithm
-// maxDepth limits the search depth for performance
+// FloodFill counts reachable spaces from a position using iterative BFS
+// This matches the baseline's algorithm (VecDeque-based BFS, not recursion)
+// maxDepth limits the search for performance (baseline caps at 121 for 11x11 board)
 func FloodFill(state *board.GameState, start board.Coord, maxDepth int) int {
+	// Use slice as queue (more efficient than recursive approach)
+	queue := []board.Coord{start}
 	visited := make(map[board.Coord]bool)
-	return floodFillRecursive(state, start, visited, 0, maxDepth)
-}
-
-// floodFillRecursive is the recursive helper for FloodFill
-func floodFillRecursive(state *board.GameState, pos board.Coord, visited map[board.Coord]bool, depth int, maxDepth int) int {
-	// Limit recursion depth
-	if depth > maxDepth {
-		return 0
-	}
+	visited[start] = true
 	
-	// Check if position is valid and unvisited
-	if !state.Board.IsInBounds(pos) || visited[pos] {
-		return 0
-	}
+	count := 0
 	
-	// Check if blocked by snake (skip tails)
-	if state.Board.IsOccupied(pos, true) {
-		return 0
-	}
-	
-	visited[pos] = true
-	count := 1
-	
-	// Recursively check neighbors
-	for _, neighbor := range state.Board.GetNeighbors(pos) {
-		count += floodFillRecursive(state, neighbor, visited, depth+1, maxDepth)
+	// Iterative BFS matching baseline implementation
+	for len(queue) > 0 {
+		// Pop front (FIFO for BFS)
+		pos := queue[0]
+		queue = queue[1:]
+		count++
+		
+		// Cap at maxDepth for performance (baseline uses 121)
+		if count >= maxDepth {
+			break
+		}
+		
+		// Check all 4 neighbors
+		for _, neighbor := range state.Board.GetNeighbors(pos) {
+			// Skip if already visited
+			if visited[neighbor] {
+				continue
+			}
+			
+			// Check if position is valid
+			if !state.Board.IsInBounds(neighbor) {
+				continue
+			}
+			
+			// Check if blocked by snake (skip tails that will move)
+			if state.Board.IsOccupied(neighbor, true) {
+				continue
+			}
+			
+			// Add to queue and mark visited
+			queue = append(queue, neighbor)
+			visited[neighbor] = true
+		}
 	}
 	
 	return count
 }
 
-// FloodFillForSnake calculates reachable space for a specific snake
+// FloodFillForSnake calculates reachable space for a specific snake using iterative BFS
 // This is useful for trap detection and opponent space analysis
 func FloodFillForSnake(state *board.GameState, snakeID string, start board.Coord, maxDepth int) int {
+	queue := []board.Coord{start}
 	visited := make(map[board.Coord]bool)
-	return floodFillForSnakeRecursive(state, snakeID, start, visited, 0, maxDepth)
-}
-
-func floodFillForSnakeRecursive(state *board.GameState, snakeID string, pos board.Coord, visited map[board.Coord]bool, depth int, maxDepth int) int {
-	if depth > maxDepth {
-		return 0
-	}
+	visited[start] = true
 	
-	if !state.Board.IsInBounds(pos) || visited[pos] {
-		return 0
-	}
+	count := 0
 	
-	// Check if blocked by snake bodies (skip the specific snake's tail)
-	for _, snake := range state.Board.Snakes {
-		for i, segment := range snake.Body {
-			// Skip the tail of the snake we're evaluating for
-			if snake.ID == snakeID && i == len(snake.Body)-1 {
+	// Iterative BFS
+	for len(queue) > 0 {
+		pos := queue[0]
+		queue = queue[1:]
+		count++
+		
+		if count >= maxDepth {
+			break
+		}
+		
+		for _, neighbor := range state.Board.GetNeighbors(pos) {
+			if visited[neighbor] || !state.Board.IsInBounds(neighbor) {
 				continue
 			}
-			// Skip other snakes' tails that will move
-			if i == len(snake.Body)-1 && snake.Health != 100 {
-				continue
+			
+			// Check if blocked by snake bodies (skip the specific snake's tail)
+			isBlocked := false
+			for _, snake := range state.Board.Snakes {
+				for i, segment := range snake.Body {
+					// Skip the tail of the snake we're evaluating for
+					if snake.ID == snakeID && i == len(snake.Body)-1 {
+						continue
+					}
+					// Skip other snakes' tails that will move
+					if i == len(snake.Body)-1 && snake.Health != 100 {
+						continue
+					}
+					if neighbor.X == segment.X && neighbor.Y == segment.Y {
+						isBlocked = true
+						break
+					}
+				}
+				if isBlocked {
+					break
+				}
 			}
-			if pos.X == segment.X && pos.Y == segment.Y {
-				return 0
+			
+			if !isBlocked {
+				queue = append(queue, neighbor)
+				visited[neighbor] = true
 			}
 		}
-	}
-	
-	visited[pos] = true
-	count := 1
-	
-	for _, neighbor := range state.Board.GetNeighbors(pos) {
-		count += floodFillForSnakeRecursive(state, snakeID, neighbor, visited, depth+1, maxDepth)
 	}
 	
 	return count
@@ -108,11 +135,12 @@ const (
 )
 
 // SpaceTrapPenalties maps trap levels to penalty values
+// MATCHED TO BASELINE: trap_penalty=-250, severe=-450, critical=-600
 var SpaceTrapPenalties = map[SpaceTrapLevel]float64{
-	SpaceSafe:     0.0,
-	SpaceModerate: 250.0,
-	SpaceSevere:   450.0,
-	SpaceCritical: 600.0,
+	SpaceSafe:     0.0,    // 80%+ ratio - safe
+	SpaceModerate: 250.0,  // 60-80% ratio - baseline: -250
+	SpaceSevere:   450.0,  // 40-60% ratio - baseline: -450
+	SpaceCritical: 600.0,  // <40% ratio - baseline: -600
 }
 
 // EvaluateSpaceRatio calculates space-to-body-length ratio and returns trap level
@@ -161,39 +189,43 @@ func EvaluateFoodTrapRatio(state *board.GameState, pos board.Coord, maxDepth int
 }
 
 // FloodFillAfterEating simulates flood fill after eating food (tail doesn't move)
+// Uses iterative BFS to match baseline approach
 func FloodFillAfterEating(state *board.GameState, pos board.Coord, maxDepth int) int {
-	// Create a temporary state where tail doesn't move
-	// This simulates the board state after eating
-	visited := make(map[board.Coord]bool)
-	
-	// Mark all snake bodies as blocked, including tails
+	// Mark all snake bodies as blocked (including tails, since they won't move after eating)
+	blocked := make(map[board.Coord]bool)
 	for _, snake := range state.Board.Snakes {
 		for _, segment := range snake.Body {
-			visited[segment] = true
+			blocked[segment] = true
 		}
 	}
 	
-	// Clear the starting position
-	delete(visited, pos)
+	// Start position should not be blocked
+	delete(blocked, pos)
 	
-	// Count reachable spaces from pos
-	return floodFillAfterEatingRecursive(state, pos, visited, 0, maxDepth)
-}
-
-func floodFillAfterEatingRecursive(state *board.GameState, pos board.Coord, visited map[board.Coord]bool, depth int, maxDepth int) int {
-	if depth > maxDepth {
-		return 0
-	}
-	
-	if !state.Board.IsInBounds(pos) || visited[pos] {
-		return 0
-	}
-	
+	// Iterative BFS
+	queue := []board.Coord{pos}
+	visited := make(map[board.Coord]bool)
 	visited[pos] = true
-	count := 1
 	
-	for _, neighbor := range state.Board.GetNeighbors(pos) {
-		count += floodFillAfterEatingRecursive(state, neighbor, visited, depth+1, maxDepth)
+	count := 0
+	
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		count++
+		
+		if count >= maxDepth {
+			break
+		}
+		
+		for _, neighbor := range state.Board.GetNeighbors(current) {
+			if visited[neighbor] || !state.Board.IsInBounds(neighbor) || blocked[neighbor] {
+				continue
+			}
+			
+			queue = append(queue, neighbor)
+			visited[neighbor] = true
+		}
 	}
 	
 	return count
