@@ -3,7 +3,9 @@ package search
 import (
 	"github.com/ErwinsExpertise/go-battleclank/engine/board"
 	"github.com/ErwinsExpertise/go-battleclank/engine/simulation"
+	"github.com/ErwinsExpertise/go-battleclank/gpu"
 	"github.com/ErwinsExpertise/go-battleclank/heuristics"
+	"log"
 	"math"
 	"math/rand"
 	"time"
@@ -44,6 +46,18 @@ type MCTSNode struct {
 
 // FindBestMove uses MCTS to find the best move
 func (m *MCTSSearch) FindBestMove(state *board.GameState) string {
+	// Try GPU-accelerated MCTS first if available
+	if gpu.IsAvailable() {
+		gpuMCTS := gpu.NewMCTSBatchGPU(100, m.MaxDepth)
+		move, err := gpuMCTS.SimulateBatch(state, m.MaxIterations)
+		if err == nil {
+			return move
+		}
+		// Fallback to CPU if GPU fails
+		log.Printf("GPU MCTS failed: %v, falling back to CPU", err)
+	}
+	
+	// CPU implementation (original)
 	rootNode := &MCTSNode{
 		state:        state,
 		untriedMoves: simulation.GetValidMoves(state, state.You.ID),
