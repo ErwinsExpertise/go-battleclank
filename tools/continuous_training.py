@@ -21,8 +21,18 @@ import time
 import signal
 import copy
 import random
+import re
+import concurrent.futures
+import tempfile
+import shutil
 from datetime import datetime
 from pathlib import Path
+
+# Constants for pattern recognition and history tracking
+EPSILON = 0.01  # Small value to avoid division by zero in pattern analysis
+TOP_CONSISTENT_PARAMS = 5  # Number of most consistent parameters to identify
+MAX_WINNING_PATTERNS = 50  # Maximum number of winning configs to keep in memory
+MAX_CHANGE_HISTORY = 100  # Maximum number of change attempts to track
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -92,8 +102,8 @@ if PYTORCH_AVAILABLE:
             std_values = np.std(patterns_array, axis=0)
             
             # Identify most consistent (low variance) winning parameters
-            consistency_scores = 1 / (std_values + 0.01)  # Add small epsilon to avoid division by zero
-            top_indices = np.argsort(consistency_scores)[-5:]  # Top 5 most consistent
+            consistency_scores = 1 / (std_values + EPSILON)  # Add small epsilon to avoid division by zero
+            top_indices = np.argsort(consistency_scores)[-TOP_CONSISTENT_PARAMS:]  # Top most consistent
             
             # Map indices to parameter names (simplified mapping)
             param_names = [
@@ -121,9 +131,9 @@ if PYTORCH_AVAILABLE:
         def record_winning_config(self, config_vector):
             """Record a winning configuration for pattern analysis"""
             self.winning_patterns.append(config_vector.tolist() if hasattr(config_vector, 'tolist') else config_vector)
-            # Keep only recent winners (last 50)
-            if len(self.winning_patterns) > 50:
-                self.winning_patterns = self.winning_patterns[-50:]
+            # Keep only recent winners
+            if len(self.winning_patterns) > MAX_WINNING_PATTERNS:
+                self.winning_patterns = self.winning_patterns[-MAX_WINNING_PATTERNS:]
 else:
     ConfigPatternNetwork = None
 
@@ -284,9 +294,9 @@ Based on analysis, I suggest adjusting:"""
                 'timestamp': datetime.now().isoformat()
             })
         
-        # Keep only recent history (last 100 attempts)
-        if len(self.change_history) > 100:
-            self.change_history = self.change_history[-100:]
+        # Keep only recent history
+        if len(self.change_history) > MAX_CHANGE_HISTORY:
+            self.change_history = self.change_history[-MAX_CHANGE_HISTORY:]
     
     def _summarize_change_history(self):
         """Summarize recent change attempts to avoid repetition"""
@@ -422,7 +432,6 @@ class ContinuousTrainer:
             for line in result.stdout.split('\n'):
                 if 'Wins:' in line or 'wins:' in line:
                     # Extract percentage from parentheses
-                    import re
                     match = re.search(r'\((\d+\.?\d*)%\)', line)
                     if match:
                         try:
@@ -480,10 +489,6 @@ class ContinuousTrainer:
             return results
         
         try:
-            import concurrent.futures
-            import tempfile
-            import shutil
-            
             print(f"  🚀 Running {len(configs)} configurations in parallel across GPUs...")
             
             def test_single_config(args):
@@ -528,7 +533,6 @@ class ContinuousTrainer:
                     win_rate = 0.0
                     for line in result.stdout.split('\n'):
                         if 'Wins:' in line or 'wins:' in line:
-                            import re
                             match = re.search(r'\((\d+\.?\d*)%\)', line)
                             if match:
                                 win_rate = float(match.group(1)) / 100.0
