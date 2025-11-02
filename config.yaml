@@ -23,7 +23,7 @@ optimization:
   learning_rate: 0.001
 pursuit:
   distance_2: 100.0
-  distance_3: 50.0
+  distance_3: 57.0
   distance_4: 25.0
   distance_5: 10.0
 search:
@@ -33,16 +33,16 @@ search:
   use_astar: true
 trapping:
   space_cutoff_threshold: 0.2
-  trapped_ratio: 0.6
+  trapped_ratio: 0.62
   weight: 400.0
 traps:
   critical: 600.0
   food_trap: 800.0
   food_trap_threshold: 0.7
-  moderate: 250.0
+  moderate: 222.3
   severe: 450.0
 weights:
-  center_control: 2.0
+  center_control: 1.9
   cutoff: 200.0
   food: 1.0
   head_collision: 500.0
