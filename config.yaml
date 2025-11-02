@@ -1,50 +1,50 @@
 food_urgency:
-  critical: 2.05
+  critical: 1.79
   low: 1.4
   normal: 1.0
 hybrid:
-  critical_health: 30
+  critical_health: 39
   critical_nearby_enemies: 2
-  critical_space_ratio: 2.8
+  critical_space_ratio: 2.9
   lookahead_depth: 3
   mcts_iterations: 100
-  mcts_timeout_ms: 179
+  mcts_timeout_ms: 177
   use_lookahead_on_critical: true
   use_mcts_in_endgame: true
 late_game:
   caution_multiplier: 1.0
-  turn_threshold: 167
+  turn_threshold: 157
 optimization:
   batch_size: 36
-  discount_factor: 0.95
+  discount_factor: 0.1
   enabled: false
-  episodes: 1065
+  episodes: 1011
   exploration_rate: 0.1
   learning_rate: 0.0
 pursuit:
-  distance_2: 95.9
-  distance_3: 49.3
-  distance_4: 28.3
-  distance_5: 9.9
+  distance_2: 80.1
+  distance_3: 47.7
+  distance_4: 30.5
+  distance_5: 8.6
 search:
   algorithm: hybrid
-  max_astar_nodes: 422
-  max_depth: 121
+  max_astar_nodes: 383
+  max_depth: 84
   use_astar: true
 trapping:
-  space_cutoff_threshold: 0.2
-  trapped_ratio: 0.6
-  weight: 400.0
+  space_cutoff_threshold: 0.18
+  trapped_ratio: 0.46
+  weight: 368.9
 traps:
   critical: 2000.0
-  food_trap: 698.3
-  food_trap_threshold: 0.7
-  moderate: 287.5
-  severe: 406.9
+  food_trap: 712.7
+  food_trap_threshold: 0.63
+  moderate: 2000.0
+  severe: 404.4
 weights:
-  center_control: 2.3
-  cutoff: 195.2
-  food: 5.1
-  head_collision: 1000.0
-  space: 28.1
-  wall_penalty: 5.5
+  center_control: 2.2
+  cutoff: 1000.0
+  food: 61.6
+  head_collision: 951.5
+  space: 308.3
+  wall_penalty: 6.3
