@@ -3,9 +3,9 @@ food_urgency:
   low: 1.0
   normal: 1.09
 hybrid:
-  critical_health: 33
+  critical_health: 30
   critical_nearby_enemies: 2
-  critical_space_ratio: 2.8
+  critical_space_ratio: 2.9
   lookahead_depth: 3
   mcts_iterations: 86
   mcts_timeout_ms: 209
@@ -13,7 +13,7 @@ hybrid:
   use_mcts_in_endgame: true
 late_game:
   caution_multiplier: 1.02
-  turn_threshold: 131
+  turn_threshold: 120
 optimization:
   batch_size: 32
   discount_factor: 0.1
@@ -24,7 +24,7 @@ optimization:
 pursuit:
   distance_2: 77.1
   distance_3: 39.9
-  distance_4: 29.6
+  distance_4: 31.5
   distance_5: 10.9
 search:
   algorithm: hybrid
@@ -35,7 +35,7 @@ tactics:
   adaptive_wall_hugging_weight: 25.0
   aggressive_space_control_weight: 30.0
   aggressive_space_turn_threshold: 50
-  energy_conservation_weight: 13.5
+  energy_conservation_weight: 12.7
   inward_trap_min_enemy_length: 5
   inward_trap_weight: 45.0
   predictive_avoidance_weight: 112.0
@@ -51,7 +51,7 @@ traps:
   severe: 407.5
 weights:
   center_control: 2.1
-  cutoff: 1000.0
+  cutoff: 958.8
   food: 1.5
   head_collision: 1000.0
   space: 7.7
