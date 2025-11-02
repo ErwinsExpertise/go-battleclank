@@ -375,6 +375,144 @@ Based on analysis, I suggest adjusting:"""
         return "Recently adjusted: " + ", ".join(summary_parts)
 
 
+def _test_single_config_worker(args):
+    """Worker function for parallel config testing
+    
+    This function is at module level to be picklable for multiprocessing.
+    
+    Args:
+        args: Tuple of (config, config_id, base_dir, games_per_config)
+    
+    Returns:
+        Tuple of (config, win_rate)
+    """
+    config, config_id, base_dir, games_per_config = args
+    workspace = None
+    
+    try:
+        # Create temporary workspace for this config
+        workspace = Path(base_dir) / f"workspace_{config_id}"
+        workspace.mkdir(exist_ok=True, parents=True)
+        
+        # Save config to workspace
+        config_file = workspace / "config.yaml"
+        with open(config_file, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False)
+        
+        # Build binary with this config
+        # Copy config to main location temporarily for build
+        main_config = Path.cwd() / 'config.yaml'
+        backup_config = workspace / 'config_backup.yaml'
+        
+        # Backup current config
+        if main_config.exists():
+            shutil.copy(main_config, backup_config)
+        
+        try:
+            # Install our config
+            shutil.copy(config_file, main_config)
+            
+            # Build binary
+            build_result = subprocess.run(
+                ['go', 'build', '-o', str(workspace / 'battlesnake')],
+                cwd=Path.cwd(),
+                capture_output=True,
+                timeout=120
+            )
+            
+            if build_result.returncode != 0:
+                return (config, 0.0)
+            
+            # Set GPU for this worker (round-robin across available GPUs)
+            env = os.environ.copy()
+            if PYTORCH_AVAILABLE:
+                import torch
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                    gpu_id = config_id % torch.cuda.device_count()
+                    env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+            
+            # Allocate unique ports for this worker to avoid conflicts
+            # Base ports: 8000 (go), 8080 (rust)
+            # Each worker gets: 8000 + (config_id * 100), 8080 + (config_id * 100)
+            go_port = 8000 + (config_id * 100)
+            rust_port = 8080 + (config_id * 100)
+            
+            # Check if servers are already running (started by start_training.sh)
+            # If not, we need to start them ourselves
+            servers_already_running = False
+            try:
+                # Quick check: try to connect to the Go server
+                test_result = subprocess.run(
+                    ['curl', '-s', '-f', f'http://localhost:{go_port}/', '-o', '/dev/null'],
+                    capture_output=True,
+                    timeout=2
+                )
+                servers_already_running = (test_result.returncode == 0)
+            except:
+                servers_already_running = False
+            
+            if not servers_already_running:
+                # Start servers for this worker
+                start_servers_script = Path.cwd() / 'tools' / 'start_servers.sh'
+                subprocess.run(
+                    [str(start_servers_script), str(go_port), str(rust_port)],
+                    cwd=workspace,
+                    env=env,
+                    capture_output=True,
+                    timeout=30
+                )
+                
+                # Wait a bit for servers to start
+                time.sleep(3)
+            
+            try:
+                # Run benchmark - use 'no-manage' to avoid starting/stopping servers
+                result = subprocess.run(
+                    ['python3', str(Path.cwd() / 'tools' / 'run_benchmark.py'), 
+                     str(games_per_config), str(go_port), str(rust_port), 'no-manage'],
+                    cwd=Path.cwd(),
+                    capture_output=True,
+                    text=True,
+                    timeout=games_per_config * 60,
+                    env=env
+                )
+                
+                # Parse win rate
+                win_rate = 0.0
+                for line in result.stdout.split('\n'):
+                    if 'Wins:' in line or 'wins:' in line:
+                        match = re.search(r'\((\d+\.?\d*)%\)', line)
+                        if match:
+                            win_rate = float(match.group(1)) / 100.0
+                            break
+                
+                return (config, win_rate)
+            
+            finally:
+                # Only stop servers if we started them ourselves
+                if not servers_already_running:
+                    stop_servers_script = Path.cwd() / 'tools' / 'stop_servers.sh'
+                    subprocess.run(
+                        [str(stop_servers_script), str(go_port), str(rust_port)],
+                        capture_output=True,
+                        timeout=30
+                    )
+        
+        finally:
+            # Restore original config
+            if backup_config.exists():
+                shutil.copy(backup_config, main_config)
+    
+    except Exception as e:
+        print(f"  ⚠ Parallel benchmark error for config {config_id}: {e}")
+        return (config, 0.0)
+    
+    finally:
+        # Cleanup workspace
+        if workspace and workspace.exists():
+            shutil.rmtree(workspace, ignore_errors=True)
+
+
 class ContinuousTrainer:
     """Manages 24/7 continuous training with automatic checkpointing and recovery
     Enhanced with LLM-guided optimization and neural network pattern recognition"""
@@ -637,120 +775,23 @@ class ContinuousTrainer:
         try:
             print(f"  🚀 Running {len(configs)} configurations in parallel across GPUs...")
             
-            def test_single_config(args):
-                config, config_id, base_dir = args
-                workspace = None
-                try:
-                    # Create temporary workspace for this config
-                    workspace = Path(base_dir) / f"workspace_{config_id}"
-                    workspace.mkdir(exist_ok=True, parents=True)
-                    
-                    # Save config to workspace
-                    config_file = workspace / "config.yaml"
-                    with open(config_file, 'w') as f:
-                        yaml.dump(config, f, default_flow_style=False)
-                    
-                    # Copy the config to a temp location and use environment variable
-                    # This avoids race conditions with the main config.yaml
-                    
-                    # Build binary - use original directory but output to workspace
-                    build_result = subprocess.run(
-                        ['go', 'build', '-o', str(workspace / 'battlesnake')],
-                        cwd=Path.cwd(),
-                        capture_output=True,
-                        timeout=120
-                    )
-                    
-                    if build_result.returncode != 0:
-                        return (config, 0.0)
-                    
-                    # Set GPU for this worker (round-robin across available GPUs)
-                    env = os.environ.copy()
-                    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-                        gpu_id = config_id % torch.cuda.device_count()
-                        env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
-                    
-                    # Allocate unique ports for this worker to avoid conflicts
-                    # Base ports: 8000 (go), 8080 (rust)
-                    # Each worker gets: 8000 + (config_id * 100), 8080 + (config_id * 100)
-                    go_port = 8000 + (config_id * 100)
-                    rust_port = 8080 + (config_id * 100)
-                    
-                    # Copy config to main location temporarily for benchmark
-                    import fcntl
-                    lock_file = Path(base_dir) / "benchmark.lock"
-                    
-                    with open(lock_file, 'w') as lock:
-                        # Acquire exclusive lock to prevent concurrent config overwrites
-                        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-                        
-                        # Temporarily use this config
-                        main_config = Path.cwd() / 'config.yaml'
-                        backup_config = workspace / 'config_backup.yaml'
-                        
-                        # Backup current config
-                        if main_config.exists():
-                            shutil.copy(main_config, backup_config)
-                        
-                        try:
-                            # Install our config
-                            shutil.copy(config_file, main_config)
-                            
-                            # Rebuild with this config
-                            subprocess.run(['go', 'build', '-o', 'battlesnake'], 
-                                         cwd=Path.cwd(), capture_output=True, timeout=120)
-                            
-                            # Run benchmark with unique ports
-                            result = subprocess.run(
-                                ['python3', 'tools/run_benchmark.py', str(games_per_config), 
-                                 str(go_port), str(rust_port)],
-                                cwd=Path.cwd(),
-                                capture_output=True,
-                                text=True,
-                                timeout=games_per_config * 60,
-                                env=env
-                            )
-                            
-                            # Parse win rate
-                            win_rate = 0.0
-                            for line in result.stdout.split('\n'):
-                                if 'Wins:' in line or 'wins:' in line:
-                                    match = re.search(r'\((\d+\.?\d*)%\)', line)
-                                    if match:
-                                        win_rate = float(match.group(1)) / 100.0
-                                        break
-                            
-                            return (config, win_rate)
-                            
-                        finally:
-                            # Restore original config
-                            if backup_config.exists():
-                                shutil.copy(backup_config, main_config)
-                    
-                except Exception as e:
-                    print(f"  ⚠ Parallel benchmark error for config {config_id}: {e}")
-                    return (config, 0.0)
-                finally:
-                    # Cleanup workspace
-                    if workspace and workspace.exists():
-                        shutil.rmtree(workspace, ignore_errors=True)
-            
             # Create temp directory for parallel workspaces
             temp_base = Path(tempfile.mkdtemp(prefix="parallel_training_"))
             
-            # Prepare arguments
-            args_list = [(config, i, str(temp_base)) for i, config in enumerate(configs)]
+            # Prepare arguments for each worker
+            args_list = [(config, i, str(temp_base), games_per_config) for i, config in enumerate(configs)]
             
             # Determine number of workers (one per GPU, or 4 for CPU)
+            import torch
             num_workers = torch.cuda.device_count() if torch.cuda.is_available() else 4
             num_workers = min(num_workers, len(configs))
             
             print(f"  Using {num_workers} parallel workers")
             
-            # Run in parallel
+            # Run in parallel using module-level worker function
             results = []
             with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-                futures = [executor.submit(test_single_config, args) for args in args_list]
+                futures = [executor.submit(_test_single_config_worker, args) for args in args_list]
                 
                 for future in concurrent.futures.as_completed(futures):
                     try:
