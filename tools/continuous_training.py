@@ -214,11 +214,12 @@ class ContinuousTrainer:
     def random_perturbation(self, config, magnitude=0.1):
         """Apply random perturbation to weights"""
         import random
+        import copy
         
-        new_config = config.copy()
-        weights = new_config.get('weights', {}).copy()
-        pursuit = new_config.get('pursuit', {}).copy()
-        traps = new_config.get('traps', {}).copy()
+        new_config = copy.deepcopy(config)
+        weights = new_config.get('weights', {})
+        pursuit = new_config.get('pursuit', {})
+        traps = new_config.get('traps', {})
         
         # Build list of all tunable parameters with their locations
         tunable_params = []
@@ -239,6 +240,10 @@ class ContinuousTrainer:
                 tunable_params.append(('traps', key))
         
         # Randomly select 3-5 parameters to adjust
+        if not tunable_params:
+            # No parameters to tune, return config unchanged
+            return new_config
+        
         num_to_adjust = min(random.randint(3, 5), len(tunable_params))
         params_to_adjust = random.sample(tunable_params, num_to_adjust)
         
