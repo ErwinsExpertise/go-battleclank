@@ -31,6 +31,14 @@ search:
   max_astar_nodes: 388
   max_depth: 93
   use_astar: true
+tactics:
+  inward_trap_weight: 50.0
+  inward_trap_min_enemy_length: 5
+  aggressive_space_control_weight: 30.0
+  aggressive_space_turn_threshold: 50
+  predictive_avoidance_weight: 100.0
+  energy_conservation_weight: 15.0
+  adaptive_wall_hugging_weight: 25.0
 trapping:
   space_cutoff_threshold: 0.12
   trapped_ratio: 0.49
