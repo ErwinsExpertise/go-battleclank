@@ -11,6 +11,8 @@ import os
 import sys
 import time
 import signal
+import copy
+import random
 from datetime import datetime
 from pathlib import Path
 
@@ -213,9 +215,6 @@ class ContinuousTrainer:
     
     def random_perturbation(self, config, magnitude=0.1):
         """Apply random perturbation to weights"""
-        import random
-        import copy
-        
         new_config = copy.deepcopy(config)
         weights = new_config.get('weights', {})
         pursuit = new_config.get('pursuit', {})
