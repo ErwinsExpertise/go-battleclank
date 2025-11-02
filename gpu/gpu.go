@@ -1,3 +1,6 @@
+//go:build !cuda
+// +build !cuda
+
 package gpu
 
 import (
@@ -22,6 +25,8 @@ var (
 // Initialize checks for GPU availability and initializes GPU acceleration
 // This function is safe to call even when CUDA is not available - it will
 // gracefully fallback to CPU mode
+// 
+// NOTE: This is the non-CUDA fallback version. To enable CUDA, build with: go build -tags cuda
 func Initialize() error {
 	if !GPUEnabled {
 		log.Println("GPU acceleration disabled (use --enable-gpu to enable)")
@@ -29,48 +34,15 @@ func Initialize() error {
 		return fmt.Errorf("GPU not enabled via CLI flag")
 	}
 
-	// Attempt to initialize CUDA
-	// In this initial implementation, we'll use CPU fallback
-	// Future versions will use actual CUDA bindings (e.g., mumax/3/cuda)
-	
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("GPU initialization failed: %v (using CPU fallback)", r)
-			GPUAvailable = false
-		}
-	}()
-	
-	// Try to detect GPU - this will be implemented with actual CUDA calls later
-	// For now, we simulate the check
-	if !checkCUDAAvailable() {
-		log.Println("CUDA not available, using CPU fallback")
-		GPUAvailable = false
-		return fmt.Errorf("CUDA not available")
-	}
-	
-	// Simulate device detection
-	DeviceCount = detectDeviceCount()
-	if DeviceCount == 0 {
-		log.Println("No CUDA devices found, using CPU fallback")
-		GPUAvailable = false
-		return fmt.Errorf("no CUDA devices found")
-	}
-	
-	// Select device 0 by default
-	DeviceName = getDeviceName(0)
-	
-	log.Printf("GPU initialized: %s (device 0 of %d)", DeviceName, DeviceCount)
-	GPUAvailable = true
-	
-	return nil
+	log.Println("Binary built without CUDA support. To enable GPU acceleration, rebuild with: go build -tags cuda")
+	log.Println("Using CPU fallback")
+	GPUAvailable = false
+	return fmt.Errorf("binary not built with CUDA support (use -tags cuda)")
 }
 
 // Cleanup releases GPU resources
 func Cleanup() {
-	if GPUAvailable {
-		log.Println("Cleaning up GPU resources")
-		// Future: cuda.Recycle()
-	}
+	// No-op in non-CUDA build
 }
 
 // SetEnabled sets whether GPU acceleration should be enabled
@@ -83,26 +55,7 @@ func IsAvailable() bool {
 	return GPUEnabled && GPUAvailable
 }
 
-// --- Internal helper functions for CPU fallback simulation ---
-
-// checkCUDAAvailable checks if CUDA is available
-// Future: will use cuda.Available() from mumax/3/cuda
-func checkCUDAAvailable() bool {
-	// For now, always return false to use CPU fallback
-	// When CUDA bindings are added, this will do actual detection
-	return false
-}
-
-// detectDeviceCount detects the number of CUDA devices
-// Future: will use cuda.DeviceCount()
-func detectDeviceCount() int {
-	// For now, return 0 to indicate no devices
-	return 0
-}
-
-// getDeviceName gets the name of a specific device
-// Future: will use cuda.DeviceName(deviceID)
-func getDeviceName(deviceID int) string {
-	// Placeholder
-	return fmt.Sprintf("CUDA Device %d", deviceID)
+// WithDevice runs a function on a specific GPU device
+func WithDevice(deviceID int, fn func() error) error {
+	return fmt.Errorf("GPU not available in non-CUDA build")
 }

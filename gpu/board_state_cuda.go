@@ -1,25 +1,28 @@
-//go:build !cuda
-// +build !cuda
+//go:build cuda
+// +build cuda
 
 package gpu
 
 import (
 	"fmt"
+	"unsafe"
 	
 	"github.com/ErwinsExpertise/go-battleclank/engine/board"
+	"github.com/mumax/3/cuda"
 )
 
 // BoardStateGPU represents a board state optimized for GPU processing
-// Non-CUDA build - stores data in CPU memory only
 type BoardStateGPU struct {
-	Width     int
-	Height    int
-	Occupancy []float32 // Flattened 2D grid: 0=empty, 1=occupied
-	NumSnakes int
+	Width        int
+	Height       int
+	Occupancy    []float32       // CPU copy of occupancy grid
+	NumSnakes    int
+	OccupancyGPU unsafe.Pointer  // GPU memory pointer for occupancy grid
+	usingGPU     bool            // Track if GPU memory is allocated
 }
 
 // NewBoardStateGPU converts CPU board state to GPU-optimized format
-// Non-CUDA build - stores data in CPU memory only
+// Allocates GPU memory and uploads data when GPU is available
 func NewBoardStateGPU(state *board.GameState) (*BoardStateGPU, error) {
 	if !IsAvailable() {
 		return nil, fmt.Errorf("GPU not available")
@@ -41,18 +44,44 @@ func NewBoardStateGPU(state *board.GameState) (*BoardStateGPU, error) {
 		}
 	}
 	
-	return &BoardStateGPU{
+	boardState := &BoardStateGPU{
 		Width:     w,
 		Height:    h,
 		Occupancy: occupancy,
 		NumSnakes: len(state.Board.Snakes),
-	}, nil
+		usingGPU:  false,
+	}
+	
+	// Allocate GPU memory and upload data
+	if GPUAvailable {
+		defer func() {
+			if r := recover(); r != nil {
+				// If GPU allocation fails, continue with CPU-only mode
+				boardState.usingGPU = false
+			}
+		}()
+		
+		// Allocate GPU memory for occupancy grid
+		bytes := int64(size * 4) // 4 bytes per float32
+		occupancyGPU := cuda.MemAlloc(bytes)
+		
+		// Copy data to GPU
+		cuda.Memcpy(occupancyGPU, unsafe.Pointer(&occupancy[0]), bytes)
+		
+		boardState.OccupancyGPU = occupancyGPU
+		boardState.usingGPU = true
+	}
+	
+	return boardState, nil
 }
 
 // Free releases GPU memory
-// Non-CUDA build - no-op since no GPU memory is allocated
 func (b *BoardStateGPU) Free() {
-	// No-op in non-CUDA build
+	if b.usingGPU && b.OccupancyGPU != nil {
+		cuda.MemFree(b.OccupancyGPU)
+		b.OccupancyGPU = nil
+		b.usingGPU = false
+	}
 }
 
 // IsOccupied checks if a position is occupied on the board

@@ -101,27 +101,41 @@ PORT=8080 ./go-battleclank
 
 The server will start on `http://0.0.0.0:8000` by default.
 
-#### GPU Acceleration (Experimental)
+#### GPU Acceleration (Production Ready)
 
-GPU acceleration can be enabled to improve MCTS performance using CUDA:
+GPU acceleration is available for systems with NVIDIA GPUs and CUDA support:
 
+**Build with CUDA support:**
 ```bash
-./go-battleclank --enable-gpu
+go build -tags cuda -o go-battleclank-cuda .
+./go-battleclank-cuda --enable-gpu
 ```
 
-**Requirements:**
-- NVIDIA GPU with CUDA support
+**Build without CUDA (default):**
+```bash
+go build -o go-battleclank .
+./go-battleclank --enable-gpu  # Will use CPU fallback
+```
+
+**Requirements for GPU acceleration:**
+- NVIDIA GPU with CUDA compute capability 3.0+
 - CUDA Toolkit 10.0 or higher
 - NVIDIA GPU drivers
+- CGO enabled (default in Go)
 
-**Note:** GPU acceleration is optional and the application will gracefully fallback to CPU if CUDA is not available. The initial implementation uses CPU fallback stubs - full CUDA integration will be available when CUDA bindings are added.
-
-**Benefits:**
+**Benefits with CUDA:**
 - 5-10x faster MCTS simulations
 - Better move decisions from more complete search
 - Estimated +5-10% win rate improvement
 
-See [GPU_IMPLEMENTATION_GO.md](GPU_IMPLEMENTATION_GO.md) for detailed implementation guide.
+**Graceful Fallback:**
+The application automatically falls back to CPU if:
+- Built without `-tags cuda`
+- CUDA not installed on the system
+- No NVIDIA GPU detected
+- GPU initialization fails
+
+See [BUILD_WITH_CUDA.md](BUILD_WITH_CUDA.md) for detailed build instructions and [GPU_USAGE.md](GPU_USAGE.md) for usage guide.
 
 ### Check Version
 

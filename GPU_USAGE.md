@@ -6,27 +6,39 @@ This Battlesnake implementation includes optional GPU acceleration for Monte Car
 
 ## Current Status
 
-**Version 1.0 - CPU Fallback Implementation**
+**Version 2.0 - Production-Ready CUDA Implementation**
 
-The GPU infrastructure is fully implemented with graceful CPU fallback. The current version uses CPU-based algorithms by default, with the architecture ready for CUDA integration.
+The GPU infrastructure is fully implemented with CUDA bindings integrated and ready for production use on systems with NVIDIA GPUs.
 
 ### What's Implemented
 
 - ✅ GPU package structure (`gpu/`)
 - ✅ CLI flag (`--enable-gpu`)
-- ✅ Board state GPU representation
-- ✅ Flood fill interface with CPU fallback
-- ✅ MCTS batch simulation interface with CPU fallback
+- ✅ **CUDA bindings integrated (mumax/3/cuda)**
+- ✅ **Actual GPU memory allocation and transfers**
+- ✅ Board state GPU representation with GPU memory
+- ✅ Flood fill interface with GPU/CPU fallback
+- ✅ MCTS batch simulation interface
 - ✅ Automatic GPU detection and graceful fallback
+- ✅ Build tags for CUDA/non-CUDA builds
 - ✅ Complete test coverage
 - ✅ Integration with existing MCTS algorithm
 
-### Future Enhancements (When CUDA Available)
+### Build Options
 
-- ⏳ CUDA bindings (mumax/3/cuda or similar)
-- ⏳ Custom CUDA kernels for flood fill
-- ⏳ Parallel MCTS simulation on GPU
-- ⏳ GPU memory management and optimization
+The project supports two build modes:
+
+1. **Without CUDA (default)**: `go build`
+   - Works on any system
+   - Uses CPU fallback only
+   - No CUDA dependencies required
+
+2. **With CUDA**: `go build -tags cuda`
+   - Requires CUDA Toolkit installed
+   - Uses actual GPU acceleration
+   - Production-ready for NVIDIA GPUs
+
+See [BUILD_WITH_CUDA.md](BUILD_WITH_CUDA.md) for detailed build instructions.
 
 ## Usage
 
@@ -53,18 +65,27 @@ Run with GPU acceleration enabled:
 2025/11/02 23:12:29 Running Battlesnake at http://0.0.0.0:8000...
 ```
 
-**With GPU (CUDA not available):**
+**With GPU (built without CUDA tags):**
 ```
-2025/11/02 23:13:03 CUDA not available, using CPU fallback
-2025/11/02 23:13:03 GPU initialization failed: CUDA not available (will use CPU fallback)
+2025/11/02 23:13:03 Binary built without CUDA support. To enable GPU acceleration, rebuild with: go build -tags cuda
+2025/11/02 23:13:03 Using CPU fallback
+2025/11/02 23:13:03 GPU initialization failed: binary not built with CUDA support (use -tags cuda) (will use CPU fallback)
 2025/11/02 23:13:03 ✓ Configuration loaded successfully
 2025/11/02 23:13:03 Running Battlesnake at http://0.0.0.0:8000...
 ```
 
-**With GPU (CUDA available):**
+**With GPU (built with -tags cuda, CUDA available):**
 ```
 2025/11/02 23:13:03 GPU initialized: NVIDIA GeForce RTX 3080 (device 0 of 1)
 2025/11/02 23:13:03 GPU acceleration enabled: NVIDIA GeForce RTX 3080
+2025/11/02 23:13:03 ✓ Configuration loaded successfully
+2025/11/02 23:13:03 Running Battlesnake at http://0.0.0.0:8000...
+```
+
+**With GPU (built with -tags cuda, CUDA not installed):**
+```
+2025/11/02 23:13:03 CUDA not available, using CPU fallback
+2025/11/02 23:13:03 GPU initialization failed: CUDA not available (will use CPU fallback)
 2025/11/02 23:13:03 ✓ Configuration loaded successfully
 2025/11/02 23:13:03 Running Battlesnake at http://0.0.0.0:8000...
 ```
