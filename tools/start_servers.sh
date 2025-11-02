@@ -12,6 +12,19 @@ RUST_PORT=${2:-8080}
 
 echo "Starting snake servers..."
 
+# Check if binaries exist
+if [ ! -f "./battlesnake" ]; then
+    echo "  ✗ Go snake binary not found: ./battlesnake"
+    echo "  Please run 'go build -o battlesnake .' first"
+    exit 1
+fi
+
+if [ ! -f "./baseline/target/release/baseline-snake" ]; then
+    echo "  ✗ Rust baseline binary not found: ./baseline/target/release/baseline-snake"
+    echo "  Please run 'cd baseline && cargo build --release' first"
+    exit 1
+fi
+
 # Start Go snake
 echo "  Starting Go snake on port $GO_PORT..."
 PORT=$GO_PORT ./battlesnake > /dev/null 2>&1 &

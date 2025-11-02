@@ -426,10 +426,13 @@ def _test_single_config_worker(args):
             # Set GPU for this worker (round-robin across available GPUs)
             env = os.environ.copy()
             if PYTORCH_AVAILABLE:
-                import torch
-                if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-                    gpu_id = config_id % torch.cuda.device_count()
-                    env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+                try:
+                    import torch
+                    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                        gpu_id = config_id % torch.cuda.device_count()
+                        env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+                except ImportError:
+                    pass  # torch not available, skip GPU assignment
             
             # Allocate unique ports for this worker to avoid conflicts
             # Base ports: 8000 (go), 8080 (rust)
