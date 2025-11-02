@@ -2,6 +2,13 @@
 """
 24/7 Continuous Neural Network Training for Battlesnake Weight Optimization
 Enhanced with LLM-based intelligent weight suggestion and full config optimization
+
+NEW FEATURES:
+- Neural Network and LLM Integration: NN learns winning patterns and informs LLM suggestions
+- Change History Tracking: Prevents repeated failed attempts
+- Multi-GPU Parallel Training: Maximize utilization on 8x A100 GPU servers
+- Parallel Configuration Testing: Test multiple configs simultaneously for faster convergence
+
 Runs indefinitely, automatically managing checkpoints and improvements
 """
 
@@ -53,6 +60,9 @@ if PYTORCH_AVAILABLE:
             self.fc4 = nn.Linear(hidden_size // 2, input_size)
             self.relu = nn.ReLU()
             self.dropout = nn.Dropout(0.2)
+            
+            # Store learned patterns for analysis
+            self.winning_patterns = []
         
         def forward(self, x):
             x = self.relu(self.fc1(x))
@@ -62,6 +72,58 @@ if PYTORCH_AVAILABLE:
             x = self.relu(self.fc3(x))
             x = self.fc4(x)
             return x
+        
+        def extract_winning_patterns(self):
+            """Extract and analyze winning configuration patterns learned by the network"""
+            if not self.winning_patterns:
+                return None
+            
+            # Analyze recent successful patterns
+            recent_winners = self.winning_patterns[-10:]
+            
+            if not recent_winners:
+                return None
+            
+            # Convert to numpy for analysis
+            patterns_array = np.array(recent_winners)
+            
+            # Calculate statistics
+            mean_values = np.mean(patterns_array, axis=0)
+            std_values = np.std(patterns_array, axis=0)
+            
+            # Identify most consistent (low variance) winning parameters
+            consistency_scores = 1 / (std_values + 0.01)  # Add small epsilon to avoid division by zero
+            top_indices = np.argsort(consistency_scores)[-5:]  # Top 5 most consistent
+            
+            # Map indices to parameter names (simplified mapping)
+            param_names = [
+                'space', 'head_collision', 'center_control', 'wall_penalty', 'cutoff', 'food',
+                'trap_moderate', 'trap_severe', 'trap_critical', 'food_trap', 'food_trap_threshold',
+                'pursuit_2', 'pursuit_3', 'pursuit_4', 'pursuit_5',
+                'trapping_weight', 'trapping_cutoff', 'trapped_ratio',
+                'urgency_critical', 'urgency_low', 'urgency_normal',
+                'late_game_caution', 'late_game_threshold',
+                'hybrid_health', 'hybrid_enemies', 'hybrid_space', 'hybrid_depth', 'hybrid_mcts', 'hybrid_timeout',
+                'search_nodes', 'search_depth',
+                'opt_lr', 'opt_discount', 'opt_exploration', 'opt_batch', 'opt_episodes'
+            ]
+            
+            # Build insight string
+            insights = []
+            for idx in top_indices:
+                if idx < len(param_names):
+                    param_name = param_names[idx]
+                    mean_val = mean_values[idx]
+                    insights.append(f"- {param_name}: consistently ~{mean_val:.2f} in wins")
+            
+            return "\n".join(insights) if insights else None
+        
+        def record_winning_config(self, config_vector):
+            """Record a winning configuration for pattern analysis"""
+            self.winning_patterns.append(config_vector.tolist() if hasattr(config_vector, 'tolist') else config_vector)
+            # Keep only recent winners (last 50)
+            if len(self.winning_patterns) > 50:
+                self.winning_patterns = self.winning_patterns[-50:]
 else:
     ConfigPatternNetwork = None
 
@@ -72,6 +134,7 @@ class LLMWeightAdvisor:
     def __init__(self):
         self.model = None
         self.tokenizer = None
+        self.change_history = []  # Track all attempted changes to avoid repetition
         if not PYTORCH_AVAILABLE:
             return
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -97,14 +160,14 @@ class LLMWeightAdvisor:
                 print("  Falling back to random perturbation")
                 self.model = None
     
-    def suggest_adjustments(self, config, recent_history, current_win_rate, best_win_rate):
-        """Use LLM to suggest intelligent weight adjustments based on training history"""
+    def suggest_adjustments(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None):
+        """Use LLM to suggest intelligent weight adjustments based on training history and NN patterns"""
         if self.model is None or self.tokenizer is None:
             return None
         
         try:
-            # Build context for the LLM
-            prompt = self._build_prompt(config, recent_history, current_win_rate, best_win_rate)
+            # Build context for the LLM including NN patterns and change history
+            prompt = self._build_prompt(config, recent_history, current_win_rate, best_win_rate, nn_patterns)
             
             # Generate suggestion
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
@@ -122,17 +185,29 @@ class LLMWeightAdvisor:
             
             # Parse the response to extract weight adjustments
             suggestions = self._parse_suggestions(response)
+            
+            # Record this suggestion in change history to avoid repetition
+            self._record_change_attempt(suggestions)
+            
             return suggestions
             
         except Exception as e:
             print(f"  ⚠ LLM suggestion failed: {e}")
             return None
     
-    def _build_prompt(self, config, recent_history, current_win_rate, best_win_rate):
-        """Build a prompt for the LLM with training context"""
+    def _build_prompt(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None):
+        """Build a prompt for the LLM with training context, NN patterns, and change history"""
         # Summarize recent performance
         recent_improvements = [h for h in recent_history[-10:] if h.get('improvement', 0) > 0]
         recent_declines = [h for h in recent_history[-10:] if h.get('improvement', 0) <= 0]
+        
+        # Build change history summary
+        change_summary = self._summarize_change_history()
+        
+        # Build NN pattern insights
+        pattern_insights = ""
+        if nn_patterns:
+            pattern_insights = f"\nNeural Network Insights:\n{nn_patterns}\n"
         
         prompt = f"""<|system|>
 You are an AI expert in Battlesnake game optimization. Analyze training results and suggest parameter adjustments.
@@ -144,6 +219,9 @@ Best win rate so far: {best_win_rate:.1%}
 Recent performance:
 - Last 10 iterations: {len(recent_improvements)} improvements, {len(recent_declines)} declines
 - Stagnating: {'Yes' if len(recent_improvements) == 0 else 'No'}
+{pattern_insights}
+Previously tried adjustments (avoid repeating):
+{change_summary}
 
 Key parameters:
 - space weight: {config.get('weights', {}).get('space', 5.0)}
@@ -155,7 +233,9 @@ Based on this data, which 3-5 parameters should be adjusted and by how much (+/-
 1. If performance is declining, revert recent changes
 2. If stagnating, try larger adjustments
 3. Balance offensive (food) and defensive (traps) parameters
-4. Respond with parameter names and adjustment directions only.
+4. Avoid parameters that were recently tried without success
+5. Follow neural network insights on winning patterns
+6. Respond with parameter names and adjustment directions only.
 </s>
 <|assistant|>
 Based on analysis, I suggest adjusting:"""
@@ -189,6 +269,48 @@ Based on analysis, I suggest adjusting:"""
                         break
         
         return suggestions[:5]  # Limit to 5 suggestions
+    
+    def _record_change_attempt(self, suggestions):
+        """Record attempted changes to avoid repetition"""
+        if not suggestions:
+            return
+        
+        for suggestion in suggestions:
+            param = suggestion.get('param', '')
+            adjustment = suggestion.get('adjustment', 0)
+            self.change_history.append({
+                'param': param,
+                'adjustment': adjustment,
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        # Keep only recent history (last 100 attempts)
+        if len(self.change_history) > 100:
+            self.change_history = self.change_history[-100:]
+    
+    def _summarize_change_history(self):
+        """Summarize recent change attempts to avoid repetition"""
+        if not self.change_history:
+            return "None yet"
+        
+        # Get last 20 changes
+        recent = self.change_history[-20:]
+        
+        # Count by parameter
+        param_counts = {}
+        for change in recent:
+            param = change['param']
+            param_counts[param] = param_counts.get(param, 0) + 1
+        
+        # Format summary
+        if not param_counts:
+            return "None yet"
+        
+        summary_parts = []
+        for param, count in sorted(param_counts.items(), key=lambda x: x[1], reverse=True)[:5]:
+            summary_parts.append(f"{param} ({count}x)")
+        
+        return "Recently adjusted: " + ", ".join(summary_parts)
 
 
 class ContinuousTrainer:
@@ -201,13 +323,15 @@ class ContinuousTrainer:
                  max_iterations=None,
                  min_improvement=0.001,
                  use_llm=True,
-                 use_neural_net=True):
+                 use_neural_net=True,
+                 parallel_configs=1):
         self.games_per_iteration = games_per_iteration
         self.checkpoint_interval = checkpoint_interval
         self.max_iterations = max_iterations
         self.min_improvement = min_improvement
         self.use_llm = use_llm and LLM_AVAILABLE
         self.use_neural_net = use_neural_net and PYTORCH_AVAILABLE
+        self.parallel_configs = parallel_configs  # Number of configs to test in parallel
         
         self.results_dir = Path("nn_training_results")
         self.results_dir.mkdir(exist_ok=True)
@@ -334,6 +458,133 @@ class ContinuousTrainer:
         except Exception as e:
             print(f"  Error running benchmark: {e}")
             return 0.0
+    
+    def run_parallel_benchmarks(self, configs, games_per_config):
+        """Run benchmarks for multiple configurations in parallel to maximize GPU usage
+        
+        Args:
+            configs: List of configuration dictionaries to test
+            games_per_config: Number of games to run for each configuration
+            
+        Returns:
+            List of (config, win_rate) tuples
+        """
+        if not PYTORCH_AVAILABLE:
+            # Fallback to sequential if PyTorch not available
+            results = []
+            for config in configs:
+                self.save_config(config)
+                self.rebuild_snake()
+                win_rate = self.run_benchmark(games_per_config)
+                results.append((config, win_rate))
+            return results
+        
+        try:
+            import concurrent.futures
+            import tempfile
+            import shutil
+            
+            print(f"  🚀 Running {len(configs)} configurations in parallel across GPUs...")
+            
+            def test_single_config(args):
+                config, config_id, temp_dir = args
+                try:
+                    # Create temporary workspace for this config
+                    workspace = Path(temp_dir) / f"workspace_{config_id}"
+                    workspace.mkdir(exist_ok=True, parents=True)
+                    
+                    # Copy necessary files
+                    config_file = workspace / "config.yaml"
+                    with open(config_file, 'w') as f:
+                        yaml.dump(config, f, default_flow_style=False)
+                    
+                    # Build in workspace
+                    build_result = subprocess.run(
+                        ['go', 'build', '-o', str(workspace / 'battlesnake'), '.'],
+                        cwd=Path.cwd(),
+                        capture_output=True,
+                        timeout=120
+                    )
+                    
+                    if build_result.returncode != 0:
+                        return (config, 0.0)
+                    
+                    # Set GPU for this worker (round-robin across available GPUs)
+                    gpu_id = config_id % torch.cuda.device_count() if torch.cuda.is_available() else 0
+                    env = os.environ.copy()
+                    if torch.cuda.is_available():
+                        env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+                    
+                    # Run benchmark
+                    result = subprocess.run(
+                        ['python3', 'tools/run_benchmark.py', str(games_per_config)],
+                        capture_output=True,
+                        text=True,
+                        timeout=games_per_config * 60,
+                        env=env
+                    )
+                    
+                    # Parse win rate
+                    win_rate = 0.0
+                    for line in result.stdout.split('\n'):
+                        if 'Wins:' in line or 'wins:' in line:
+                            import re
+                            match = re.search(r'\((\d+\.?\d*)%\)', line)
+                            if match:
+                                win_rate = float(match.group(1)) / 100.0
+                                break
+                    
+                    return (config, win_rate)
+                    
+                except Exception as e:
+                    print(f"  ⚠ Parallel benchmark error for config {config_id}: {e}")
+                    return (config, 0.0)
+                finally:
+                    # Cleanup workspace
+                    if workspace.exists():
+                        shutil.rmtree(workspace, ignore_errors=True)
+            
+            # Create temp directory for parallel workspaces
+            temp_base = Path(tempfile.mkdtemp(prefix="parallel_training_"))
+            
+            # Prepare arguments
+            args_list = [(config, i, str(temp_base)) for i, config in enumerate(configs)]
+            
+            # Determine number of workers (one per GPU, or 4 for CPU)
+            num_workers = torch.cuda.device_count() if torch.cuda.is_available() else 4
+            num_workers = min(num_workers, len(configs))
+            
+            print(f"  Using {num_workers} parallel workers")
+            
+            # Run in parallel
+            results = []
+            with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+                futures = [executor.submit(test_single_config, args) for args in args_list]
+                
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        result = future.result()
+                        results.append(result)
+                        print(f"  ✓ Config completed: {result[1]:.1%} win rate")
+                    except Exception as e:
+                        print(f"  ⚠ Parallel execution error: {e}")
+            
+            # Cleanup
+            shutil.rmtree(temp_base, ignore_errors=True)
+            
+            return results
+            
+        except Exception as e:
+            print(f"  ⚠ Parallel benchmark setup failed: {e}")
+            print(f"  Falling back to sequential execution")
+            # Fallback to sequential
+            results = []
+            for config in configs:
+                self.save_config(config)
+                self.rebuild_snake()
+                win_rate = self.run_benchmark(games_per_config)
+                results.append((config, win_rate))
+            return results
     
     def rebuild_snake(self):
         """Rebuild Go snake with new config"""
@@ -529,10 +780,20 @@ class ContinuousTrainer:
         config[section] = section_data
     
     def intelligent_perturbation(self, config, magnitude=0.15):
-        """Apply intelligent perturbation using LLM guidance when available"""
+        """Apply intelligent perturbation using LLM guidance with NN pattern insights"""
         new_config = copy.deepcopy(config)
         
-        # Get LLM suggestions if available
+        # Extract winning patterns from neural network if available
+        nn_patterns = None
+        if self.use_neural_net and self.pattern_network is not None:
+            try:
+                nn_patterns = self.pattern_network.extract_winning_patterns()
+                if nn_patterns:
+                    print(f"  🧠 Neural network identified winning patterns")
+            except Exception as e:
+                print(f"  ⚠ NN pattern extraction warning: {e}")
+        
+        # Get LLM suggestions if available, passing NN patterns
         llm_suggestions = None
         if self.use_llm and self.llm_advisor is not None:
             try:
@@ -540,7 +801,8 @@ class ContinuousTrainer:
                     config, 
                     self.recent_history,
                     self.state.get('best_win_rate', 0.0),
-                    self.state.get('best_win_rate', 0.0)
+                    self.state.get('best_win_rate', 0.0),
+                    nn_patterns
                 )
                 if llm_suggestions:
                     print(f"  🤖 LLM suggested {len(llm_suggestions)} parameter adjustments")
@@ -591,6 +853,130 @@ class ContinuousTrainer:
         """Apply perturbation to weights - now uses intelligent method"""
         return self.intelligent_perturbation(config, magnitude)
     
+    def _config_to_vector(self, config):
+        """Convert configuration to a vector for neural network processing"""
+        try:
+            vector = []
+            # Weights section (6 params)
+            weights = config.get('weights', {})
+            vector.extend([
+                weights.get('space', 5.0),
+                weights.get('head_collision', 500.0),
+                weights.get('center_control', 2.0),
+                weights.get('wall_penalty', 5.0),
+                weights.get('cutoff', 100.0),
+                weights.get('food', 3.0)
+            ])
+            # Traps section (5 params)
+            traps = config.get('traps', {})
+            vector.extend([
+                traps.get('moderate', 200.0),
+                traps.get('severe', 400.0),
+                traps.get('critical', 600.0),
+                traps.get('food_trap', 800.0),
+                traps.get('food_trap_threshold', 0.8)
+            ])
+            # Pursuit section (4 params)
+            pursuit = config.get('pursuit', {})
+            vector.extend([
+                pursuit.get('distance_2', 100.0),
+                pursuit.get('distance_3', 50.0),
+                pursuit.get('distance_4', 25.0),
+                pursuit.get('distance_5', 10.0)
+            ])
+            # Trapping section (3 params)
+            trapping = config.get('trapping', {})
+            vector.extend([
+                trapping.get('weight', 250.0),
+                trapping.get('space_cutoff_threshold', 0.3),
+                trapping.get('trapped_ratio', 0.5)
+            ])
+            # Food urgency section (3 params)
+            food_urgency = config.get('food_urgency', {})
+            vector.extend([
+                food_urgency.get('critical', 1.8),
+                food_urgency.get('low', 1.2),
+                food_urgency.get('normal', 1.0)
+            ])
+            # Late game section (2 params)
+            late_game = config.get('late_game', {})
+            vector.extend([
+                late_game.get('caution_multiplier', 1.5),
+                late_game.get('turn_threshold', 150)
+            ])
+            # Hybrid section (6 params)
+            hybrid = config.get('hybrid', {})
+            vector.extend([
+                hybrid.get('critical_health', 30),
+                hybrid.get('critical_nearby_enemies', 2),
+                hybrid.get('critical_space_ratio', 2.0),
+                hybrid.get('lookahead_depth', 3),
+                hybrid.get('mcts_iterations', 100),
+                hybrid.get('mcts_timeout_ms', 300)
+            ])
+            # Search section (2 params)
+            search = config.get('search', {})
+            vector.extend([
+                search.get('max_astar_nodes', 500),
+                search.get('max_depth', 100)
+            ])
+            # Optimization section (5 params)
+            optimization = config.get('optimization', {})
+            vector.extend([
+                optimization.get('learning_rate', 0.01),
+                optimization.get('discount_factor', 0.95),
+                optimization.get('exploration_rate', 0.1),
+                optimization.get('batch_size', 32),
+                optimization.get('episodes', 1000)
+            ])
+            
+            return np.array(vector, dtype=np.float32)
+        except Exception as e:
+            print(f"  ⚠ Config to vector conversion error: {e}")
+            return None
+    
+    def _train_pattern_network_batch(self, successful_configs):
+        """Train pattern network on a batch of successful configurations"""
+        if not PYTORCH_AVAILABLE or self.pattern_network is None:
+            return
+        
+        try:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            
+            # Convert configs to vectors
+            vectors = []
+            for config_data in successful_configs:
+                config = config_data.get('config', {})
+                vec = self._config_to_vector(config)
+                if vec is not None:
+                    vectors.append(vec)
+            
+            if len(vectors) < 2:
+                return
+            
+            # Create tensors
+            X = torch.tensor(np.array(vectors), dtype=torch.float32).to(device)
+            
+            # Train autoencoder to learn patterns
+            self.pattern_network.train()
+            self.pattern_optimizer.zero_grad()
+            
+            # Forward pass
+            reconstructed = self.pattern_network(X)
+            
+            # Loss: reconstruction error
+            loss = nn.MSELoss()(reconstructed, X)
+            
+            # Backward pass
+            loss.backward()
+            self.pattern_optimizer.step()
+            
+            self.pattern_network.eval()
+            
+        except Exception as e:
+            # Don't interrupt training for NN errors
+            pass
+    
     def handle_shutdown(self, signum, frame):
         """Handle graceful shutdown"""
         print("\n⚠ Shutdown signal received, saving checkpoint...")
@@ -609,7 +995,25 @@ class ContinuousTrainer:
         print(f"  - Checkpoint interval: every {self.checkpoint_interval} iterations")
         print(f"  - Max iterations: {'unlimited' if self.max_iterations is None else self.max_iterations}")
         print(f"  - Min improvement: {self.min_improvement:.4f}")
+        print(f"  - Parallel configs: {self.parallel_configs}")
         print(f"  - Results directory: {self.results_dir}")
+        
+        # GPU information
+        if PYTORCH_AVAILABLE and torch.cuda.is_available():
+            gpu_count = torch.cuda.device_count()
+            print(f"\n🎮 GPU Information:")
+            print(f"  - Available GPUs: {gpu_count}")
+            for i in range(gpu_count):
+                gpu_name = torch.cuda.get_device_name(i)
+                gpu_mem = torch.cuda.get_device_properties(i).total_memory / 1e9
+                print(f"  - GPU {i}: {gpu_name} ({gpu_mem:.1f} GB)")
+            
+            if self.parallel_configs > 1:
+                utilization = min(100, (self.parallel_configs / gpu_count) * 100)
+                print(f"  - Expected GPU utilization: ~{utilization:.0f}%")
+            else:
+                print(f"  - GPU utilization: Limited (use --parallel-configs for more)")
+        
         print("=" * 70)
         print()
         
@@ -646,23 +1050,47 @@ class ContinuousTrainer:
             # Load current best config
             current_config = self.load_config()
             
-            # Generate candidate config with random perturbation
-            print("🔄 Generating candidate configuration...")
-            candidate_config = self.random_perturbation(
-                current_config, 
-                magnitude=0.15  # 15% random adjustment
-            )
-            
-            # Save candidate and rebuild
-            self.save_config(candidate_config)
-            if not self.rebuild_snake():
-                print("❌ Build failed, skipping iteration\n")
-                self.save_config(current_config)  # Restore previous config
-                continue
-            
-            # Test candidate
-            win_rate = self.run_benchmark(self.games_per_iteration)
-            self.state['total_games'] += self.games_per_iteration
+            # Parallel mode: Generate and test multiple candidates simultaneously
+            if self.parallel_configs > 1:
+                print(f"🔄 Generating {self.parallel_configs} candidate configurations for parallel testing...")
+                
+                # Generate multiple candidate configs
+                candidate_configs = []
+                for i in range(self.parallel_configs):
+                    candidate = self.random_perturbation(
+                        current_config, 
+                        magnitude=0.15  # 15% random adjustment
+                    )
+                    candidate_configs.append(candidate)
+                
+                # Test all candidates in parallel
+                results = self.run_parallel_benchmarks(candidate_configs, self.games_per_iteration)
+                self.state['total_games'] += self.games_per_iteration * len(results)
+                
+                # Find best result
+                best_result = max(results, key=lambda x: x[1])
+                candidate_config, win_rate = best_result
+                
+                print(f"  Best of {len(results)} parallel configs: {win_rate:.1%}")
+                
+            else:
+                # Sequential mode: Generate and test single candidate
+                print("🔄 Generating candidate configuration...")
+                candidate_config = self.random_perturbation(
+                    current_config, 
+                    magnitude=0.15  # 15% random adjustment
+                )
+                
+                # Save candidate and rebuild
+                self.save_config(candidate_config)
+                if not self.rebuild_snake():
+                    print("❌ Build failed, skipping iteration\n")
+                    self.save_config(current_config)  # Restore previous config
+                    continue
+                
+                # Test candidate
+                win_rate = self.run_benchmark(self.games_per_iteration)
+                self.state['total_games'] += self.games_per_iteration
             
             duration = time.time() - start_time
             
@@ -690,10 +1118,19 @@ class ContinuousTrainer:
                     # Extract config vectors from history
                     successful_configs = [h for h in self.recent_history if h.get('improvement', 0) > 0]
                     if len(successful_configs) > 0:
-                        # Simple training: learn from successful patterns
-                        # This is a placeholder - full implementation would be more sophisticated
-                        # Future: Train network on successful config vectors
-                        pass
+                        # Record winning configurations for pattern analysis
+                        latest_success = successful_configs[-1]
+                        config_data = latest_success.get('config', {})
+                        
+                        # Convert config to vector for NN
+                        config_vector = self._config_to_vector(config_data)
+                        if config_vector is not None:
+                            self.pattern_network.record_winning_config(config_vector)
+                            print(f"  🧠 Recorded winning pattern in neural network")
+                        
+                        # Optional: Train network on successful patterns (batched)
+                        if len(successful_configs) >= 5:
+                            self._train_pattern_network_batch(successful_configs[-5:])
                 except Exception as e:
                     # Silently continue if NN training fails - don't interrupt main loop
                     if hasattr(e, '__class__'):
@@ -761,18 +1198,24 @@ def main():
 Enhanced Features:
   - LLM-guided intelligent weight selection (TinyLlama-1.1B)
   - Neural network pattern recognition from successful configs
+  - NN-LLM integration: NN patterns inform LLM suggestions
+  - Change history tracking to avoid repeated failed attempts
   - Support for ALL config.yaml parameters (30+ tunable parameters)
-  - GPU acceleration on A100 servers (8 GPUs supported)
+  - Multi-GPU parallel training (maximize 8x A100 GPU utilization)
+  - Parallel configuration testing for faster convergence
 
 Examples:
-  # Basic usage
+  # Basic usage (sequential)
   python3 continuous_training.py
+  
+  # Maximize A100 GPU usage with parallel training
+  python3 continuous_training.py --parallel-configs 8
   
   # Disable LLM for faster iterations
   python3 continuous_training.py --no-llm
   
-  # Run 100 iterations with LLM and neural net
-  python3 continuous_training.py --max-iterations 100 --use-llm --use-neural-net
+  # Full power: LLM + NN + 8 parallel configs on A100
+  python3 continuous_training.py --use-llm --use-neural-net --parallel-configs 8
         """
     )
     parser.add_argument('--games', type=int, default=30,
@@ -791,6 +1234,8 @@ Examples:
                        help='Use neural network for pattern recognition (default: True)')
     parser.add_argument('--no-neural-net', action='store_false', dest='use_neural_net',
                        help='Disable neural network pattern recognition')
+    parser.add_argument('--parallel-configs', type=int, default=1,
+                       help='Number of configurations to test in parallel (default: 1). Use 4-8 for A100 servers.')
     
     args = parser.parse_args()
     
@@ -817,7 +1262,8 @@ Examples:
         max_iterations=args.max_iterations,
         min_improvement=args.min_improvement,
         use_llm=args.use_llm,
-        use_neural_net=args.use_neural_net
+        use_neural_net=args.use_neural_net,
+        parallel_configs=args.parallel_configs
     )
     
     trainer.train()
