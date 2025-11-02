@@ -25,6 +25,7 @@ import re
 import concurrent.futures
 import tempfile
 import shutil
+import fcntl
 from datetime import datetime
 from pathlib import Path
 
@@ -59,10 +60,15 @@ except ImportError:
 
 # Define classes only if dependencies are available
 if PYTORCH_AVAILABLE:
+    # Configuration vector size: calculated from config structure
+    # This must match the number of parameters extracted in ContinuousTrainer._config_to_vector()
+    # weights(6) + traps(5) + pursuit(4) + trapping(3) + food_urgency(3) + late_game(2) + hybrid(6) + search(2) + optimization(5) = 36
+    CONFIG_VECTOR_SIZE = 36
+    
     class ConfigPatternNetwork(nn.Module):
         """Neural network that learns patterns in successful configurations"""
         
-        def __init__(self, input_size=36, hidden_size=128):
+        def __init__(self, input_size=CONFIG_VECTOR_SIZE, hidden_size=128):
             super(ConfigPatternNetwork, self).__init__()
             self.fc1 = nn.Linear(input_size, hidden_size)
             self.fc2 = nn.Linear(hidden_size, hidden_size)
@@ -105,18 +111,13 @@ if PYTORCH_AVAILABLE:
             consistency_scores = 1 / (std_values + EPSILON)  # Add small epsilon to avoid division by zero
             top_indices = np.argsort(consistency_scores)[-TOP_CONSISTENT_PARAMS:]  # Top most consistent
             
-            # Map indices to parameter names (simplified mapping)
-            param_names = [
-                'space', 'head_collision', 'center_control', 'wall_penalty', 'cutoff', 'food',
-                'trap_moderate', 'trap_severe', 'trap_critical', 'food_trap', 'food_trap_threshold',
-                'pursuit_2', 'pursuit_3', 'pursuit_4', 'pursuit_5',
-                'trapping_weight', 'trapping_cutoff', 'trapped_ratio',
-                'urgency_critical', 'urgency_low', 'urgency_normal',
-                'late_game_caution', 'late_game_threshold',
-                'hybrid_health', 'hybrid_enemies', 'hybrid_space', 'hybrid_depth', 'hybrid_mcts', 'hybrid_timeout',
-                'search_nodes', 'search_depth',
-                'opt_lr', 'opt_discount', 'opt_exploration', 'opt_batch', 'opt_episodes'
-            ]
+            # Parameter names in order matching _config_to_vector()
+            # This must stay in sync with _config_to_vector() method
+            param_names = self._get_param_names()
+            
+            if len(param_names) != CONFIG_VECTOR_SIZE:
+                # Safety check: if sizes don't match, return generic insights
+                return f"Pattern analysis: {len(recent_winners)} winning configs analyzed"
             
             # Build insight string
             insights = []
@@ -127,6 +128,34 @@ if PYTORCH_AVAILABLE:
                     insights.append(f"- {param_name}: consistently ~{mean_val:.2f} in wins")
             
             return "\n".join(insights) if insights else None
+        
+        @staticmethod
+        def _get_param_names():
+            """Get parameter names in order matching _config_to_vector()
+            
+            This centralizes the parameter name list to ensure consistency.
+            Must be kept in sync with ContinuousTrainer._config_to_vector()
+            """
+            return [
+                # Weights section (6)
+                'space', 'head_collision', 'center_control', 'wall_penalty', 'cutoff', 'food',
+                # Traps section (5)
+                'trap_moderate', 'trap_severe', 'trap_critical', 'food_trap', 'food_trap_threshold',
+                # Pursuit section (4)
+                'pursuit_2', 'pursuit_3', 'pursuit_4', 'pursuit_5',
+                # Trapping section (3)
+                'trapping_weight', 'trapping_cutoff', 'trapped_ratio',
+                # Food urgency section (3)
+                'urgency_critical', 'urgency_low', 'urgency_normal',
+                # Late game section (2)
+                'late_game_caution', 'late_game_threshold',
+                # Hybrid section (6)
+                'hybrid_health', 'hybrid_enemies', 'hybrid_space', 'hybrid_depth', 'hybrid_mcts', 'hybrid_timeout',
+                # Search section (2)
+                'search_nodes', 'search_depth',
+                # Optimization section (5)
+                'opt_lr', 'opt_discount', 'opt_exploration', 'opt_batch', 'opt_episodes'
+            ]
         
         def record_winning_config(self, config_vector):
             """Record a winning configuration for pattern analysis"""
@@ -492,20 +521,24 @@ class ContinuousTrainer:
             print(f"  🚀 Running {len(configs)} configurations in parallel across GPUs...")
             
             def test_single_config(args):
-                config, config_id, temp_dir = args
+                config, config_id, base_dir = args
+                workspace = None
                 try:
                     # Create temporary workspace for this config
-                    workspace = Path(temp_dir) / f"workspace_{config_id}"
+                    workspace = Path(base_dir) / f"workspace_{config_id}"
                     workspace.mkdir(exist_ok=True, parents=True)
                     
-                    # Copy necessary files
+                    # Save config to workspace
                     config_file = workspace / "config.yaml"
                     with open(config_file, 'w') as f:
                         yaml.dump(config, f, default_flow_style=False)
                     
-                    # Build in workspace
+                    # Copy the config to a temp location and use environment variable
+                    # This avoids race conditions with the main config.yaml
+                    
+                    # Build binary - use original directory but output to workspace
                     build_result = subprocess.run(
-                        ['go', 'build', '-o', str(workspace / 'battlesnake'), '.'],
+                        ['go', 'build', '-o', str(workspace / 'battlesnake')],
                         cwd=Path.cwd(),
                         capture_output=True,
                         timeout=120
@@ -515,37 +548,70 @@ class ContinuousTrainer:
                         return (config, 0.0)
                     
                     # Set GPU for this worker (round-robin across available GPUs)
-                    gpu_id = config_id % torch.cuda.device_count() if torch.cuda.is_available() else 0
                     env = os.environ.copy()
-                    if torch.cuda.is_available():
+                    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                        gpu_id = config_id % torch.cuda.device_count()
                         env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
                     
-                    # Run benchmark
-                    result = subprocess.run(
-                        ['python3', 'tools/run_benchmark.py', str(games_per_config)],
-                        capture_output=True,
-                        text=True,
-                        timeout=games_per_config * 60,
-                        env=env
-                    )
+                    # Copy config to main location temporarily for benchmark
+                    # Note: This creates a race condition if multiple benchmarks run simultaneously
+                    # For true parallelism, the benchmark script would need to accept a config path parameter
+                    # For now, we serialize the actual benchmarking to avoid conflicts
+                    import fcntl
+                    lock_file = Path(base_dir) / "benchmark.lock"
                     
-                    # Parse win rate
-                    win_rate = 0.0
-                    for line in result.stdout.split('\n'):
-                        if 'Wins:' in line or 'wins:' in line:
-                            match = re.search(r'\((\d+\.?\d*)%\)', line)
-                            if match:
-                                win_rate = float(match.group(1)) / 100.0
-                                break
-                    
-                    return (config, win_rate)
+                    with open(lock_file, 'w') as lock:
+                        # Acquire exclusive lock to prevent concurrent config overwrites
+                        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+                        
+                        # Temporarily use this config
+                        main_config = Path.cwd() / 'config.yaml'
+                        backup_config = workspace / 'config_backup.yaml'
+                        
+                        # Backup current config
+                        if main_config.exists():
+                            shutil.copy(main_config, backup_config)
+                        
+                        try:
+                            # Install our config
+                            shutil.copy(config_file, main_config)
+                            
+                            # Rebuild with this config
+                            subprocess.run(['go', 'build', '-o', 'battlesnake'], 
+                                         cwd=Path.cwd(), capture_output=True, timeout=120)
+                            
+                            # Run benchmark
+                            result = subprocess.run(
+                                ['python3', 'tools/run_benchmark.py', str(games_per_config)],
+                                cwd=Path.cwd(),
+                                capture_output=True,
+                                text=True,
+                                timeout=games_per_config * 60,
+                                env=env
+                            )
+                            
+                            # Parse win rate
+                            win_rate = 0.0
+                            for line in result.stdout.split('\n'):
+                                if 'Wins:' in line or 'wins:' in line:
+                                    match = re.search(r'\((\d+\.?\d*)%\)', line)
+                                    if match:
+                                        win_rate = float(match.group(1)) / 100.0
+                                        break
+                            
+                            return (config, win_rate)
+                            
+                        finally:
+                            # Restore original config
+                            if backup_config.exists():
+                                shutil.copy(backup_config, main_config)
                     
                 except Exception as e:
                     print(f"  ⚠ Parallel benchmark error for config {config_id}: {e}")
                     return (config, 0.0)
                 finally:
                     # Cleanup workspace
-                    if workspace.exists():
+                    if workspace and workspace.exists():
                         shutil.rmtree(workspace, ignore_errors=True)
             
             # Create temp directory for parallel workspaces
