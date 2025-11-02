@@ -26,6 +26,7 @@ import concurrent.futures
 import tempfile
 import shutil
 import fcntl
+import requests
 from datetime import datetime
 from pathlib import Path
 
@@ -178,11 +179,12 @@ class LLMWeightAdvisor:
             return
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         
-        # Try to load a lightweight model (TinyLlama is ~1GB, good for A100)
+        # Load a more powerful model optimized for 8x A100 GPU setup
+        # Mistral-7B is highly capable and efficient on A100s
         if LLM_AVAILABLE:
             try:
-                print("🤖 Loading lightweight LLM (TinyLlama-1.1B)...")
-                model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+                print("🤖 Loading Mistral-7B-Instruct (optimized for A100 GPUs)...")
+                model_name = "mistralai/Mistral-7B-Instruct-v0.2"
                 self.tokenizer = AutoTokenizer.from_pretrained(model_name)
                 self.model = AutoModelForCausalLM.from_pretrained(
                     model_name,
@@ -193,11 +195,28 @@ class LLMWeightAdvisor:
                 if self.device == "cpu":
                     self.model = self.model.to(self.device)
                 self.model.eval()
-                print(f"✓ LLM loaded successfully on {self.device}")
+                print(f"✓ Mistral-7B loaded successfully on {self.device}")
+                print(f"  Model has superior reasoning and context understanding")
             except Exception as e:
-                print(f"⚠ Could not load LLM: {e}")
-                print("  Falling back to random perturbation")
-                self.model = None
+                print(f"⚠ Could not load Mistral-7B: {e}")
+                print("  Trying fallback to TinyLlama...")
+                try:
+                    model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+                    self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        model_name,
+                        torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                        device_map="auto" if self.device == "cuda" else None,
+                        low_cpu_mem_usage=True
+                    )
+                    if self.device == "cpu":
+                        self.model = self.model.to(self.device)
+                    self.model.eval()
+                    print(f"✓ TinyLlama loaded as fallback on {self.device}")
+                except Exception as e2:
+                    print(f"⚠ Could not load any LLM: {e2}")
+                    print("  Falling back to random perturbation")
+                    self.model = None
     
     def suggest_adjustments(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None):
         """Use LLM to suggest intelligent weight adjustments based on training history and NN patterns"""
@@ -214,7 +233,7 @@ class LLMWeightAdvisor:
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=200,
+                    max_new_tokens=512,  # Increased from 200 to 512 for more detailed analysis
                     temperature=0.7,
                     do_sample=True,
                     pad_token_id=self.tokenizer.eos_token_id
@@ -236,9 +255,9 @@ class LLMWeightAdvisor:
     
     def _build_prompt(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None):
         """Build a prompt for the LLM with training context, NN patterns, and change history"""
-        # Summarize recent performance
-        recent_improvements = [h for h in recent_history[-10:] if h.get('improvement', 0) > 0]
-        recent_declines = [h for h in recent_history[-10:] if h.get('improvement', 0) <= 0]
+        # Summarize recent performance - increased from 10 to 30 for more context
+        recent_improvements = [h for h in recent_history[-30:] if h.get('improvement', 0) > 0]
+        recent_declines = [h for h in recent_history[-30:] if h.get('improvement', 0) <= 0]
         
         # Build change history summary
         change_summary = self._summarize_change_history()
@@ -255,8 +274,9 @@ You are an AI expert in Battlesnake game optimization. Analyze training results 
 Current battlesnake win rate: {current_win_rate:.1%}
 Best win rate so far: {best_win_rate:.1%}
 
-Recent performance:
-- Last 10 iterations: {len(recent_improvements)} improvements, {len(recent_declines)} declines
+Recent performance (last 30 iterations):
+- Improvements: {len(recent_improvements)} ({len(recent_improvements)/30*100:.1f}%)
+- Declines: {len(recent_declines)} ({len(recent_declines)/30*100:.1f}%)
 - Stagnating: {'Yes' if len(recent_improvements) == 0 else 'No'}
 {pattern_insights}
 Previously tried adjustments (avoid repeating):
@@ -363,7 +383,8 @@ class ContinuousTrainer:
                  min_improvement=0.001,
                  use_llm=True,
                  use_neural_net=True,
-                 parallel_configs=1):
+                 parallel_configs=1,
+                 server_url="http://localhost:8000"):
         self.games_per_iteration = games_per_iteration
         self.checkpoint_interval = checkpoint_interval
         self.max_iterations = max_iterations
@@ -371,6 +392,7 @@ class ContinuousTrainer:
         self.use_llm = use_llm and LLM_AVAILABLE
         self.use_neural_net = use_neural_net and PYTORCH_AVAILABLE
         self.parallel_configs = parallel_configs  # Number of configs to test in parallel
+        self.server_url = server_url  # Server URL for config reload endpoint
         
         self.results_dir = Path("nn_training_results")
         self.results_dir.mkdir(exist_ok=True)
@@ -665,6 +687,34 @@ class ContinuousTrainer:
             return True
         except Exception as e:
             print(f"  Error building snake: {e}")
+            return False
+    
+    def reload_config_via_endpoint(self):
+        """Reload configuration via server's reload-config endpoint instead of rebuilding
+        
+        This is much faster than rebuilding and uses the server's hot-reload capability.
+        """
+        print("  Reloading config via server endpoint...")
+        try:
+            response = requests.post(f"{self.server_url}/reload-config", timeout=10)
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('status') == 'ok':
+                    print(f"  ✓ Config reloaded successfully via endpoint")
+                    return True
+                else:
+                    print(f"  ⚠ Server returned non-ok status: {result}")
+                    return False
+            else:
+                print(f"  ⚠ Server returned status code {response.status_code}")
+                return False
+        except requests.exceptions.ConnectionError:
+            print(f"  ⚠ Could not connect to server at {self.server_url}")
+            print(f"  ℹ Falling back to rebuild")
+            return False
+        except Exception as e:
+            print(f"  ⚠ Error reloading config via endpoint: {e}")
+            print(f"  ℹ Falling back to rebuild")
             return False
     
     def load_config(self):
@@ -1146,12 +1196,16 @@ class ContinuousTrainer:
                     magnitude=0.15  # 15% random adjustment
                 )
                 
-                # Save candidate and rebuild
+                # Save candidate and reload config (faster than rebuilding)
                 self.save_config(candidate_config)
-                if not self.rebuild_snake():
-                    print("❌ Build failed, skipping iteration\n")
-                    self.save_config(current_config)  # Restore previous config
-                    continue
+                
+                # Try to reload via endpoint first, fall back to rebuild if needed
+                if not self.reload_config_via_endpoint():
+                    # Fallback to rebuild if endpoint reload fails
+                    if not self.rebuild_snake():
+                        print("❌ Build failed, skipping iteration\n")
+                        self.save_config(current_config)  # Restore previous config
+                        continue
                 
                 # Test candidate
                 win_rate = self.run_benchmark(self.games_per_iteration)
@@ -1221,7 +1275,9 @@ class ContinuousTrainer:
                 print(f"\n⚪ No improvement: {win_rate:.1%} (best: {self.state['best_win_rate']:.1%})")
                 # Restore best config
                 self.save_config(current_config)
-                self.rebuild_snake()
+                # Use reload endpoint for faster config restoration
+                if not self.reload_config_via_endpoint():
+                    self.rebuild_snake()
             
             print(f"⏱  Duration: {duration:.1f}s ({duration/self.games_per_iteration:.1f}s/game)")
             print()
@@ -1301,6 +1357,8 @@ Examples:
                        help='Disable neural network pattern recognition')
     parser.add_argument('--parallel-configs', type=int, default=1,
                        help='Number of configurations to test in parallel (default: 1). Use 4-8 for A100 servers.')
+    parser.add_argument('--server-url', type=str, default='http://localhost:8000',
+                       help='Battlesnake server URL for config reload endpoint (default: http://localhost:8000)')
     
     args = parser.parse_args()
     
@@ -1328,7 +1386,8 @@ Examples:
         min_improvement=args.min_improvement,
         use_llm=args.use_llm,
         use_neural_net=args.use_neural_net,
-        parallel_configs=args.parallel_configs
+        parallel_configs=args.parallel_configs,
+        server_url=args.server_url
     )
     
     trainer.train()
