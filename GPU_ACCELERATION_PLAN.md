@@ -30,25 +30,18 @@ GPU: 100 iterations batched = 100 parallel simulations × 15 depth
 Speedup: ~10-15x for MCTS decision time
 ```
 
-**Implementation Options**:
+**Selected Implementation: Option A - Go CUDA Bindings**
 
-#### Option A: Go CUDA Bindings (Recommended)
-- Use `github.com/mumax/3/cuda` or similar Go CUDA library
-- Keep existing Go codebase
-- Add GPU kernels for simulation primitives
+We are implementing **Option A (Go CUDA Bindings)** to keep everything in Go:
+
+- ✅ Use `github.com/mumax/3/cuda` for Go CUDA library
+- ✅ Keep existing Go codebase intact
+- ✅ Add GPU kernels for simulation primitives
+- ✅ No IPC overhead - direct GPU calls
+- ✅ Single language, single binary deployment
 - Complexity: Medium, Integration: Seamless
 
-#### Option B: Shared Python Inference Service
-- Create Python microservice for GPU-accelerated MCTS
-- Go battlesnake calls Python service via HTTP/gRPC
-- Python uses PyTorch/CuPy for GPU acceleration
-- Complexity: Low, Integration: Requires IPC overhead
-
-#### Option C: Hybrid Approach
-- Keep greedy/lookahead in Go (fast enough on CPU)
-- Move MCTS to GPU-accelerated Python service
-- Use hybrid algorithm to decide when to call GPU service
-- Complexity: Low, Integration: Moderate IPC overhead
+See [GPU_IMPLEMENTATION_GO.md](GPU_IMPLEMENTATION_GO.md) for detailed implementation guide.
 
 ### 2. Vectorized Board State Operations
 
@@ -288,12 +281,22 @@ nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv -l 1
 
 ## Conclusion
 
-GPU acceleration is feasible and beneficial, especially for MCTS. The recommended approach is:
+GPU acceleration is feasible and beneficial, especially for MCTS. **We are implementing Option A (Go CUDA Bindings)** to keep everything in Go:
 
-1. **Start with Python inference service** (Option B) - Lower risk, faster implementation
+1. **Use Go CUDA bindings** (`github.com/mumax/3/cuda`) - Pure Go solution
 2. **Focus on batch MCTS simulations** - Highest impact
-3. **Implement robust fallback** - Maintain reliability
-4. **Measure and iterate** - Data-driven optimization
+3. **Implement robust CPU fallback** - Maintain reliability  
+4. **Custom CUDA kernels for performance** - Maximum efficiency
+5. **Measure and iterate** - Data-driven optimization
 
-Expected timeline: 6-8 weeks for full implementation
-Expected outcome: 5-10% win rate improvement, 3x faster training
+**Key advantages of Option A**:
+- ✅ No language barrier - everything stays in Go
+- ✅ No IPC overhead - direct GPU access
+- ✅ Single binary deployment
+- ✅ Seamless integration with existing code
+- ✅ Better performance and lower latency
+
+Expected timeline: 6 weeks for full implementation  
+Expected outcome: 5-10% win rate improvement, 10x MCTS speedup, 3x faster training
+
+**Next Steps**: See [GPU_IMPLEMENTATION_GO.md](GPU_IMPLEMENTATION_GO.md) for the complete implementation guide.
