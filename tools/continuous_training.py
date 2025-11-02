@@ -63,8 +63,8 @@ except ImportError:
 if PYTORCH_AVAILABLE:
     # Configuration vector size: calculated from config structure
     # This must match the number of parameters extracted in ContinuousTrainer._config_to_vector()
-    # weights(6) + traps(5) + pursuit(4) + trapping(3) + food_urgency(3) + late_game(2) + hybrid(6) + search(2) + optimization(5) = 36
-    CONFIG_VECTOR_SIZE = 36
+    # weights(6) + traps(5) + pursuit(4) + trapping(3) + food_urgency(3) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(7) = 43
+    CONFIG_VECTOR_SIZE = 43
     
     class ConfigPatternNetwork(nn.Module):
         """Neural network that learns patterns in successful configurations"""
@@ -155,7 +155,10 @@ if PYTORCH_AVAILABLE:
                 # Search section (2)
                 'search_nodes', 'search_depth',
                 # Optimization section (5)
-                'opt_lr', 'opt_discount', 'opt_exploration', 'opt_batch', 'opt_episodes'
+                'opt_lr', 'opt_discount', 'opt_exploration', 'opt_batch', 'opt_episodes',
+                # Tactics section (7)
+                'inward_trap_weight', 'inward_trap_min_length', 'aggressive_space_weight',
+                'aggressive_space_threshold', 'predictive_avoidance', 'energy_conservation', 'wall_hugging'
             ]
         
         def record_winning_config(self, config_vector):
@@ -384,7 +387,9 @@ class ContinuousTrainer:
                  use_llm=True,
                  use_neural_net=True,
                  parallel_configs=1,
-                 server_url="http://localhost:8000"):
+                 server_url="http://localhost:8000",
+                 benchmark_rounds=3,
+                 test_algorithms=None):
         self.games_per_iteration = games_per_iteration
         self.checkpoint_interval = checkpoint_interval
         self.max_iterations = max_iterations
@@ -393,6 +398,8 @@ class ContinuousTrainer:
         self.use_neural_net = use_neural_net and PYTORCH_AVAILABLE
         self.parallel_configs = parallel_configs  # Number of configs to test in parallel
         self.server_url = server_url  # Server URL for config reload endpoint
+        self.benchmark_rounds = max(1, benchmark_rounds)  # Number of rounds to average for validation
+        self.test_algorithms = test_algorithms or ['hybrid']  # Algorithms to test: hybrid, greedy, lookahead, mcts
         
         self.results_dir = Path("nn_training_results")
         self.results_dir.mkdir(exist_ok=True)
@@ -467,9 +474,35 @@ class ContinuousTrainer:
         with open(self.global_log_file, 'a') as f:
             f.write(json.dumps(iteration_data) + '\n')
     
-    def run_benchmark(self, num_games):
-        """Run benchmark and return win rate"""
-        print(f"  Running {num_games}-game benchmark...")
+    def run_benchmark(self, num_games, algorithm=None):
+        """Run benchmark and return win rate
+        
+        Args:
+            num_games: Number of games to run
+            algorithm: Algorithm to use (overrides config if specified)
+        
+        Returns:
+            float: Win rate (0.0 to 1.0)
+        """
+        algo_str = f" with {algorithm}" if algorithm else ""
+        print(f"  Running {num_games}-game benchmark{algo_str}...")
+        
+        # Temporarily modify config if algorithm specified
+        config_modified = False
+        original_config = None
+        if algorithm:
+            try:
+                config = self.load_config()
+                original_config = copy.deepcopy(config)
+                if 'search' not in config:
+                    config['search'] = {}
+                config['search']['algorithm'] = algorithm
+                self.save_config(config)
+                self.reload_config_via_endpoint() or self.rebuild_snake()
+                config_modified = True
+            except Exception as e:
+                print(f"  ⚠ Could not set algorithm: {e}")
+        
         try:
             result = subprocess.run(
                 ['python3', 'tools/run_benchmark.py', str(num_games)],
@@ -486,7 +519,8 @@ class ContinuousTrainer:
                     match = re.search(r'\((\d+\.?\d*)%\)', line)
                     if match:
                         try:
-                            return float(match.group(1)) / 100.0
+                            win_rate = float(match.group(1)) / 100.0
+                            return win_rate
                         except:
                             pass
                 # Also support legacy "Win rate:" format
@@ -518,6 +552,67 @@ class ContinuousTrainer:
         except Exception as e:
             print(f"  Error running benchmark: {e}")
             return 0.0
+        finally:
+            # Restore original config if modified
+            if config_modified and original_config:
+                try:
+                    self.save_config(original_config)
+                    self.reload_config_via_endpoint() or self.rebuild_snake()
+                except:
+                    pass
+    
+    def run_benchmark_rounds(self, num_games, rounds=1, algorithm=None):
+        """Run multiple benchmark rounds and return statistics
+        
+        Args:
+            num_games: Number of games per round
+            rounds: Number of rounds to run
+            algorithm: Algorithm to use (overrides config if specified)
+        
+        Returns:
+            dict: Statistics including mean, std, min, max, and all round results
+        """
+        if rounds == 1:
+            win_rate = self.run_benchmark(num_games, algorithm)
+            return {
+                'mean': win_rate,
+                'std': 0.0,
+                'min': win_rate,
+                'max': win_rate,
+                'rounds': [win_rate],
+                'count': 1
+            }
+        
+        print(f"  📊 Running {rounds} rounds for validation (averaging)...")
+        round_results = []
+        
+        for round_num in range(1, rounds + 1):
+            print(f"    Round {round_num}/{rounds}...", end=" ", flush=True)
+            win_rate = self.run_benchmark(num_games, algorithm)
+            round_results.append(win_rate)
+            print(f"{win_rate:.1%}")
+        
+        if PYTORCH_AVAILABLE:
+            mean_wr = np.mean(round_results)
+            std_wr = np.std(round_results)
+            min_wr = np.min(round_results)
+            max_wr = np.max(round_results)
+        else:
+            mean_wr = sum(round_results) / len(round_results)
+            std_wr = (sum((x - mean_wr) ** 2 for x in round_results) / len(round_results)) ** 0.5
+            min_wr = min(round_results)
+            max_wr = max(round_results)
+        
+        print(f"  📊 Average: {mean_wr:.1%} (±{std_wr:.1%}), Range: [{min_wr:.1%}, {max_wr:.1%}]")
+        
+        return {
+            'mean': mean_wr,
+            'std': std_wr,
+            'min': min_wr,
+            'max': max_wr,
+            'rounds': round_results,
+            'count': rounds
+        }
     
     def run_parallel_benchmarks(self, configs, games_per_config):
         """Run benchmarks for multiple configurations in parallel to maximize GPU usage
@@ -575,10 +670,13 @@ class ContinuousTrainer:
                         gpu_id = config_id % torch.cuda.device_count()
                         env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
                     
+                    # Allocate unique ports for this worker to avoid conflicts
+                    # Base ports: 8000 (go), 8080 (rust)
+                    # Each worker gets: 8000 + (config_id * 100), 8080 + (config_id * 100)
+                    go_port = 8000 + (config_id * 100)
+                    rust_port = 8080 + (config_id * 100)
+                    
                     # Copy config to main location temporarily for benchmark
-                    # Note: This creates a race condition if multiple benchmarks run simultaneously
-                    # For true parallelism, the benchmark script would need to accept a config path parameter
-                    # For now, we serialize the actual benchmarking to avoid conflicts
                     import fcntl
                     lock_file = Path(base_dir) / "benchmark.lock"
                     
@@ -602,9 +700,10 @@ class ContinuousTrainer:
                             subprocess.run(['go', 'build', '-o', 'battlesnake'], 
                                          cwd=Path.cwd(), capture_output=True, timeout=120)
                             
-                            # Run benchmark
+                            # Run benchmark with unique ports
                             result = subprocess.run(
-                                ['python3', 'tools/run_benchmark.py', str(games_per_config)],
+                                ['python3', 'tools/run_benchmark.py', str(games_per_config), 
+                                 str(go_port), str(rust_port)],
                                 cwd=Path.cwd(),
                                 capture_output=True,
                                 text=True,
@@ -726,6 +825,41 @@ class ContinuousTrainer:
         """Save config to config.yaml"""
         with open(self.best_config_file, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
+    
+    def test_algorithm_diversity(self, config, games_per_test=20):
+        """Test configuration with different algorithm combinations
+        
+        Args:
+            config: Configuration to test
+            games_per_test: Number of games per algorithm
+        
+        Returns:
+            dict: Results for each algorithm with win rates
+        """
+        print(f"  🔬 Testing algorithm diversity...")
+        results = {}
+        
+        # Save current config temporarily
+        self.save_config(config)
+        self.reload_config_via_endpoint() or self.rebuild_snake()
+        
+        for algo in self.test_algorithms:
+            print(f"    Testing {algo}...", end=" ", flush=True)
+            win_rate = self.run_benchmark(games_per_test, algorithm=algo)
+            results[algo] = win_rate
+            print(f"{win_rate:.1%}")
+        
+        # Find best algorithm
+        best_algo = max(results, key=results.get)
+        best_wr = results[best_algo]
+        
+        print(f"  🏆 Best algorithm: {best_algo} at {best_wr:.1%}")
+        
+        return {
+            'results': results,
+            'best_algorithm': best_algo,
+            'best_win_rate': best_wr
+        }
     
     def git_commit_improvement(self, win_rate, improvement):
         """Commit improved weights to git repository"""
@@ -862,6 +996,17 @@ class ContinuousTrainer:
                     tunable_params.append(('optimization', key, 16, 128))
                 elif 'episodes' in key:
                     tunable_params.append(('optimization', key, 500, 5000))
+        
+        # Tactics section (numeric only)
+        tactics = config.get('tactics', {})
+        for key, val in tactics.items():
+            if isinstance(val, (int, float)):
+                if 'weight' in key:
+                    tunable_params.append(('tactics', key, 0.0, 200.0))
+                elif 'threshold' in key:
+                    tunable_params.append(('tactics', key, 20, 100))
+                elif 'min_enemy_length' in key:
+                    tunable_params.append(('tactics', key, 3, 10))
         
         return tunable_params
     
@@ -1044,6 +1189,17 @@ class ContinuousTrainer:
                 optimization.get('batch_size', 32),
                 optimization.get('episodes', 1000)
             ])
+            # Tactics section (7 params)
+            tactics = config.get('tactics', {})
+            vector.extend([
+                tactics.get('inward_trap_weight', 50.0),
+                tactics.get('inward_trap_min_enemy_length', 5),
+                tactics.get('aggressive_space_control_weight', 30.0),
+                tactics.get('aggressive_space_turn_threshold', 50),
+                tactics.get('predictive_avoidance_weight', 100.0),
+                tactics.get('energy_conservation_weight', 15.0),
+                tactics.get('adaptive_wall_hugging_weight', 25.0)
+            ])
             
             return np.array(vector, dtype=np.float32)
         except Exception as e:
@@ -1107,6 +1263,8 @@ class ContinuousTrainer:
         print("=" * 70)
         print(f"Config:")
         print(f"  - Games per iteration: {self.games_per_iteration}")
+        print(f"  - Benchmark rounds: {self.benchmark_rounds} (averaging for validation)")
+        print(f"  - Test algorithms: {', '.join(self.test_algorithms)}")
         print(f"  - Checkpoint interval: every {self.checkpoint_interval} iterations")
         print(f"  - Max iterations: {'unlimited' if self.max_iterations is None else self.max_iterations}")
         print(f"  - Min improvement: {self.min_improvement:.4f}")
@@ -1200,16 +1358,20 @@ class ContinuousTrainer:
                 self.save_config(candidate_config)
                 
                 # Try to reload via endpoint first, fall back to rebuild if needed
-                if not self.reload_config_via_endpoint():
+                reload_success = self.reload_config_via_endpoint()
+                if not reload_success:
                     # Fallback to rebuild if endpoint reload fails
-                    if not self.rebuild_snake():
+                    rebuild_success = self.rebuild_snake()
+                    if not rebuild_success:
                         print("❌ Build failed, skipping iteration\n")
                         self.save_config(current_config)  # Restore previous config
                         continue
                 
-                # Test candidate
-                win_rate = self.run_benchmark(self.games_per_iteration)
-                self.state['total_games'] += self.games_per_iteration
+                # Test candidate with multiple rounds for validation
+                stats = self.run_benchmark_rounds(self.games_per_iteration, rounds=self.benchmark_rounds)
+                win_rate = stats['mean']  # Use average win rate
+                win_rate_std = stats['std']
+                self.state['total_games'] += self.games_per_iteration * self.benchmark_rounds
             
             duration = time.time() - start_time
             
@@ -1218,9 +1380,11 @@ class ContinuousTrainer:
                 'iteration': iteration,
                 'timestamp': datetime.now().isoformat(),
                 'win_rate': win_rate,
+                'win_rate_std': win_rate_std if 'win_rate_std' in locals() else 0.0,
                 'best_win_rate': self.state['best_win_rate'],
                 'improvement': win_rate - self.state['best_win_rate'],
                 'games': self.games_per_iteration,
+                'benchmark_rounds': self.benchmark_rounds,
                 'duration_seconds': int(duration),
                 'config': candidate_config
             }
@@ -1276,7 +1440,8 @@ class ContinuousTrainer:
                 # Restore best config
                 self.save_config(current_config)
                 # Use reload endpoint for faster config restoration
-                if not self.reload_config_via_endpoint():
+                reload_success = self.reload_config_via_endpoint()
+                if not reload_success:
                     self.rebuild_snake()
             
             print(f"⏱  Duration: {duration:.1f}s ({duration/self.games_per_iteration:.1f}s/game)")
@@ -1359,6 +1524,10 @@ Examples:
                        help='Number of configurations to test in parallel (default: 1). Use 4-8 for A100 servers.')
     parser.add_argument('--server-url', type=str, default='http://localhost:8000',
                        help='Battlesnake server URL for config reload endpoint (default: http://localhost:8000)')
+    parser.add_argument('--benchmark-rounds', type=int, default=3,
+                       help='Number of benchmark rounds to average for validation (default: 3). Higher = more reliable but slower.')
+    parser.add_argument('--test-algorithms', type=str, nargs='+', default=['hybrid'],
+                       help='Algorithms to test: hybrid, greedy, lookahead, mcts (default: hybrid)')
     
     args = parser.parse_args()
     
@@ -1387,7 +1556,9 @@ Examples:
         use_llm=args.use_llm,
         use_neural_net=args.use_neural_net,
         parallel_configs=args.parallel_configs,
-        server_url=args.server_url
+        server_url=args.server_url,
+        benchmark_rounds=args.benchmark_rounds,
+        test_algorithms=args.test_algorithms
     )
     
     trainer.train()

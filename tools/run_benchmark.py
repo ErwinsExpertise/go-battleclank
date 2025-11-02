@@ -14,12 +14,12 @@ import re
 from datetime import datetime
 
 class BenchmarkRunner:
-    def __init__(self, num_games=100, board_size=11, max_turns=500):
+    def __init__(self, num_games=100, board_size=11, max_turns=500, go_port=8000, rust_port=8080):
         self.num_games = num_games
         self.board_size = board_size
         self.max_turns = max_turns
-        self.go_port = 8000
-        self.rust_port = 8080
+        self.go_port = go_port
+        self.rust_port = rust_port
         self.go_process = None
         self.rust_process = None
         
@@ -214,8 +214,10 @@ class BenchmarkRunner:
 
 def main():
     num_games = int(sys.argv[1]) if len(sys.argv) > 1 else 100
+    go_port = int(sys.argv[2]) if len(sys.argv) > 2 else 8000
+    rust_port = int(sys.argv[3]) if len(sys.argv) > 3 else 8080
     
-    runner = BenchmarkRunner(num_games=num_games)
+    runner = BenchmarkRunner(num_games=num_games, go_port=go_port, rust_port=rust_port)
     
     # Setup signal handler for cleanup
     def signal_handler(sig, frame):
