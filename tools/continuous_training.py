@@ -670,10 +670,13 @@ class ContinuousTrainer:
                         gpu_id = config_id % torch.cuda.device_count()
                         env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
                     
+                    # Allocate unique ports for this worker to avoid conflicts
+                    # Base ports: 8000 (go), 8080 (rust)
+                    # Each worker gets: 8000 + (config_id * 100), 8080 + (config_id * 100)
+                    go_port = 8000 + (config_id * 100)
+                    rust_port = 8080 + (config_id * 100)
+                    
                     # Copy config to main location temporarily for benchmark
-                    # Note: This creates a race condition if multiple benchmarks run simultaneously
-                    # For true parallelism, the benchmark script would need to accept a config path parameter
-                    # For now, we serialize the actual benchmarking to avoid conflicts
                     import fcntl
                     lock_file = Path(base_dir) / "benchmark.lock"
                     
@@ -697,9 +700,10 @@ class ContinuousTrainer:
                             subprocess.run(['go', 'build', '-o', 'battlesnake'], 
                                          cwd=Path.cwd(), capture_output=True, timeout=120)
                             
-                            # Run benchmark
+                            # Run benchmark with unique ports
                             result = subprocess.run(
-                                ['python3', 'tools/run_benchmark.py', str(games_per_config)],
+                                ['python3', 'tools/run_benchmark.py', str(games_per_config), 
+                                 str(go_port), str(rust_port)],
                                 cwd=Path.cwd(),
                                 capture_output=True,
                                 text=True,

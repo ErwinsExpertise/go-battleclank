@@ -291,9 +291,12 @@ python3 tools/continuous_training.py \
 **What this does**:
 - Generates 8 candidate configurations
 - Tests all 8 in parallel on separate GPUs
+- **Each worker uses unique ports** (8000-8700 for go, 8080-8780 for rust)
 - Each tested with 3 rounds (60 games per config)
 - Selects best of the 8 candidates
 - Much faster than sequential: ~15 min vs 120 min
+
+**Port allocation**: Worker N uses ports (8000 + N×100) and (8080 + N×100)
 
 ### Example 3: Algorithm Exploration
 
@@ -458,6 +461,18 @@ If using `--test-algorithms`, check which algorithm is winning:
 1. Reduce `--parallel-configs`
 2. Reduce `--games` per config
 3. Monitor GPU memory with `nvidia-smi`
+
+### Issue: Port conflicts with parallel configs
+
+**Fixed**: As of the latest update, each parallel worker automatically uses unique ports:
+- Worker 0: ports 8000 (go), 8080 (rust)
+- Worker 1: ports 8100 (go), 8180 (rust)
+- Worker 2: ports 8200 (go), 8280 (rust)
+- ... and so on
+
+**Port formula**: Worker N uses `8000 + (N × 100)` and `8080 + (N × 100)`
+
+This eliminates the previous port binding conflicts when running `--parallel-configs > 1`.
 
 ## Summary
 
