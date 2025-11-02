@@ -4,7 +4,6 @@
 Runs indefinitely, automatically managing checkpoints and improvements
 """
 
-import torch
 import subprocess
 import json
 import yaml
@@ -12,6 +11,8 @@ import os
 import sys
 import time
 import signal
+import copy
+import random
 from datetime import datetime
 from pathlib import Path
 
@@ -168,6 +169,14 @@ class ContinuousTrainer:
             # Stage config.yaml
             subprocess.run(['git', 'add', 'config.yaml'], check=True, capture_output=True)
             
+            # Check if there are actually changes to commit
+            result = subprocess.run(['git', 'diff', '--cached', '--quiet'], 
+                                  capture_output=True, check=False)
+            if result.returncode == 0:
+                # No changes staged
+                print(f"   ⚠ Warning: No changes to commit (config.yaml unchanged)")
+                return False
+            
             # Create commit message with improvement details
             commit_msg = (
                 f"Automated training improvement: {win_rate:.2%} win rate (+{improvement:.2%})\n\n"
@@ -206,34 +215,64 @@ class ContinuousTrainer:
     
     def random_perturbation(self, config, magnitude=0.1):
         """Apply random perturbation to weights"""
-        import random
-        
-        new_config = config.copy()
+        new_config = copy.deepcopy(config)
         weights = new_config.get('weights', {})
+        pursuit = new_config.get('pursuit', {})
+        traps = new_config.get('traps', {})
         
-        # List of weights to perturb
-        weight_keys = [
-            'space_weight', 'head_collision_weight', 'center_weight',
-            'wall_penalty_weight', 'cutoff_weight', 'trap_moderate',
-            'trap_severe', 'trap_critical', 'food_trap', 'pursuit_dist2',
-            'pursuit_dist3', 'pursuit_dist4', 'pursuit_dist5'
-        ]
+        # Build list of all tunable parameters with their locations
+        tunable_params = []
         
-        # Randomly select 3-5 weights to adjust
-        num_to_adjust = random.randint(3, 5)
-        keys_to_adjust = random.sample(weight_keys, num_to_adjust)
-        
-        for key in keys_to_adjust:
+        # Weights section
+        for key in ['space', 'head_collision', 'center_control', 'wall_penalty', 'cutoff', 'food']:
             if key in weights:
+                tunable_params.append(('weights', key))
+        
+        # Pursuit section
+        for key in ['distance_2', 'distance_3', 'distance_4', 'distance_5']:
+            if key in pursuit:
+                tunable_params.append(('pursuit', key))
+        
+        # Traps section
+        for key in ['moderate', 'severe', 'critical', 'food_trap']:
+            if key in traps:
+                tunable_params.append(('traps', key))
+        
+        # Randomly select 3-5 parameters to adjust
+        if not tunable_params:
+            # No parameters to tune, return config unchanged
+            return new_config
+        
+        num_to_adjust = min(random.randint(3, 5), len(tunable_params))
+        params_to_adjust = random.sample(tunable_params, num_to_adjust)
+        
+        for section, key in params_to_adjust:
+            if section == 'weights':
                 current_val = weights[key]
                 # Apply random change: -magnitude to +magnitude
                 change = random.uniform(-magnitude, magnitude)
                 new_val = current_val * (1 + change)
                 # Clamp to reasonable range
-                new_val = max(1, min(1000, new_val))
-                weights[key] = int(new_val)
+                new_val = max(0.1, min(1000, new_val))
+                weights[key] = round(new_val, 1)
+            elif section == 'pursuit':
+                current_val = pursuit[key]
+                change = random.uniform(-magnitude, magnitude)
+                new_val = current_val * (1 + change)
+                # Clamp to reasonable range
+                new_val = max(1.0, min(500.0, new_val))
+                pursuit[key] = round(new_val, 1)
+            elif section == 'traps':
+                current_val = traps[key]
+                change = random.uniform(-magnitude, magnitude)
+                new_val = current_val * (1 + change)
+                # Clamp to reasonable range
+                new_val = max(1.0, min(2000.0, new_val))
+                traps[key] = round(new_val, 1)
         
         new_config['weights'] = weights
+        new_config['pursuit'] = pursuit
+        new_config['traps'] = traps
         return new_config
     
     def handle_shutdown(self, signum, frame):
