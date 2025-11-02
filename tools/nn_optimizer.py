@@ -28,9 +28,9 @@ class WeightOptimizer(nn.Module):
     Neural network that learns optimal weight configurations
     Input: Current weights + game statistics
     Output: Adjusted weights that maximize win rate
-    Enhanced to support ALL config parameters (30+ parameters)
+    Enhanced to support ALL config parameters (36 parameters)
     """
-    def __init__(self, input_size=30, hidden_size=256):
+    def __init__(self, input_size=36, hidden_size=256):
         super(WeightOptimizer, self).__init__()
         
         self.fc1 = nn.Linear(input_size, hidden_size)
@@ -74,7 +74,7 @@ class BattlesnakeOptimizer:
             yaml.dump(config, f, default_flow_style=False)
     
     def extract_weights_vector(self, config):
-        """Extract weight parameters into a flat vector - ALL config parameters"""
+        """Extract weight parameters into a flat vector - ALL config parameters (36 total)"""
         weights = [
             # Weights section (6 params)
             config['weights']['space'],
@@ -83,7 +83,7 @@ class BattlesnakeOptimizer:
             config['weights']['wall_penalty'],
             config['weights']['cutoff'],
             config['weights']['food'],
-            # Traps section (4 params)
+            # Traps section (5 params)
             config['traps']['moderate'],
             config['traps']['severe'],
             config['traps']['critical'],
@@ -105,7 +105,7 @@ class BattlesnakeOptimizer:
             # Late game section (2 params)
             config['late_game']['caution_multiplier'],
             config['late_game']['turn_threshold'],
-            # Hybrid section (7 params - numeric only)
+            # Hybrid section (6 params - numeric only)
             config['hybrid']['critical_health'],
             config['hybrid']['critical_nearby_enemies'],
             config['hybrid']['critical_space_ratio'],
@@ -115,50 +115,62 @@ class BattlesnakeOptimizer:
             # Search section (2 params)
             config['search']['max_astar_nodes'],
             config['search']['max_depth'],
+            # Optimization section (5 params)
+            config['optimization']['learning_rate'],
+            config['optimization']['discount_factor'],
+            config['optimization']['exploration_rate'],
+            config['optimization']['batch_size'],
+            config['optimization']['episodes'],
         ]
         return np.array(weights, dtype=np.float32)
     
     def apply_weights_vector(self, config, weights):
-        """Apply weight vector back to config - ALL parameters"""
-        # Weights section
+        """Apply weight vector back to config - ALL 36 parameters"""
+        # Weights section (6 params: 0-5)
         config['weights']['space'] = float(max(1.0, weights[0]))
         config['weights']['head_collision'] = float(max(100.0, weights[1]))
         config['weights']['center_control'] = float(max(0.5, weights[2]))
         config['weights']['wall_penalty'] = float(max(1.0, weights[3]))
         config['weights']['cutoff'] = float(max(50.0, weights[4]))
         config['weights']['food'] = float(max(0.1, weights[5]))
-        # Traps section
+        # Traps section (5 params: 6-10)
         config['traps']['moderate'] = float(max(100.0, weights[6]))
         config['traps']['severe'] = float(max(200.0, weights[7]))
         config['traps']['critical'] = float(max(300.0, weights[8]))
         config['traps']['food_trap'] = float(max(400.0, weights[9]))
         config['traps']['food_trap_threshold'] = float(max(0.5, min(0.95, weights[10])))
-        # Pursuit section
+        # Pursuit section (4 params: 11-14)
         config['pursuit']['distance_2'] = float(max(50.0, weights[11]))
         config['pursuit']['distance_3'] = float(max(25.0, weights[12]))
         config['pursuit']['distance_4'] = float(max(10.0, weights[13]))
         config['pursuit']['distance_5'] = float(max(5.0, weights[14]))
-        # Trapping section
+        # Trapping section (3 params: 15-17)
         config['trapping']['weight'] = float(max(100.0, weights[15]))
         config['trapping']['space_cutoff_threshold'] = float(max(0.1, min(0.5, weights[16])))
         config['trapping']['trapped_ratio'] = float(max(0.3, min(0.9, weights[17])))
-        # Food urgency section
+        # Food urgency section (3 params: 18-20)
         config['food_urgency']['critical'] = float(max(1.0, min(3.0, weights[18])))
         config['food_urgency']['low'] = float(max(1.0, min(2.0, weights[19])))
         config['food_urgency']['normal'] = float(max(0.5, min(1.5, weights[20])))
-        # Late game section
+        # Late game section (2 params: 21-22)
         config['late_game']['caution_multiplier'] = float(max(1.0, min(2.0, weights[21])))
         config['late_game']['turn_threshold'] = int(max(50, min(300, weights[22])))
-        # Hybrid section
+        # Hybrid section (6 params: 23-28)
         config['hybrid']['critical_health'] = int(max(10, min(50, weights[23])))
         config['hybrid']['critical_nearby_enemies'] = int(max(1, min(4, weights[24])))
         config['hybrid']['critical_space_ratio'] = float(max(1.0, min(5.0, weights[25])))
         config['hybrid']['lookahead_depth'] = int(max(1, min(5, weights[26])))
         config['hybrid']['mcts_iterations'] = int(max(50, min(200, weights[27])))
         config['hybrid']['mcts_timeout_ms'] = int(max(100, min(500, weights[28])))
-        # Search section
+        # Search section (2 params: 29-30)
         config['search']['max_astar_nodes'] = int(max(100, min(1000, weights[29])))
         config['search']['max_depth'] = int(max(50, min(200, weights[30])))
+        # Optimization section (5 params: 31-35)
+        config['optimization']['learning_rate'] = float(max(0.0001, min(0.1, weights[31])))
+        config['optimization']['discount_factor'] = float(max(0.8, min(0.99, weights[32])))
+        config['optimization']['exploration_rate'] = float(max(0.01, min(0.5, weights[33])))
+        config['optimization']['batch_size'] = int(max(16, min(128, weights[34])))
+        config['optimization']['episodes'] = int(max(500, min(5000, weights[35])))
         return config
     
     def run_benchmark(self):

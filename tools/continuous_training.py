@@ -45,7 +45,7 @@ if PYTORCH_AVAILABLE:
     class ConfigPatternNetwork(nn.Module):
         """Neural network that learns patterns in successful configurations"""
         
-        def __init__(self, input_size=30, hidden_size=128):
+        def __init__(self, input_size=36, hidden_size=128):
             super(ConfigPatternNetwork, self).__init__()
             self.fc1 = nn.Linear(input_size, hidden_size)
             self.fc2 = nn.Linear(hidden_size, hidden_size)
