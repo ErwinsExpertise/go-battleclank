@@ -714,20 +714,15 @@ class ContinuousTrainer:
             subprocess.run(['git', 'commit', '-m', commit_msg], 
                          check=True, capture_output=True)
             
-            # Push to origin (if remote exists)
-            result = subprocess.run(['git', 'remote', 'get-url', 'origin'], 
-                                  capture_output=True, check=False)
-            if result.returncode == 0:
-                subprocess.run(['git', 'push', 'origin', 'HEAD'], 
-                             check=True, capture_output=True, timeout=60)
-                print(f"   ✓ Committed and pushed to git repository")
-            else:
-                print(f"   ✓ Committed to git repository (no remote to push)")
+            # Always push to remote
+            subprocess.run(['git', 'push', 'origin', 'HEAD'], 
+                         check=True, capture_output=True, timeout=60)
+            print(f"   ✓ Committed and pushed to git repository")
             
             return True
             
         except subprocess.CalledProcessError as e:
-            print(f"   ⚠ Warning: Could not commit to git: {e}")
+            print(f"   ⚠ Warning: Could not commit/push to git: {e}")
             return False
         except subprocess.TimeoutExpired:
             print(f"   ⚠ Warning: Git push timeout (commit saved locally)")
