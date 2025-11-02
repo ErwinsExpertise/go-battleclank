@@ -9,8 +9,12 @@ cd "$SCRIPT_DIR/.."
 
 GO_PORT=${1:-8000}
 RUST_PORT=${2:-8080}
+CONFIG_FILE=${3:-config.yaml}
 
 echo "Starting snake servers..."
+if [ "$CONFIG_FILE" != "config.yaml" ]; then
+    echo "  Using config file: $CONFIG_FILE"
+fi
 
 # Check if binaries exist
 if [ ! -f "./battlesnake" ]; then
@@ -27,7 +31,7 @@ fi
 
 # Start Go snake
 echo "  Starting Go snake on port $GO_PORT..."
-PORT=$GO_PORT ./battlesnake > /dev/null 2>&1 &
+PORT=$GO_PORT ./battlesnake -config "$CONFIG_FILE" > /dev/null 2>&1 &
 GO_PID=$!
 echo $GO_PID > /tmp/battlesnake_go_${GO_PORT}.pid
 sleep 2

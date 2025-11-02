@@ -399,29 +399,18 @@ def _test_single_config_worker(args):
         with open(config_file, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
         
-        # Build binary with this config
-        # Copy config to main location temporarily for build
-        main_config = Path.cwd() / 'config.yaml'
-        backup_config = workspace / 'config_backup.yaml'
+        # Build binary (no need to copy config, we'll use CLI flag)
+        build_result = subprocess.run(
+            ['go', 'build', '-o', str(workspace / 'battlesnake')],
+            cwd=Path.cwd(),
+            capture_output=True,
+            timeout=120
+        )
         
-        # Backup current config
-        if main_config.exists():
-            shutil.copy(main_config, backup_config)
+        if build_result.returncode != 0:
+            return (config, 0.0)
         
         try:
-            # Install our config
-            shutil.copy(config_file, main_config)
-            
-            # Build binary
-            build_result = subprocess.run(
-                ['go', 'build', '-o', str(workspace / 'battlesnake')],
-                cwd=Path.cwd(),
-                capture_output=True,
-                timeout=120
-            )
-            
-            if build_result.returncode != 0:
-                return (config, 0.0)
             
             # Set GPU for this worker (round-robin across available GPUs)
             env = os.environ.copy()
@@ -455,15 +444,33 @@ def _test_single_config_worker(args):
                 servers_already_running = False
             
             if not servers_already_running:
-                # Start servers for this worker
-                start_servers_script = Path.cwd() / 'tools' / 'start_servers.sh'
-                subprocess.run(
-                    [str(start_servers_script), str(go_port), str(rust_port)],
-                    cwd=workspace,
-                    env=env,
-                    capture_output=True,
-                    timeout=30
+                # Start servers for this worker with custom config
+                # Set the config path via environment variable for the server
+                server_env = env.copy()
+                server_env['BATTLESNAKE_CONFIG'] = str(config_file)
+                
+                # Start Go snake with config flag
+                go_snake_process = subprocess.Popen(
+                    [str(workspace / 'battlesnake'), '-config', str(config_file)],
+                    env=server_env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
                 )
+                
+                # Start Rust baseline
+                rust_snake_process = subprocess.Popen(
+                    ['./baseline/target/release/baseline-snake'],
+                    cwd=Path.cwd(),
+                    env={'BIND_PORT': str(rust_port)},
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                
+                # Save PIDs for cleanup
+                go_pid_file = Path(f'/tmp/battlesnake_go_{go_port}.pid')
+                rust_pid_file = Path(f'/tmp/battlesnake_rust_{rust_port}.pid')
+                go_pid_file.write_text(str(go_snake_process.pid))
+                rust_pid_file.write_text(str(rust_snake_process.pid))
                 
                 # Wait a bit for servers to start
                 time.sleep(3)
@@ -501,10 +508,9 @@ def _test_single_config_worker(args):
                         timeout=30
                     )
         
-        finally:
-            # Restore original config
-            if backup_config.exists():
-                shutil.copy(backup_config, main_config)
+        except Exception as inner_e:
+            print(f"  ⚠ Error running benchmark for config {config_id}: {inner_e}")
+            return (config, 0.0)
     
     except Exception as e:
         print(f"  ⚠ Parallel benchmark error for config {config_id}: {e}")
@@ -1474,7 +1480,10 @@ class ContinuousTrainer:
                 self.state['best_config'] = candidate_config
                 self.state['improvements'] += 1
                 self.state['last_improvement_iteration'] = iteration
-                # Config already saved
+                
+                # Save the improved config to main config.yaml
+                self.save_config(candidate_config)
+                print(f"   💾 Saved improved config to config.yaml")
                 
                 # Commit improvement to git
                 print(f"   📝 Committing improvement to git...")
