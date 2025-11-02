@@ -14,12 +14,14 @@ import re
 from datetime import datetime
 
 class BenchmarkRunner:
-    def __init__(self, num_games=100, board_size=11, max_turns=500, go_port=8000, rust_port=8080):
+    def __init__(self, num_games=100, board_size=11, max_turns=500, go_port=8000, rust_port=8080, manage_servers=True, config_file=None):
         self.num_games = num_games
         self.board_size = board_size
         self.max_turns = max_turns
         self.go_port = go_port
         self.rust_port = rust_port
+        self.manage_servers = manage_servers  # Whether to start/stop servers
+        self.config_file = config_file  # Optional config file path for the Go snake
         self.go_process = None
         self.rust_process = None
         
@@ -134,9 +136,15 @@ class BenchmarkRunner:
         print("="*60)
         print(f"Games: {self.num_games}")
         print(f"Board: {self.board_size}x{self.board_size}")
-        print(f"Max turns: {self.max_turns}\n")
+        print(f"Max turns: {self.max_turns}")
+        if self.config_file:
+            print(f"Config file: {self.config_file}")
+        print()
         
-        self.start_snakes()
+        if self.manage_servers:
+            self.start_snakes()
+        else:
+            print("Using existing servers (not managing server lifecycle)")
         
         wins = 0
         losses = 0
@@ -166,7 +174,8 @@ class BenchmarkRunner:
                 errors += 1
                 print(f"ERROR ({error})")
         
-        self.cleanup()
+        if self.manage_servers:
+            self.cleanup()
         
         # Print results
         win_rate = (wins / self.num_games) * 100 if self.num_games > 0 else 0
@@ -216,8 +225,16 @@ def main():
     num_games = int(sys.argv[1]) if len(sys.argv) > 1 else 100
     go_port = int(sys.argv[2]) if len(sys.argv) > 2 else 8000
     rust_port = int(sys.argv[3]) if len(sys.argv) > 3 else 8080
+    manage_servers = sys.argv[4].lower() != 'no-manage' if len(sys.argv) > 4 else True
+    config_file = sys.argv[5] if len(sys.argv) > 5 else None
     
-    runner = BenchmarkRunner(num_games=num_games, go_port=go_port, rust_port=rust_port)
+    runner = BenchmarkRunner(
+        num_games=num_games, 
+        go_port=go_port, 
+        rust_port=rust_port,
+        manage_servers=manage_servers,
+        config_file=config_file
+    )
     
     # Setup signal handler for cleanup
     def signal_handler(sig, frame):
