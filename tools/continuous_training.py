@@ -1354,9 +1354,11 @@ class ContinuousTrainer:
                 self.save_config(candidate_config)
                 
                 # Try to reload via endpoint first, fall back to rebuild if needed
-                if not self.reload_config_via_endpoint():
+                reload_success = self.reload_config_via_endpoint()
+                if not reload_success:
                     # Fallback to rebuild if endpoint reload fails
-                    if not self.rebuild_snake():
+                    rebuild_success = self.rebuild_snake()
+                    if not rebuild_success:
                         print("❌ Build failed, skipping iteration\n")
                         self.save_config(current_config)  # Restore previous config
                         continue
@@ -1434,7 +1436,8 @@ class ContinuousTrainer:
                 # Restore best config
                 self.save_config(current_config)
                 # Use reload endpoint for faster config restoration
-                if not self.reload_config_via_endpoint():
+                reload_success = self.reload_config_via_endpoint()
+                if not reload_success:
                     self.rebuild_snake()
             
             print(f"⏱  Duration: {duration:.1f}s ({duration/self.games_per_iteration:.1f}s/game)")

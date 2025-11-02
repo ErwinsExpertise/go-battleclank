@@ -261,7 +261,9 @@ func countEnemyEscapeRoutes(state *board.GameState, enemy board.Snake, centerX, 
 		
 		if nextDist > currentDist {
 			// Leads away from center
-			if state.Board.IsInBounds(nextPos) && !state.Board.IsOccupied(nextPos, true) {
+			// Check if position is valid and not occupied (skip tails since they'll move)
+			skipTails := true
+			if state.Board.IsInBounds(nextPos) && !state.Board.IsOccupied(nextPos, skipTails) {
 				routes++
 			}
 		}
