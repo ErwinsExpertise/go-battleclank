@@ -18,7 +18,7 @@ optimization:
   batch_size: 32
   discount_factor: 0.1
   enabled: false
-  episodes: 933
+  episodes: 838
   exploration_rate: 0.1
   learning_rate: 0.0
 pursuit:
@@ -45,7 +45,7 @@ trapping:
   weight: 503.7
 traps:
   critical: 1651.9
-  food_trap: 450.8
+  food_trap: 411.5
   food_trap_threshold: 0.6
   moderate: 2000.0
   severe: 407.5
