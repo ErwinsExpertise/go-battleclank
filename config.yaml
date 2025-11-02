@@ -1,5 +1,5 @@
 food_urgency:
-  critical: 1.8
+  critical: 2.05
   low: 1.4
   normal: 1.0
 hybrid:
@@ -12,23 +12,23 @@ hybrid:
   use_lookahead_on_critical: true
   use_mcts_in_endgame: true
 late_game:
-  caution_multiplier: 1.05
-  turn_threshold: 150
+  caution_multiplier: 1.0
+  turn_threshold: 167
 optimization:
   batch_size: 36
   discount_factor: 0.95
   enabled: false
-  episodes: 1000
+  episodes: 1065
   exploration_rate: 0.1
-  learning_rate: 0.001
+  learning_rate: 0.0
 pursuit:
-  distance_2: 100.0
+  distance_2: 95.9
   distance_3: 49.3
   distance_4: 28.3
-  distance_5: 10.0
+  distance_5: 9.9
 search:
   algorithm: hybrid
-  max_astar_nodes: 400
+  max_astar_nodes: 422
   max_depth: 121
   use_astar: true
 trapping:
@@ -36,15 +36,15 @@ trapping:
   trapped_ratio: 0.6
   weight: 400.0
 traps:
-  critical: 775.7
-  food_trap: 800.0
+  critical: 2000.0
+  food_trap: 698.3
   food_trap_threshold: 0.7
-  moderate: 250.0
-  severe: 383.1
+  moderate: 287.5
+  severe: 406.9
 weights:
-  center_control: 2.0
-  cutoff: 200.0
-  food: 1.3
-  head_collision: 693.6
-  space: 6.9
-  wall_penalty: 5.0
+  center_control: 2.3
+  cutoff: 195.2
+  food: 5.1
+  head_collision: 1000.0
+  space: 28.1
+  wall_penalty: 5.5
