@@ -692,9 +692,13 @@ class ContinuousTrainer:
                     if len(successful_configs) > 0:
                         # Simple training: learn from successful patterns
                         # This is a placeholder - full implementation would be more sophisticated
-                        pass  # Neural network training can be expanded based on needs
+                        # Future: Train network on successful config vectors
+                        pass
                 except Exception as e:
-                    pass  # Silently continue if NN training fails
+                    # Silently continue if NN training fails - don't interrupt main loop
+                    if hasattr(e, '__class__'):
+                        print(f"  ⚠ Neural network training warning: {e.__class__.__name__}")
+                    pass
             
             # Check if improvement
             improvement = win_rate - self.state['best_win_rate']
