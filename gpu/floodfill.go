@@ -61,8 +61,12 @@ func floodFillCPU(boardState *BoardStateGPU, start board.Coord, maxDepth int) in
 			}
 			
 			for _, neighbor := range neighbors {
+				// Check bounds before calculating index
+				if neighbor.X < 0 || neighbor.X >= boardState.Width || neighbor.Y < 0 || neighbor.Y >= boardState.Height {
+					continue
+				}
 				neighborIdx := neighbor.Y*boardState.Width + neighbor.X
-				if !visited[neighborIdx] && !boardState.IsOccupied(neighbor.X, neighbor.Y) {
+				if !visited[neighborIdx] && boardState.Occupancy[neighborIdx] == 0 {
 					nextFrontier = append(nextFrontier, neighbor)
 				}
 			}

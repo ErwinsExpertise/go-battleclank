@@ -78,27 +78,50 @@ func (m *MCTSBatchGPU) SimulateBatch(state *board.GameState, iterations int) (st
 
 // runBatchCPU executes a batch of simulations on CPU (fallback)
 func (m *MCTSBatchGPU) runBatchCPU(state *board.GameState, moves []string, batchSize int, results []MCTSResult) {
+	if len(moves) == 0 {
+		return
+	}
+	
 	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	
+	// Calculate simulations per move
+	simsPerMove := batchSize / len(moves)
+	remainder := batchSize % len(moves)
 	
 	// Distribute simulations across moves
 	for i := range moves {
+		numSims := simsPerMove
+		if i < remainder {
+			numSims++ // Distribute remainder
+		}
+		
 		wg.Add(1)
-		go func(moveIdx int) {
+		go func(moveIdx int, simCount int) {
 			defer wg.Done()
 			
+			localVisits := 0
+			localWins := 0.0
+			
 			// Run simulations for this move
-			for sim := 0; sim < batchSize/len(moves)+1; sim++ {
+			for sim := 0; sim < simCount; sim++ {
 				// Simulate the move
 				newState := simulation.SimulateMove(state, state.You.ID, moves[moveIdx])
 				
 				// Run random playout
 				reward := m.simulatePlayout(newState)
 				
-				// Update results
-				results[moveIdx].Visits++
-				results[moveIdx].Wins += reward
+				// Update local results
+				localVisits++
+				localWins += reward
 			}
-		}(i)
+			
+			// Update shared results with mutex protection
+			mutex.Lock()
+			results[moveIdx].Visits += localVisits
+			results[moveIdx].Wins += localWins
+			mutex.Unlock()
+		}(i, numSims)
 	}
 	
 	wg.Wait()
