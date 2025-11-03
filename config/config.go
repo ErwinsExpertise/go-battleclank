@@ -24,6 +24,7 @@ type Config struct {
 		WallPenalty    float64 `yaml:"wall_penalty"`
 		Cutoff         float64 `yaml:"cutoff"`
 		Food           float64 `yaml:"food"`
+		StraightMovement       float64 `yaml:"straight_movement"`         // bonus for continuing in same direction
 		SpaceBaseMultiplier    float64 `yaml:"space_base_multiplier"`    // multiplier for base space weight
 		SpaceEnemyMultiplier   float64 `yaml:"space_enemy_multiplier"`   // multiplier when enemies nearby
 		SpaceHealthyMultiplier float64 `yaml:"space_healthy_multiplier"` // multiplier when healthy with good space
@@ -201,6 +202,7 @@ func GetDefaultConfig() *Config {
 	config.Weights.WallPenalty = 5.0
 	config.Weights.Cutoff = 200.0
 	config.Weights.Food = 1.0
+	config.Weights.StraightMovement = 25.0
 	config.Weights.SpaceBaseMultiplier = 1.5
 	config.Weights.SpaceEnemyMultiplier = 2.5
 	config.Weights.SpaceHealthyMultiplier = 1.2

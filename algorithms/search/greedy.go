@@ -19,28 +19,30 @@ type MoveScore struct {
 
 // GreedySearch implements a single-turn greedy heuristic search
 type GreedySearch struct {
-	SpaceWeight       float64
-	HeadCollisionWeight float64
-	CenterWeight      float64
-	WallPenaltyWeight float64
-	CutoffWeight      float64
-	MaxDepth          int
-	UseAStar          bool
-	MaxAStarNodes     int
+	SpaceWeight            float64
+	HeadCollisionWeight    float64
+	CenterWeight           float64
+	WallPenaltyWeight      float64
+	CutoffWeight           float64
+	StraightMovementWeight float64
+	MaxDepth               int
+	UseAStar               bool
+	MaxAStarNodes          int
 }
 
 // NewGreedySearch creates a new greedy search using config values
 func NewGreedySearch() *GreedySearch {
 	cfg := config.GetConfig()
 	return &GreedySearch{
-		SpaceWeight:         cfg.Weights.Space,
-		HeadCollisionWeight: cfg.Weights.HeadCollision,
-		CenterWeight:        cfg.Weights.CenterControl,
-		WallPenaltyWeight:   cfg.Weights.WallPenalty,
-		CutoffWeight:        cfg.Weights.Cutoff,
-		MaxDepth:            cfg.Search.MaxDepth,
-		UseAStar:            cfg.Search.UseAStar,
-		MaxAStarNodes:       cfg.Search.MaxAStarNodes,
+		SpaceWeight:            cfg.Weights.Space,
+		HeadCollisionWeight:    cfg.Weights.HeadCollision,
+		CenterWeight:           cfg.Weights.CenterControl,
+		WallPenaltyWeight:      cfg.Weights.WallPenalty,
+		CutoffWeight:           cfg.Weights.Cutoff,
+		StraightMovementWeight: cfg.Weights.StraightMovement,
+		MaxDepth:               cfg.Search.MaxDepth,
+		UseAStar:               cfg.Search.UseAStar,
+		MaxAStarNodes:          cfg.Search.MaxAStarNodes,
 	}
 }
 
@@ -76,6 +78,16 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	// Check if move is immediately fatal
 	if !state.Board.IsInBounds(nextPos) || state.Board.IsOccupied(nextPos, true) {
 		return -10000.0
+	}
+	
+	// NEW: Straight movement bonus - prefer continuing in current direction
+	// This reduces unnecessary turning and creates more efficient paths
+	if len(state.You.Body) >= 2 {
+		currentDirection := getCurrentDirection(state.You.Head, state.You.Body[1])
+		if currentDirection == move {
+			// Continuing straight - bonus for movement efficiency
+			score += g.StraightMovementWeight
+		}
 	}
 	
 	// NEW: Ratio-based trap detection (matches baseline snake)
@@ -244,6 +256,25 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 }
 
 // Helper functions
+
+// getCurrentDirection determines which direction the snake is currently moving
+func getCurrentDirection(head, neck board.Coord) string {
+	dx := head.X - neck.X
+	dy := head.Y - neck.Y
+	
+	if dx > 0 {
+		return board.MoveRight
+	} else if dx < 0 {
+		return board.MoveLeft
+	} else if dy > 0 {
+		return board.MoveUp
+	} else if dy < 0 {
+		return board.MoveDown
+	}
+	
+	// Default if head == neck (shouldn't happen)
+	return board.MoveUp
+}
 
 func hasEnemiesNearby(state *board.GameState, radius int) bool {
 	myHead := state.You.Head

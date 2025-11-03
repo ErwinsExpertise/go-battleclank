@@ -74,4 +74,5 @@ weights:
   food: 1.6
   head_collision: 955.5
   space: 7.4
+  straight_movement: 25.0
   wall_penalty: 7.7
