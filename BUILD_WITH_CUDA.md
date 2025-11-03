@@ -15,28 +15,56 @@ This document describes how to build go-battleclank with GPU acceleration using 
 
 ### 1. CUDA Toolkit Installation
 
-**Important:** Due to API incompatibilities in the mumax/3 library, **CUDA 11.x is required**. CUDA 12.x has breaking API changes that are not yet supported by mumax/3.
+This project supports both CUDA 11.8 and CUDA 12.x:
 
-#### Recommended: CUDA 11.8 (Ubuntu/Debian):
+- **CUDA 11.8**: Works with mumax/3 v3.9.3 (default, easiest setup)
+- **CUDA 12.x**: Requires mumax/3 v3.11.1 (manual configuration needed)
+
+#### Option A: CUDA 11.8 (Recommended - Works Out of the Box)
+
 ```bash
 # Add NVIDIA package repository
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
 sudo dpkg -i cuda-keyring_1.0-1_all.deb
 sudo apt-get update
 
-# Install CUDA Toolkit 11.8 (last stable 11.x version)
+# Install CUDA Toolkit 11.8
 sudo apt-get install cuda-toolkit-11-8
 
-# Set environment variables for CUDA 11.8
+# Set environment variables
 export PATH=/usr/local/cuda-11.8/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH
 
 # Verify installation
 nvcc --version  # Should show "release 11.8"
 nvidia-smi
+
+# Build immediately works
+go build -tags cuda -o go-battleclank-cuda .
 ```
 
-**If you have CUDA 12.x installed:** See troubleshooting section below for downgrade instructions.
+#### Option B: CUDA 12.x with mumax/3 v3.11.1
+
+If you have CUDA 12.x and prefer not to downgrade, you can use mumax/3 v3.11.1 which supports CUDA 12.9+.
+
+**Note:** Due to Go module versioning issues with mumax/3 v3.11.1, manual configuration is required.
+
+```bash
+# 1. Clone mumax/3 to find the v3.11.1 commit hash
+git clone --depth=50 https://github.com/mumax/3.git /tmp/mumax3
+cd /tmp/mumax3
+git log --all --oneline | grep -i "3.11" | head -5
+
+# 2. Add replace directive to go.mod using the commit hash
+# Edit go.mod and add at the bottom:
+#   replace github.com/mumax/3 => github.com/mumax/3 <commit-hash-from-step-1>
+
+# 3. Update dependencies and build
+go mod tidy
+go build -tags cuda -o go-battleclank-cuda .
+```
+
+**See the "CUDA 12.x with mumax/3 v3.11.1" section below for detailed instructions.**
 
 #### Other Linux Distributions:
 Visit [NVIDIA CUDA Downloads](https://developer.nvidia.com/cuda-downloads) and follow the instructions for your distribution.
@@ -243,9 +271,41 @@ not enough arguments in call to (_Cfunc_cuCtxCreate)
     want (*_Ctype_CUcontext, *_Ctype_struct_CUctxCreateParams_st, _Ctype_uint, _Ctype_CUdevice)
 ```
 
-**Root Cause:** The mumax/3 library uses the CUDA 11.x API which is incompatible with CUDA 12.x. CUDA 12.x changed the `cuCtxCreate` function signature.
+**Root Cause:** The default mumax/3 v3.9.3 uses the CUDA 11.x API. CUDA 12.x changed the `cuCtxCreate` function signature.
 
-**Solution: Downgrade to CUDA 11.8**
+**Solutions:**
+
+#### Solution 1: Use mumax/3 v3.11.1 (Supports CUDA 12.9+)
+
+mumax/3 v3.11.1 supports CUDA 12.x but requires manual setup due to Go module versioning issues.
+
+1. **Find the v3.11.1 commit hash:**
+   ```bash
+   # Clone mumax repository
+   git clone --branch=v3.11.1 --depth=1 https://github.com/mumax/3.git /tmp/mumax3
+   cd /tmp/mumax3
+   git rev-parse HEAD  # This gives you the commit hash
+   ```
+
+2. **Update your go.mod file:**
+   
+   Add this replace directive at the bottom of `go.mod`:
+   ```go
+   replace github.com/mumax/3 => github.com/mumax/3 v0.0.0-20241001120000-<commit-hash-from-step-1>
+   ```
+   
+   The pseudo-version format is: `v0.0.0-YYYYMMDDHHMMSS-<12-char-commit-hash>`
+
+3. **Rebuild:**
+   ```bash
+   go clean -modcache
+   go mod tidy
+   go build -tags cuda -o go-battleclank-cuda .
+   ```
+
+#### Solution 2: Downgrade to CUDA 11.8
+
+If you prefer a simpler setup:
 
 1. **Remove CUDA 12.x:**
    ```bash
@@ -275,16 +335,10 @@ not enough arguments in call to (_Cfunc_cuCtxCreate)
 4. **Rebuild:**
    ```bash
    go clean -modcache
-   go mod tidy
    go build -tags cuda -o go-battleclank-cuda .
    ```
 
-5. **Verify:**
-   ```bash
-   nvcc --version  # Should show "release 11.8"
-   ```
-
-**Alternative: Use CPU-only build**
+#### Solution 3: Use CPU-only build
 ```bash
 go build -o go-battleclank .
 ./go-battleclank --enable-gpu  # Will use CPU fallback
