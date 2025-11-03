@@ -65,9 +65,9 @@ while true; do
     echo ""
     echo "▶️  Starting training session with $PARALLEL_CONFIGS parallel configurations..."
     python3 tools/continuous_training.py \
-        --games 30 \
+        --games 100 \
         --checkpoint-interval 10 \
-        --min-improvement 0.001 \
+        --min-improvement 0.1 \
         --parallel-configs $PARALLEL_CONFIGS \
         2>&1 | tee -a "$LOG_FILE"
     
