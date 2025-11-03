@@ -5,13 +5,13 @@ food_urgency:
 food_weights:
   critical_health: 500.0
   critical_health_outmatched: 400.0
+  healthy_base: 80.0
+  healthy_early_game: 100.0
+  healthy_outmatched: 0.5
   low_health: 220.0
   low_health_outmatched: 180.0
   medium_health: 120.0
   medium_health_outmatched: 0.6
-  healthy_base: 80.0
-  healthy_early_game: 100.0
-  healthy_outmatched: 0.5
 hybrid:
   critical_health: 30
   critical_nearby_enemies: 2
@@ -54,7 +54,7 @@ trapping:
   trapped_ratio: 0.49
   weight: 503.7
 traps:
-  critical: 2000.0
+  critical: 1700.0
   food_trap: 411.5
   food_trap_threshold: 0.59
   moderate: 2000.0
@@ -62,7 +62,7 @@ traps:
 weights:
   center_control: 2.1
   cutoff: 958.8
-  food: 1.5
-  head_collision: 1000.0
-  space: 7.7
+  food: 1.3
+  head_collision: 850.0
+  space: 6.5
   wall_penalty: 7.7
