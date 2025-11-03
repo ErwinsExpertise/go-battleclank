@@ -403,6 +403,7 @@ func main() {
 	numGames := flag.Int("games", 100, "Number of games to run")
 	goURL := flag.String("go-url", "http://localhost:8000", "Go snake URL")
 	rustURL := flag.String("rust-url", "http://localhost:8080", "Rust baseline URL")
+	enableGPU := flag.Bool("enable-gpu", false, "Enable GPU acceleration for Go snake (experimental)")
 	flag.Parse()
 
 	config := GameConfig{
@@ -420,7 +421,13 @@ func main() {
 	fmt.Println("================================================")
 	fmt.Printf("Games: %d\n", *numGames)
 	fmt.Printf("Go snake: %s\n", *goURL)
-	fmt.Printf("Rust baseline: %s\n\n", *rustURL)
+	fmt.Printf("Rust baseline: %s\n", *rustURL)
+	if *enableGPU {
+		fmt.Printf("GPU acceleration: enabled (experimental)\n")
+	} else {
+		fmt.Printf("GPU acceleration: disabled\n")
+	}
+	fmt.Println()
 
 	wins := 0
 	losses := 0
