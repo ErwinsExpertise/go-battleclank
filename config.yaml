@@ -1,3 +1,11 @@
+emergency_wall_escape:
+  away_penalty: 100.0
+  close_bonus: 200.0
+  close_threshold: 2
+  coord_tolerance: 3
+  max_distance: 4
+  min_distance: 2
+  turn_bonus: 150.0
 food_urgency:
   critical: 1.65
   low: 1.0
@@ -11,7 +19,7 @@ food_weights:
   healthy_early_game: 100.0
   healthy_early_multiplier: 0.6
   healthy_multiplier: 0.5
-  healthy_outmatched: 0.5
+  healthy_outmatched: 0.48
   low_health: 220.0
   low_health_outmatched: 180.0
   medium_health: 115.0
@@ -22,7 +30,7 @@ hybrid:
   critical_space_ratio: 2.9
   lookahead_depth: 3
   mcts_iterations: 87
-  mcts_timeout_ms: 209
+  mcts_timeout_ms: 222
   use_lookahead_on_critical: true
   use_mcts_in_endgame: true
 late_game:
@@ -39,7 +47,7 @@ pursuit:
   distance_2: 77.1
   distance_3: 39.9
   distance_4: 31.5
-  distance_5: 10.3
+  distance_5: 9.5
 search:
   algorithm: hybrid
   max_astar_nodes: 335
@@ -65,17 +73,9 @@ traps:
   severe: 467.4
   space_reduction_50: 800.0
   space_reduction_60: 1500.0
-  space_reduction_min_base: 0.2
+  space_reduction_min_base: 1.0
   space_reduction_ratio_50: 1.0
   space_reduction_ratio_60: 0.4
-emergency_wall_escape:
-  away_penalty: 100.0
-  close_bonus: 200.0
-  close_threshold: 2
-  coord_tolerance: 3
-  max_distance: 4
-  min_distance: 2
-  turn_bonus: 150.0
 weights:
   center_control: 2.3
   cutoff: 958.8
