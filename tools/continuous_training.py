@@ -63,8 +63,8 @@ except ImportError:
 if PYTORCH_AVAILABLE:
     # Configuration vector size: calculated from config structure
     # This must match the number of parameters extracted in ContinuousTrainer._config_to_vector()
-    # weights(9) + traps(12) + pursuit(4) + trapping(3) + food_urgency(3) + food_weights(13) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(7) + emergency_wall_escape(6) = 72
-    CONFIG_VECTOR_SIZE = 72
+    # weights(9) + traps(12) + pursuit(4) + trapping(3) + food_urgency(3) + food_weights(13) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(7) + emergency_wall_escape(7) = 73
+    CONFIG_VECTOR_SIZE = 73
     
     class ConfigPatternNetwork(nn.Module):
         """Neural network that learns patterns in successful configurations"""
@@ -159,9 +159,9 @@ if PYTORCH_AVAILABLE:
                 # Tactics section (7)
                 'inward_trap_weight', 'inward_trap_min_length', 'aggressive_space_weight',
                 'aggressive_space_threshold', 'predictive_avoidance', 'energy_conservation', 'wall_hugging',
-                # Emergency wall escape section (6)
+                # Emergency wall escape section (7)
                 'emergency_min_distance', 'emergency_max_distance', 'emergency_turn_bonus',
-                'emergency_close_bonus', 'emergency_away_penalty', 'emergency_close_threshold'
+                'emergency_close_bonus', 'emergency_away_penalty', 'emergency_close_threshold', 'emergency_coord_tolerance'
             ]
         
         def record_winning_config(self, config_vector):
@@ -1085,8 +1085,8 @@ class ContinuousTrainer:
                     tunable_params.append(('emergency_wall_escape', key, 3, 6))
                 elif 'bonus' in key or 'penalty' in key:
                     tunable_params.append(('emergency_wall_escape', key, 50.0, 300.0))
-                elif 'threshold' in key:
-                    tunable_params.append(('emergency_wall_escape', key, 1, 3))
+                elif 'threshold' in key or 'tolerance' in key:
+                    tunable_params.append(('emergency_wall_escape', key, 1, 5))
         
         return tunable_params
     
@@ -1307,7 +1307,7 @@ class ContinuousTrainer:
                 tactics.get('energy_conservation_weight', 15.0),
                 tactics.get('adaptive_wall_hugging_weight', 25.0)
             ])
-            # Emergency wall escape section (6 params)
+            # Emergency wall escape section (7 params)
             emergency = config.get('emergency_wall_escape', {})
             vector.extend([
                 emergency.get('min_distance', 2),
@@ -1315,7 +1315,8 @@ class ContinuousTrainer:
                 emergency.get('turn_bonus', 150.0),
                 emergency.get('close_bonus', 200.0),
                 emergency.get('away_penalty', 100.0),
-                emergency.get('close_threshold', 2)
+                emergency.get('close_threshold', 2),
+                emergency.get('coord_tolerance', 3)
             ])
             
             return np.array(vector, dtype=np.float32)

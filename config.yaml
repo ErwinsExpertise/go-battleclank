@@ -72,6 +72,7 @@ emergency_wall_escape:
   away_penalty: 100.0
   close_bonus: 200.0
   close_threshold: 2
+  coord_tolerance: 3
   max_distance: 4
   min_distance: 2
   turn_bonus: 150.0

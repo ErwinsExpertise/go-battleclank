@@ -511,11 +511,10 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 		return 0.0
 	}
 
-	// Detect if there's an enemy approaching head-on within 2 tiles
+	// Detect if there's an enemy approaching head-on within detection range
 	// "Head-on" means: we're moving in one direction, enemy is moving in opposite/intercepting direction
 	hasHeadOnThreat := false
 	enemyDistance := 100
-	enemyIsLargerOrEqual := false
 
 	for _, snake := range state.Board.Snakes {
 		if snake.ID == state.You.ID {
@@ -526,13 +525,17 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 		dist := board.ManhattanDistance(currentPos, snake.Head)
 
 		// Enemy must be within detection range to be a threat (not too far, not too close)
+		// Use <= to include enemies exactly at MinDistance
 		if dist < cfg.EmergencyWallEscape.MinDistance || dist > cfg.EmergencyWallEscape.MaxDistance {
 			continue
 		}
 
 		// Check if enemy is same size or larger (head-on would be bad for us)
-		if snake.Length >= state.You.Length {
-			enemyIsLargerOrEqual = true
+		// This check is per-enemy and should be inside the loop
+		enemyIsLargerOrEqual := snake.Length >= state.You.Length
+		if !enemyIsLargerOrEqual {
+			// Skip smaller enemies - we can win head-on against them
+			continue
 		}
 
 		// Determine our movement direction
@@ -558,8 +561,8 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 		// Vertical head-on: both on similar X, opposite Y directions
 		if (ourDirection == board.MoveUp && enemyDirection == board.MoveDown) ||
 			(ourDirection == board.MoveDown && enemyDirection == board.MoveUp) {
-			// Check if we're on similar X coordinates (within 3 tiles)
-			if abs(currentPos.X-snake.Head.X) <= 3 {
+			// Check if we're on similar X coordinates
+			if abs(currentPos.X-snake.Head.X) <= cfg.EmergencyWallEscape.CoordTolerance {
 				isHeadOn = true
 			}
 		}
@@ -567,13 +570,13 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 		// Horizontal head-on: both on similar Y, opposite X directions
 		if (ourDirection == board.MoveRight && enemyDirection == board.MoveLeft) ||
 			(ourDirection == board.MoveLeft && enemyDirection == board.MoveRight) {
-			// Check if we're on similar Y coordinates (within 3 tiles)
-			if abs(currentPos.Y-snake.Head.Y) <= 3 {
+			// Check if we're on similar Y coordinates
+			if abs(currentPos.Y-snake.Head.Y) <= cfg.EmergencyWallEscape.CoordTolerance {
 				isHeadOn = true
 			}
 		}
 
-		if isHeadOn && enemyIsLargerOrEqual {
+		if isHeadOn {
 			hasHeadOnThreat = true
 			if dist < enemyDistance {
 				enemyDistance = dist
