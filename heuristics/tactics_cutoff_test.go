@@ -482,8 +482,8 @@ func TestDetectCutoffKill_WeAreInCorner(t *testing.T) {
 					ID:     "us",
 					Health: 80,
 					Body: []board.Coord{
-						{X: 0, Y: 0}, // Head in corner - moving right
-						{X: 1, Y: 0}, // Neck (wait, this doesn't work...)
+						{X: 0, Y: 0}, // Head in corner - moving left (from 1,0 to 0,0)
+						{X: 1, Y: 0}, // Neck
 						{X: 2, Y: 0},
 					},
 					Head:   board.Coord{X: 0, Y: 0},
@@ -493,7 +493,7 @@ func TestDetectCutoffKill_WeAreInCorner(t *testing.T) {
 					ID:     "enemy",
 					Health: 80,
 					Body: []board.Coord{
-						{X: 0, Y: 1}, // Head on wall
+						{X: 0, Y: 1}, // Head on wall - moving left (from 1,1 to 0,1)
 						{X: 1, Y: 1}, // Neck
 						{X: 2, Y: 1},
 					},
