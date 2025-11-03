@@ -2,6 +2,16 @@ food_urgency:
   critical: 1.65
   low: 1.0
   normal: 1.09
+food_weights:
+  critical_health: 500.0
+  critical_health_outmatched: 400.0
+  low_health: 220.0
+  low_health_outmatched: 180.0
+  medium_health: 120.0
+  medium_health_outmatched: 0.6
+  healthy_base: 80.0
+  healthy_early_game: 100.0
+  healthy_outmatched: 0.5
 hybrid:
   critical_health: 30
   critical_nearby_enemies: 2
