@@ -15,22 +15,28 @@ This document describes how to build go-battleclank with GPU acceleration using 
 
 ### 1. CUDA Toolkit Installation
 
-**Note:** This project uses the latest version of mumax/3 (from master branch) which has improved compatibility with CUDA 11.x and 12.x.
+**Important:** Due to API incompatibilities in the mumax/3 library, **CUDA 11.x is required**. CUDA 12.x has breaking API changes that are not yet supported by mumax/3.
 
-#### CUDA Toolkit Installation (Ubuntu/Debian):
+#### Recommended: CUDA 11.8 (Ubuntu/Debian):
 ```bash
 # Add NVIDIA package repository
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
 sudo dpkg -i cuda-keyring_1.0-1_all.deb
 sudo apt-get update
 
-# Install CUDA Toolkit 12.x (or 11.8+ for older systems)
-sudo apt-get install cuda-toolkit-12-3
+# Install CUDA Toolkit 11.8 (last stable 11.x version)
+sudo apt-get install cuda-toolkit-11-8
+
+# Set environment variables for CUDA 11.8
+export PATH=/usr/local/cuda-11.8/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH
 
 # Verify installation
-nvcc --version
+nvcc --version  # Should show "release 11.8"
 nvidia-smi
 ```
+
+**If you have CUDA 12.x installed:** See troubleshooting section below for downgrade instructions.
 
 #### Other Linux Distributions:
 Visit [NVIDIA CUDA Downloads](https://developer.nvidia.com/cuda-downloads) and follow the instructions for your distribution.
@@ -228,35 +234,61 @@ watch -n 0.5 nvidia-smi
 # You should see GPU utilization increase during MCTS operations
 ```
 
-### Problem: Build errors with deprecated CUDA APIs
+### Problem: Build errors with CUDA 12.x (cuCtxCreate API mismatch)
 
-**Issue:** You see warnings about deprecated functions or API mismatches.
+**Issue:** You see errors like:
+```
+not enough arguments in call to (_Cfunc_cuCtxCreate)
+    have (*_Ctype_CUcontext, _Ctype_uint, _Ctype_CUdevice)
+    want (*_Ctype_CUcontext, *_Ctype_struct_CUctxCreateParams_st, _Ctype_uint, _Ctype_CUdevice)
+```
 
-**Solution:** This project now uses the latest mumax/3 version (from master branch) which has better CUDA compatibility. If you still encounter issues:
+**Root Cause:** The mumax/3 library uses the CUDA 11.x API which is incompatible with CUDA 12.x. CUDA 12.x changed the `cuCtxCreate` function signature.
 
-1. **Update dependencies:**
+**Solution: Downgrade to CUDA 11.8**
+
+1. **Remove CUDA 12.x:**
    ```bash
-   # Clean module cache and rebuild
+   sudo apt-get remove --purge 'cuda-*' 'nvidia-cuda-*'
+   sudo apt-get autoremove
+   ```
+
+2. **Install CUDA 11.8:**
+   ```bash
+   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
+   sudo dpkg -i cuda-keyring_1.0-1_all.deb
+   sudo apt-get update
+   sudo apt-get install cuda-toolkit-11-8
+   ```
+
+3. **Set environment variables:**
+   ```bash
+   export PATH=/usr/local/cuda-11.8/bin:$PATH
+   export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH
+   
+   # Add to ~/.bashrc for persistence
+   echo 'export PATH=/usr/local/cuda-11.8/bin:$PATH' >> ~/.bashrc
+   echo 'export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+   source ~/.bashrc
+   ```
+
+4. **Rebuild:**
+   ```bash
    go clean -modcache
    go mod tidy
    go build -tags cuda -o go-battleclank-cuda .
    ```
 
-2. **Verify CUDA installation:**
+5. **Verify:**
    ```bash
-   # Check CUDA version
-   nvcc --version
-   
-   # Ensure CUDA paths are set
-   echo $PATH | grep cuda
-   echo $LD_LIBRARY_PATH | grep cuda
+   nvcc --version  # Should show "release 11.8"
    ```
 
-3. **Use CPU-only build as fallback:**
-   ```bash
-   go build -o go-battleclank .
-   ./go-battleclank --enable-gpu  # Will use CPU fallback
-   ```
+**Alternative: Use CPU-only build**
+```bash
+go build -o go-battleclank .
+./go-battleclank --enable-gpu  # Will use CPU fallback
+```
 
 ### Problem: Build errors on Windows (undefined: cu.Function, cufft.Handle, etc.)
 

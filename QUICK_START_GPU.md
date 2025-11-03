@@ -7,10 +7,13 @@ This guide gets you running with GPU acceleration in 5 minutes.
 - NVIDIA GPU (GTX 900 series or newer)
 - **Linux system** (Ubuntu 20.04+, Debian, CentOS, etc.)
 - Go 1.24.7 installed
+- **CUDA 11.8** (CUDA 12.x is not compatible)
 
 **Windows Users:** Use WSL2 (Windows Subsystem for Linux) for CUDA builds. See [BUILD_WITH_CUDA.md](BUILD_WITH_CUDA.md#problem-build-errors-on-windows-undefined-cufunction-cuffthandle-etc) for details.
 
-## Step 1: Install CUDA Toolkit
+## Step 1: Install CUDA Toolkit 11.8
+
+**Important:** CUDA 12.x is not compatible. Use CUDA 11.8.
 
 ```bash
 # Add NVIDIA repository
@@ -18,15 +21,15 @@ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/
 sudo dpkg -i cuda-keyring_1.0-1_all.deb
 sudo apt-get update
 
-# Install CUDA
-sudo apt-get install -y cuda-toolkit-12-3
+# Install CUDA 11.8
+sudo apt-get install -y cuda-toolkit-11-8
 
 # Add to PATH
-echo 'export PATH=/usr/local/cuda/bin:$PATH' >> ~/.bashrc
-echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+echo 'export PATH=/usr/local/cuda-11.8/bin:$PATH' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
 source ~/.bashrc
 
-# Verify
+# Verify (should show release 11.8)
 nvcc --version
 nvidia-smi
 ```
