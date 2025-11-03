@@ -15,7 +15,6 @@ type MCTSBatchGPU struct {
 	batchSize    int
 	maxDepth     int
 	explorationC float64
-	rng          *rand.Rand
 }
 
 // MCTSResult holds the results for a single move option
@@ -32,7 +31,6 @@ func NewMCTSBatchGPU(batchSize, maxDepth int) *MCTSBatchGPU {
 		batchSize:    batchSize,
 		maxDepth:     maxDepth,
 		explorationC: math.Sqrt(2),
-		rng:          rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -100,6 +98,9 @@ func (m *MCTSBatchGPU) runBatchCPU(state *board.GameState, moves []string, batch
 		go func(moveIdx int, simCount int) {
 			defer wg.Done()
 			
+			// Create a local random number generator for this goroutine to avoid race conditions
+			localRng := rand.New(rand.NewSource(time.Now().UnixNano() + int64(moveIdx)))
+			
 			localVisits := 0
 			localWins := 0.0
 			
@@ -109,7 +110,7 @@ func (m *MCTSBatchGPU) runBatchCPU(state *board.GameState, moves []string, batch
 				newState := simulation.SimulateMove(state, state.You.ID, moves[moveIdx])
 				
 				// Run random playout
-				reward := m.simulatePlayout(newState)
+				reward := m.simulatePlayout(newState, localRng)
 				
 				// Update local results
 				localVisits++
@@ -128,7 +129,8 @@ func (m *MCTSBatchGPU) runBatchCPU(state *board.GameState, moves []string, batch
 }
 
 // simulatePlayout performs a random playout from a given state
-func (m *MCTSBatchGPU) simulatePlayout(state *board.GameState) float64 {
+// Uses a local random number generator to avoid race conditions
+func (m *MCTSBatchGPU) simulatePlayout(state *board.GameState, rng *rand.Rand) float64 {
 	currentState := state
 	depth := 0
 	
@@ -156,7 +158,7 @@ func (m *MCTSBatchGPU) simulatePlayout(state *board.GameState) float64 {
 			return 0.0
 		}
 		
-		move := validMoves[m.rng.Intn(len(validMoves))]
+		move := validMoves[rng.Intn(len(validMoves))]
 		currentState = simulation.SimulateMove(currentState, currentState.You.ID, move)
 		
 		depth++

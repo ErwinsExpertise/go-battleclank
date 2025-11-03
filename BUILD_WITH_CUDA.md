@@ -2,6 +2,15 @@
 
 This document describes how to build go-battleclank with GPU acceleration using CUDA.
 
+## Platform Support
+
+**Supported Platforms:**
+- ✅ Linux (Ubuntu, Debian, CentOS, etc.)
+- ⚠️ Windows - **Known Issues** (see Windows section below)
+- ⚠️ macOS - Limited support (NVIDIA drivers required)
+
+**Note:** The mumax/3 CUDA bindings used in this project are primarily developed and tested on Linux. Windows users may encounter build errors. See the Windows section below for workarounds.
+
 ## Prerequisites
 
 ### 1. CUDA Toolkit Installation
@@ -218,6 +227,39 @@ watch -n 0.5 nvidia-smi
 
 # You should see GPU utilization increase during MCTS operations
 ```
+
+### Problem: Build errors on Windows (undefined: cu.Function, cufft.Handle, etc.)
+
+**Issue:** The mumax/3 CUDA bindings have known compatibility issues on Windows due to CGO and CUDA header path differences.
+
+**Solutions:**
+
+1. **Use WSL2 (Recommended):**
+   ```powershell
+   # Install WSL2 with Ubuntu
+   wsl --install -d Ubuntu
+   
+   # Inside WSL2, install CUDA Toolkit
+   # Follow the Linux instructions above
+   ```
+
+2. **Use Linux VM or Container:**
+   - Run the CUDA build in a Linux container or VM
+   - Docker with NVIDIA Container Toolkit (see Docker section)
+
+3. **Alternative: Use CPU build on Windows:**
+   ```bash
+   # Build without CUDA tags (works on Windows)
+   go build -o go-battleclank.exe .
+   ./go-battleclank.exe --enable-gpu  # Will use CPU fallback
+   ```
+
+4. **Future Alternative:**
+   - Consider using a different CUDA binding library with better Windows support
+   - Track issue: https://github.com/mumax/3/issues for Windows support
+
+**Current Recommendation for Windows Users:**
+Use WSL2 with Linux for CUDA builds, or use the CPU-only build. The GPU acceleration features are designed for Linux environments where CUDA integration is more stable.
 
 ## Performance Verification
 

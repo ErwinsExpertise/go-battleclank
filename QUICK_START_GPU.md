@@ -5,8 +5,10 @@ This guide gets you running with GPU acceleration in 5 minutes.
 ## Prerequisites
 
 - NVIDIA GPU (GTX 900 series or newer)
-- Ubuntu 20.04+ or similar Linux distribution
+- **Linux system** (Ubuntu 20.04+, Debian, CentOS, etc.)
 - Go 1.24.7 installed
+
+**Windows Users:** Use WSL2 (Windows Subsystem for Linux) for CUDA builds. See [BUILD_WITH_CUDA.md](BUILD_WITH_CUDA.md#problem-build-errors-on-windows-undefined-cufunction-cuffthandle-etc) for details.
 
 ## Step 1: Install CUDA Toolkit
 

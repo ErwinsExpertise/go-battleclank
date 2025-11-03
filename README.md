@@ -122,6 +122,7 @@ go build -o go-battleclank .
 - CUDA Toolkit 10.0 or higher
 - NVIDIA GPU drivers
 - CGO enabled (default in Go)
+- **Linux system (Ubuntu, Debian, etc.) - Windows users should use WSL2**
 
 **Benefits with CUDA:**
 - 5-10x faster MCTS simulations
