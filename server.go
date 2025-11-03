@@ -36,13 +36,7 @@ func HandleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use refactored logic by default unless explicitly disabled
-	useLegacy := os.Getenv("USE_LEGACY") == "true"
-	if useLegacy {
-		start(state)
-	} else {
-		startRefactored(state)
-	}
+	start(state)
 
 	// Nothing to respond with here
 	w.WriteHeader(http.StatusOK)
@@ -76,7 +70,7 @@ func HandleEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	endRefactored(state)
+	end(state)
 
 	w.WriteHeader(http.StatusOK)
 }
