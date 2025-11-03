@@ -10,7 +10,9 @@ import (
 
 const (
 	// DefaultFloodFillDepth is the standard depth limit for flood fill operations
-	// This matches the typical board size limit (11x11 = 121 cells, using 93 for performance)
+	// This is set below the maximum board cells (11x11 = 121) for performance optimization.
+	// Using 93 (approximately 77% of 121) provides sufficient coverage while reducing
+	// computation time for pathfinding decisions that need to complete within turn time limits.
 	DefaultFloodFillDepth = 93
 	
 	// Path quality thresholds for space reduction penalties
@@ -22,6 +24,10 @@ const (
 	PathQualityCornerPenalty   = 0.7  // Penalty for food in corners
 	PathQualityHighPenalty     = 0.7  // Penalty for high space reduction
 	PathQualityModeratePenalty = 0.85 // Penalty for moderate space reduction
+	
+	// Space availability threshold for corner penalty
+	// Only penalize corner food if we have >30% of board space available (not desperate)
+	PathQualityCornerSpaceThreshold = 0.3
 )
 
 // FindNearestFoodManhattan finds the nearest food using Manhattan distance
@@ -129,9 +135,13 @@ func EvaluateFoodProximity(state *board.GameState, pos board.Coord, useAStar boo
 		return (1.0 / float64(distance)) * 0.1
 	}
 	
-	// Base food score
+	// Base food score - inverse of distance (closer food has higher score)
 	baseScore := 1.0
-	if distance > 0 {
+	if distance == 0 {
+		// Already at food position - maximum score
+		baseScore = 1.0
+	} else {
+		// Score decreases with distance
 		baseScore = 1.0 / float64(distance)
 	}
 	
@@ -168,7 +178,8 @@ func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) fl
 		
 		if wallCount >= 2 {
 			// Food is in a corner - moderate penalty unless desperate
-			if float64(currentSpace) > 0.3*float64(state.Board.Width*state.Board.Height) {
+			totalBoardSpaces := float64(state.Board.Width * state.Board.Height)
+			if float64(currentSpace) > PathQualityCornerSpaceThreshold*totalBoardSpaces {
 				return PathQualityCornerPenalty
 			}
 		}
