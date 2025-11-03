@@ -137,6 +137,11 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	
 	score -= dangerLevel * dangerMultiplier
 	
+	// EMERGENCY: Wall-side escape logic for head-on collision scenarios
+	// When near wall with enemy approaching head-on, prefer turning toward wall for U-turn escape
+	wallEscapeBonus := evaluateWallEscapeEmergency(state, myHead, nextPos, move)
+	score += wallEscapeBonus
+	
 	// Space availability - CRITICAL for survival (use pre-calculated nextSpace)
 	spaceFactor := nextSpace
 	spaceWeight := g.SpaceWeight * cfg.Weights.SpaceBaseMultiplier
@@ -471,4 +476,168 @@ func evaluateWallApproachSpace(state *board.GameState, currentPos, nextPos board
 	}
 	
 	return 0.0
+}
+
+// evaluateWallEscapeEmergency detects emergency situations near walls where turning toward
+// the wall provides a defensive U-turn escape from head-on collision
+// This addresses the issue where snake near wall with enemy approaching head-on
+// should turn into wall rather than away (which leads to interception)
+func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos board.Coord, move string) float64 {
+	// Only activate when within 1 tile of wall
+	distToLeftWall := currentPos.X
+	distToRightWall := state.Board.Width - 1 - currentPos.X
+	distToBottomWall := currentPos.Y
+	distToTopWall := state.Board.Height - 1 - currentPos.Y
+	
+	minDistToWall := distToLeftWall
+	nearWall := "left"
+	
+	if distToRightWall < minDistToWall {
+		minDistToWall = distToRightWall
+		nearWall = "right"
+	}
+	if distToBottomWall < minDistToWall {
+		minDistToWall = distToBottomWall
+		nearWall = "bottom"
+	}
+	if distToTopWall < minDistToWall {
+		minDistToWall = distToTopWall
+		nearWall = "top"
+	}
+	
+	// Only activate when within 1 tile of wall
+	if minDistToWall > 1 {
+		return 0.0
+	}
+	
+	// Detect if there's an enemy approaching head-on within 2 tiles
+	// "Head-on" means: we're moving in one direction, enemy is moving in opposite/intercepting direction
+	hasHeadOnThreat := false
+	enemyDistance := 100
+	enemyIsLargerOrEqual := false
+	
+	for _, snake := range state.Board.Snakes {
+		if snake.ID == state.You.ID {
+			continue
+		}
+		
+		// Check distance to enemy head
+		dist := board.ManhattanDistance(currentPos, snake.Head)
+		
+		// Enemy must be within 2-4 tiles to be a threat (not too far, not too close)
+		if dist < 2 || dist > 4 {
+			continue
+		}
+		
+		// Check if enemy is same size or larger (head-on would be bad for us)
+		if snake.Length >= state.You.Length {
+			enemyIsLargerOrEqual = true
+		}
+		
+		// Determine our movement direction
+		var ourDirection string
+		if len(state.You.Body) >= 2 {
+			ourDirection = getCurrentDirection(state.You.Head, state.You.Body[1])
+		} else {
+			continue
+		}
+		
+		// Determine enemy's likely direction (from their last movement)
+		var enemyDirection string
+		if len(snake.Body) >= 2 {
+			enemyDirection = getCurrentDirection(snake.Head, snake.Body[1])
+		} else {
+			continue
+		}
+		
+		// Check if this is a head-on or intercepting situation
+		// Head-on: we're moving toward each other on same axis
+		isHeadOn := false
+		
+		// Vertical head-on: both on similar X, opposite Y directions
+		if (ourDirection == board.MoveUp && enemyDirection == board.MoveDown) ||
+		   (ourDirection == board.MoveDown && enemyDirection == board.MoveUp) {
+			// Check if we're on similar X coordinates (within 3 tiles)
+			if abs(currentPos.X - snake.Head.X) <= 3 {
+				isHeadOn = true
+			}
+		}
+		
+		// Horizontal head-on: both on similar Y, opposite X directions
+		if (ourDirection == board.MoveRight && enemyDirection == board.MoveLeft) ||
+		   (ourDirection == board.MoveLeft && enemyDirection == board.MoveRight) {
+			// Check if we're on similar Y coordinates (within 3 tiles)
+			if abs(currentPos.Y - snake.Head.Y) <= 3 {
+				isHeadOn = true
+			}
+		}
+		
+		if isHeadOn && enemyIsLargerOrEqual {
+			hasHeadOnThreat = true
+			if dist < enemyDistance {
+				enemyDistance = dist
+			}
+		}
+	}
+	
+	// No head-on threat detected
+	if !hasHeadOnThreat {
+		return 0.0
+	}
+	
+	// Now check if this move turns us TOWARD the wall (defensive) or AWAY from wall (risky)
+	movingTowardWall := false
+	
+	switch nearWall {
+	case "left":
+		movingTowardWall = (move == board.MoveLeft)
+	case "right":
+		movingTowardWall = (move == board.MoveRight)
+	case "bottom":
+		movingTowardWall = (move == board.MoveDown)
+	case "top":
+		movingTowardWall = (move == board.MoveUp)
+	}
+	
+	// If moving toward wall in this emergency situation, give significant bonus
+	// This allows the snake to perform a defensive U-turn maneuver
+	if movingTowardWall {
+		// Strong bonus to override normal wall avoidance
+		// Scaled by how close the enemy is
+		emergencyBonus := 150.0
+		if enemyDistance <= 2 {
+			emergencyBonus = 200.0 // Even stronger when enemy is very close
+		}
+		return emergencyBonus
+	}
+	
+	// If moving away from wall in this emergency, apply penalty
+	// This discourages turning into the enemy's interception path
+	movingAwayFromWall := false
+	switch nearWall {
+	case "left":
+		movingAwayFromWall = (move == board.MoveRight)
+	case "right":
+		movingAwayFromWall = (move == board.MoveLeft)
+	case "bottom":
+		movingAwayFromWall = (move == board.MoveUp)
+	case "top":
+		movingAwayFromWall = (move == board.MoveDown)
+	}
+	
+	if movingAwayFromWall {
+		// Penalty for turning away from wall toward potential interception
+		return -100.0
+	}
+	
+	// Perpendicular moves are neutral in this scenario
+	return 0.0
+}
+
+// abs returns absolute value of an integer
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
