@@ -8,6 +8,12 @@ import (
 
 // Package heuristics - food seeking and evaluation
 
+const (
+	// DefaultFloodFillDepth is the standard depth limit for flood fill operations
+	// This matches the typical board size limit (11x11 = 121 cells, using 93 for performance)
+	DefaultFloodFillDepth = 93
+)
+
 // FindNearestFoodManhattan finds the nearest food using Manhattan distance
 func FindNearestFoodManhattan(state *board.GameState, from board.Coord) (board.Coord, int) {
 	if len(state.Board.Food) == 0 {
@@ -126,7 +132,7 @@ func EvaluateFoodProximity(state *board.GameState, pos board.Coord, useAStar boo
 // Returns a multiplier between 0.5 and 1.0 based on path quality
 func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) float64 {
 	// Calculate current space at position
-	currentSpace := FloodFill(state, fromPos, 93)
+	currentSpace := FloodFill(state, fromPos, DefaultFloodFillDepth)
 	
 	// If we're already very constrained, don't penalize further
 	if currentSpace < 10 {
@@ -187,7 +193,7 @@ func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) fl
 	}
 	
 	// Calculate space at position toward food
-	spaceTowardFood := FloodFill(state, moveTowardFood, 93)
+	spaceTowardFood := FloodFill(state, moveTowardFood, DefaultFloodFillDepth)
 	
 	// Calculate space reduction ratio
 	spaceReduction := float64(currentSpace-spaceTowardFood) / float64(currentSpace)

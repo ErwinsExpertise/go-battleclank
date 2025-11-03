@@ -11,6 +11,12 @@ import (
 
 // Package search provides pluggable search strategies for move selection
 
+const (
+	// FatalMoveScore is the score assigned to immediately fatal moves
+	// (out of bounds, colliding with snake bodies, etc.)
+	FatalMoveScore = -10000.0
+)
+
 // MoveScore represents a scored move
 type MoveScore struct {
 	Move  string
@@ -77,7 +83,7 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	
 	// Check if move is immediately fatal
 	if !state.Board.IsInBounds(nextPos) || state.Board.IsOccupied(nextPos, true) {
-		return -10000.0
+		return FatalMoveScore
 	}
 	
 	// NEW: Straight movement bonus - prefer continuing in current direction
