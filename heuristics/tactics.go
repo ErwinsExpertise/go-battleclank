@@ -290,3 +290,224 @@ func findNearestFood(state *board.GameState, pos board.Coord) *board.Coord {
 	
 	return nearest
 }
+
+// DetectCutoffKill checks if we can execute a guaranteed cutoff kill
+// This is a deterministic, high-priority strategy that bypasses all scoring
+//
+// Trigger conditions (all must be true):
+// 1. Both snakes moving in same direction
+// 2. Opponent on wall side, we're one lane inward  
+// 3. Our head at least 2 tiles ahead of opponent's head
+// 4. Our body extends at least 2 tiles past opponent's head position
+//
+// Returns the cutoff move direction if conditions are met, empty string otherwise
+func DetectCutoffKill(state *board.GameState) string {
+	myHead := state.You.Head
+	
+	// Need at least 2 body segments to determine direction
+	if len(state.You.Body) < 2 {
+		return ""
+	}
+	
+	myNeck := state.You.Body[1]
+	myDirection := getDirection(myHead, myNeck)
+	
+	if myDirection == "" {
+		return ""
+	}
+	
+	// Check each enemy snake
+	for _, enemy := range state.Board.Snakes {
+		if enemy.ID == state.You.ID {
+			continue
+		}
+		
+		// Enemy needs at least 2 segments to determine direction
+		if len(enemy.Body) < 2 {
+			continue
+		}
+		
+		enemyNeck := enemy.Body[1]
+		enemyDirection := getDirection(enemy.Head, enemyNeck)
+		
+		// Condition 1: Both moving in same direction
+		if myDirection != enemyDirection {
+			continue
+		}
+		
+		// Determine if we're moving parallel to a wall
+		// Check if enemy is on the wall and we're one lane inward
+		var cutoffMove string
+		var enemyIsOnWall bool
+		var weAreInward bool
+		
+		switch myDirection {
+		case board.MoveUp, board.MoveDown:
+			// Moving vertically - check horizontal position relative to walls
+			enemyWall := getWallSide(enemy.Head, state.Board.Width, state.Board.Height)
+			
+			// Skip if enemy is in corner (risk of self-collision)
+			if enemyWall == "corner" {
+				continue
+			}
+			
+			if enemyWall == "left" && myHead.X == 1 {
+				// Enemy on left wall, we're one lane inward
+				enemyIsOnWall = true
+				weAreInward = true
+				cutoffMove = board.MoveLeft
+			} else if enemyWall == "right" && myHead.X == state.Board.Width-2 {
+				// Enemy on right wall, we're one lane inward
+				enemyIsOnWall = true
+				weAreInward = true
+				cutoffMove = board.MoveRight
+			}
+			
+		case board.MoveLeft, board.MoveRight:
+			// Moving horizontally - check vertical position relative to walls
+			enemyWall := getWallSide(enemy.Head, state.Board.Width, state.Board.Height)
+			
+			// Skip if enemy is in corner (risk of self-collision)
+			if enemyWall == "corner" {
+				continue
+			}
+			
+			if enemyWall == "bottom" && myHead.Y == 1 {
+				// Enemy on bottom wall, we're one lane inward
+				enemyIsOnWall = true
+				weAreInward = true
+				cutoffMove = board.MoveDown
+			} else if enemyWall == "top" && myHead.Y == state.Board.Height-2 {
+				// Enemy on top wall, we're one lane inward
+				enemyIsOnWall = true
+				weAreInward = true
+				cutoffMove = board.MoveUp
+			}
+		}
+		
+		// Condition 2: Opponent on wall, we're inward
+		if !enemyIsOnWall || !weAreInward {
+			continue
+		}
+		
+		// Condition 3: Our head at least 2 tiles ahead
+		var ourAdvance int
+		switch myDirection {
+		case board.MoveUp:
+			ourAdvance = myHead.Y - enemy.Head.Y
+		case board.MoveDown:
+			ourAdvance = enemy.Head.Y - myHead.Y
+		case board.MoveLeft:
+			ourAdvance = enemy.Head.X - myHead.X
+		case board.MoveRight:
+			ourAdvance = myHead.X - enemy.Head.X
+		}
+		
+		if ourAdvance < 2 {
+			continue
+		}
+		
+		// Condition 4: Our body extends at least 2 tiles past opponent's head
+		// This means we need body segments that are at least 2 positions ahead
+		maxBodyExtension := 0
+		for _, segment := range state.You.Body {
+			// Check how far ahead this segment is from enemy head in movement direction
+			var segmentAdvance int
+			switch myDirection {
+			case board.MoveUp:
+				segmentAdvance = segment.Y - enemy.Head.Y
+			case board.MoveDown:
+				segmentAdvance = enemy.Head.Y - segment.Y
+			case board.MoveLeft:
+				segmentAdvance = enemy.Head.X - segment.X
+			case board.MoveRight:
+				segmentAdvance = segment.X - enemy.Head.X
+			}
+			
+			// Track the maximum extension
+			if segmentAdvance > maxBodyExtension {
+				maxBodyExtension = segmentAdvance
+			}
+		}
+		
+		// Need at least 2 tiles of body past enemy head
+		if maxBodyExtension < 2 {
+			continue
+		}
+		
+		// Additional safety: Verify cutoff move won't kill us
+		cutoffPos := board.GetNextPosition(myHead, cutoffMove)
+		skipTails := true
+		if !state.Board.IsInBounds(cutoffPos) || state.Board.IsOccupied(cutoffPos, skipTails) {
+			continue
+		}
+		
+		// Additional safety: Check we're not near a corner in the cutoff direction
+		// If we're moving toward a corner, skip to avoid self-collision
+		ourWall := getWallSide(myHead, state.Board.Width, state.Board.Height)
+		if ourWall == "corner" {
+			continue
+		}
+		
+		// All conditions met - return cutoff kill move!
+		return cutoffMove
+	}
+	
+	return ""
+}
+
+// getDirection determines the direction a snake is moving based on head and neck positions
+// Returns empty string if direction cannot be determined (snake too short or not moving in cardinal direction)
+func getDirection(head, neck board.Coord) string {
+	dx := head.X - neck.X
+	dy := head.Y - neck.Y
+	
+	if dx == 1 && dy == 0 {
+		return board.MoveRight
+	} else if dx == -1 && dy == 0 {
+		return board.MoveLeft
+	} else if dy == 1 && dx == 0 {
+		return board.MoveUp
+	} else if dy == -1 && dx == 0 {
+		return board.MoveDown
+	}
+	
+	return "" // Not moving in a cardinal direction (shouldn't happen in Battlesnake)
+}
+
+// getWallSide returns which wall(s) a position is on ("left", "right", "top", "bottom", or "corner")
+// Returns empty string if not on any wall
+func getWallSide(pos board.Coord, boardWidth, boardHeight int) string {
+	onLeft := pos.X == 0
+	onRight := pos.X == boardWidth-1
+	onTop := pos.Y == boardHeight-1
+	onBottom := pos.Y == 0
+	
+	wallCount := 0
+	if onLeft {
+		wallCount++
+	}
+	if onRight {
+		wallCount++
+	}
+	if onTop {
+		wallCount++
+	}
+	if onBottom {
+		wallCount++
+	}
+	
+	if wallCount >= 2 {
+		return "corner"
+	} else if onLeft {
+		return "left"
+	} else if onRight {
+		return "right"
+	} else if onTop {
+		return "top"
+	} else if onBottom {
+		return "bottom"
+	}
+	
+	return ""
+}
