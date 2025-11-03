@@ -63,8 +63,8 @@ except ImportError:
 if PYTORCH_AVAILABLE:
     # Configuration vector size: calculated from config structure
     # This must match the number of parameters extracted in ContinuousTrainer._config_to_vector()
-    # weights(9) + traps(9) + pursuit(4) + trapping(3) + food_urgency(3) + food_weights(13) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(7) = 63
-    CONFIG_VECTOR_SIZE = 63
+    # weights(9) + traps(12) + pursuit(4) + trapping(3) + food_urgency(3) + food_weights(13) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(7) = 66
+    CONFIG_VECTOR_SIZE = 66
     
     class ConfigPatternNetwork(nn.Module):
         """Neural network that learns patterns in successful configurations"""
@@ -1194,7 +1194,7 @@ class ContinuousTrainer:
                 weights.get('space_enemy_multiplier', 2.5),
                 weights.get('space_healthy_multiplier', 1.2)
             ])
-            # Traps section (9 params)
+            # Traps section (12 params)
             traps = config.get('traps', {})
             vector.extend([
                 traps.get('moderate', 200.0),
@@ -1205,7 +1205,10 @@ class ContinuousTrainer:
                 traps.get('food_trap_critical', 500.0),
                 traps.get('food_trap_low', 800.0),
                 traps.get('space_reduction_60', 1500.0),
-                traps.get('space_reduction_50', 800.0)
+                traps.get('space_reduction_50', 800.0),
+                traps.get('space_reduction_ratio_60', 0.4),
+                traps.get('space_reduction_ratio_50', 0.5),
+                traps.get('space_reduction_min_base', 0.2)
             ])
             # Pursuit section (4 params)
             pursuit = config.get('pursuit', {})

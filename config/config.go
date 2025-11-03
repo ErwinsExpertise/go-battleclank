@@ -30,15 +30,18 @@ type Config struct {
 	} `yaml:"weights"`
 
 	Traps struct {
-		Moderate           float64 `yaml:"moderate"`
-		Severe             float64 `yaml:"severe"`
-		Critical           float64 `yaml:"critical"`
-		FoodTrap           float64 `yaml:"food_trap"`
-		FoodTrapThreshold  float64 `yaml:"food_trap_threshold"`
-		FoodTrapCritical   float64 `yaml:"food_trap_critical"`   // penalty at critical health
-		FoodTrapLow        float64 `yaml:"food_trap_low"`        // penalty at low health
-		SpaceReduction60   float64 `yaml:"space_reduction_60"`   // penalty for 60%+ space reduction
-		SpaceReduction50   float64 `yaml:"space_reduction_50"`   // penalty for 50%+ space reduction
+		Moderate              float64 `yaml:"moderate"`
+		Severe                float64 `yaml:"severe"`
+		Critical              float64 `yaml:"critical"`
+		FoodTrap              float64 `yaml:"food_trap"`              // 50% increase from 800 to prevent dangerous food
+		FoodTrapThreshold     float64 `yaml:"food_trap_threshold"`
+		FoodTrapCritical      float64 `yaml:"food_trap_critical"`      // penalty at critical health
+		FoodTrapLow           float64 `yaml:"food_trap_low"`           // penalty at low health
+		SpaceReduction60      float64 `yaml:"space_reduction_60"`      // penalty for 60%+ space reduction
+		SpaceReduction50      float64 `yaml:"space_reduction_50"`      // penalty for 50%+ space reduction
+		SpaceReductionRatio60 float64 `yaml:"space_reduction_ratio_60"` // threshold ratio for 60% reduction (0.4)
+		SpaceReductionRatio50 float64 `yaml:"space_reduction_ratio_50"` // threshold ratio for 50% reduction (0.5)
+		SpaceReductionMinBase float64 `yaml:"space_reduction_min_base"` // minimum base space to apply penalties (0.2)
 	} `yaml:"traps"`
 
 	Pursuit struct {
@@ -205,11 +208,14 @@ func GetDefaultConfig() *Config {
 	config.Traps.Moderate = 250.0
 	config.Traps.Severe = 450.0
 	config.Traps.Critical = 600.0
-	config.Traps.FoodTrap = 1200.0
+	config.Traps.FoodTrap = 1200.0  // Increased 50% from 800 to prevent dangerous food pursuit
 	config.Traps.FoodTrapCritical = 500.0
 	config.Traps.FoodTrapLow = 800.0
 	config.Traps.SpaceReduction60 = 1500.0
 	config.Traps.SpaceReduction50 = 800.0
+	config.Traps.SpaceReductionRatio60 = 0.4  // 60% reduction threshold
+	config.Traps.SpaceReductionRatio50 = 0.5  // 50% reduction threshold
+	config.Traps.SpaceReductionMinBase = 0.2  // minimum base space to check
 	config.Traps.FoodTrapThreshold = 0.7
 
 	config.Pursuit.Distance2 = 100.0

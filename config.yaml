@@ -67,6 +67,9 @@ traps:
   severe: 407.5
   space_reduction_50: 800.0
   space_reduction_60: 1500.0
+  space_reduction_ratio_50: 0.5
+  space_reduction_ratio_60: 0.4
+  space_reduction_min_base: 0.2
 weights:
   center_control: 2.1
   cutoff: 958.8

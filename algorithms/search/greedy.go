@@ -90,10 +90,10 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	
 	// CRITICAL: Avoid moves that drastically reduce our space (prevents self-trapping)
 	cfg := config.GetConfig()
-	if nextSpace < mySpace * 0.4 && mySpace > 0.2 {
+	if nextSpace < mySpace * cfg.Traps.SpaceReductionRatio60 && mySpace > cfg.Traps.SpaceReductionMinBase {
 		// Moving here cuts our space by 60%+ - dangerous!
 		score -= cfg.Traps.SpaceReduction60
-	} else if nextSpace < mySpace * 0.5 && mySpace > 0.2 {
+	} else if nextSpace < mySpace * cfg.Traps.SpaceReductionRatio50 && mySpace > cfg.Traps.SpaceReductionMinBase {
 		// Moving here cuts our space by 50%+ - risky
 		score -= cfg.Traps.SpaceReduction50
 	}
