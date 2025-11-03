@@ -157,6 +157,12 @@ func ShouldPrioritizeSurvival(aggression AggressionScore) bool {
 func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatched bool) float64 {
 	cfg := getFoodWeightsConfig()
 	
+	// Health ceiling - significantly reduce food seeking when very healthy
+	if state.You.Health >= 80 {
+		// Very healthy - minimal food seeking, focus on positioning
+		return 10.0
+	}
+	
 	if state.You.Health < HealthCritical {
 		// Critical health - food is high priority but not absolute
 		if outmatched {
@@ -177,10 +183,10 @@ func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatche
 		}
 		return baseWeight
 	} else {
-		// Healthy - focus on positioning and tactics, food is secondary
-		baseWeight := cfg.HealthyBase
+		// Healthy (70-79) - reduced food priority
+		baseWeight := cfg.HealthyBase * 0.5  // Cut in half
 		if state.Turn < 50 {
-			baseWeight = cfg.HealthyEarlyGame
+			baseWeight = cfg.HealthyEarlyGame * 0.6  // Reduce early game aggression
 		}
 		
 		if outmatched {
