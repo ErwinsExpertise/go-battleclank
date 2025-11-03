@@ -63,8 +63,8 @@ except ImportError:
 if PYTORCH_AVAILABLE:
     # Configuration vector size: calculated from config structure
     # This must match the number of parameters extracted in ContinuousTrainer._config_to_vector()
-    # weights(6) + traps(5) + pursuit(4) + trapping(3) + food_urgency(3) + food_weights(9) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(7) = 52
-    CONFIG_VECTOR_SIZE = 52
+    # weights(9) + traps(9) + pursuit(4) + trapping(3) + food_urgency(3) + food_weights(13) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(7) = 63
+    CONFIG_VECTOR_SIZE = 63
     
     class ConfigPatternNetwork(nn.Module):
         """Neural network that learns patterns in successful configurations"""
@@ -1181,7 +1181,7 @@ class ContinuousTrainer:
         """Convert configuration to a vector for neural network processing"""
         try:
             vector = []
-            # Weights section (6 params)
+            # Weights section (9 params)
             weights = config.get('weights', {})
             vector.extend([
                 weights.get('space', 5.0),
@@ -1189,16 +1189,23 @@ class ContinuousTrainer:
                 weights.get('center_control', 2.0),
                 weights.get('wall_penalty', 5.0),
                 weights.get('cutoff', 100.0),
-                weights.get('food', 3.0)
+                weights.get('food', 3.0),
+                weights.get('space_base_multiplier', 1.5),
+                weights.get('space_enemy_multiplier', 2.5),
+                weights.get('space_healthy_multiplier', 1.2)
             ])
-            # Traps section (5 params)
+            # Traps section (9 params)
             traps = config.get('traps', {})
             vector.extend([
                 traps.get('moderate', 200.0),
                 traps.get('severe', 400.0),
                 traps.get('critical', 600.0),
-                traps.get('food_trap', 800.0),
-                traps.get('food_trap_threshold', 0.8)
+                traps.get('food_trap', 1200.0),
+                traps.get('food_trap_threshold', 0.8),
+                traps.get('food_trap_critical', 500.0),
+                traps.get('food_trap_low', 800.0),
+                traps.get('space_reduction_60', 1500.0),
+                traps.get('space_reduction_50', 800.0)
             ])
             # Pursuit section (4 params)
             pursuit = config.get('pursuit', {})
@@ -1222,7 +1229,7 @@ class ContinuousTrainer:
                 food_urgency.get('low', 1.2),
                 food_urgency.get('normal', 1.0)
             ])
-            # Food weights section (9 params)
+            # Food weights section (13 params)
             food_weights = config.get('food_weights', {})
             vector.extend([
                 food_weights.get('critical_health', 500.0),
@@ -1233,7 +1240,11 @@ class ContinuousTrainer:
                 food_weights.get('medium_health_outmatched', 0.6),
                 food_weights.get('healthy_base', 80.0),
                 food_weights.get('healthy_early_game', 100.0),
-                food_weights.get('healthy_outmatched', 0.5)
+                food_weights.get('healthy_outmatched', 0.5),
+                food_weights.get('healthy_ceiling', 80),
+                food_weights.get('healthy_ceiling_weight', 10.0),
+                food_weights.get('healthy_multiplier', 0.5),
+                food_weights.get('healthy_early_multiplier', 0.6)
             ])
             # Late game section (2 params)
             late_game = config.get('late_game', {})

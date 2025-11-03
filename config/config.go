@@ -24,6 +24,9 @@ type Config struct {
 		WallPenalty    float64 `yaml:"wall_penalty"`
 		Cutoff         float64 `yaml:"cutoff"`
 		Food           float64 `yaml:"food"`
+		SpaceBaseMultiplier    float64 `yaml:"space_base_multiplier"`    // multiplier for base space weight
+		SpaceEnemyMultiplier   float64 `yaml:"space_enemy_multiplier"`   // multiplier when enemies nearby
+		SpaceHealthyMultiplier float64 `yaml:"space_healthy_multiplier"` // multiplier when healthy with good space
 	} `yaml:"weights"`
 
 	Traps struct {
@@ -32,6 +35,10 @@ type Config struct {
 		Critical           float64 `yaml:"critical"`
 		FoodTrap           float64 `yaml:"food_trap"`
 		FoodTrapThreshold  float64 `yaml:"food_trap_threshold"`
+		FoodTrapCritical   float64 `yaml:"food_trap_critical"`   // penalty at critical health
+		FoodTrapLow        float64 `yaml:"food_trap_low"`        // penalty at low health
+		SpaceReduction60   float64 `yaml:"space_reduction_60"`   // penalty for 60%+ space reduction
+		SpaceReduction50   float64 `yaml:"space_reduction_50"`   // penalty for 50%+ space reduction
 	} `yaml:"traps"`
 
 	Pursuit struct {
@@ -63,6 +70,10 @@ type Config struct {
 		HealthyBase             float64 `yaml:"healthy_base"`
 		HealthyEarlyGame        float64 `yaml:"healthy_early_game"`
 		HealthyOutmatched       float64 `yaml:"healthy_outmatched"` // multiplier
+		HealthyCeiling          int     `yaml:"healthy_ceiling"`          // health threshold for minimal food seeking
+		HealthyCeilingWeight    float64 `yaml:"healthy_ceiling_weight"`   // food weight when at/above ceiling
+		HealthyMultiplier       float64 `yaml:"healthy_multiplier"`       // multiplier for healthy range (70-79)
+		HealthyEarlyMultiplier  float64 `yaml:"healthy_early_multiplier"` // multiplier for early game when healthy
 	} `yaml:"food_weights"`
 
 	LateGame struct {
@@ -187,11 +198,18 @@ func GetDefaultConfig() *Config {
 	config.Weights.WallPenalty = 5.0
 	config.Weights.Cutoff = 200.0
 	config.Weights.Food = 1.0
+	config.Weights.SpaceBaseMultiplier = 1.5
+	config.Weights.SpaceEnemyMultiplier = 2.5
+	config.Weights.SpaceHealthyMultiplier = 1.2
 
 	config.Traps.Moderate = 250.0
 	config.Traps.Severe = 450.0
 	config.Traps.Critical = 600.0
-	config.Traps.FoodTrap = 800.0
+	config.Traps.FoodTrap = 1200.0
+	config.Traps.FoodTrapCritical = 500.0
+	config.Traps.FoodTrapLow = 800.0
+	config.Traps.SpaceReduction60 = 1500.0
+	config.Traps.SpaceReduction50 = 800.0
 	config.Traps.FoodTrapThreshold = 0.7
 
 	config.Pursuit.Distance2 = 100.0
@@ -217,6 +235,10 @@ func GetDefaultConfig() *Config {
 	config.FoodWeights.HealthyBase = 80.0
 	config.FoodWeights.HealthyEarlyGame = 100.0
 	config.FoodWeights.HealthyOutmatched = 0.5  // multiplier
+	config.FoodWeights.HealthyCeiling = 80  // health threshold for minimal food seeking
+	config.FoodWeights.HealthyCeilingWeight = 10.0  // minimal food weight at/above ceiling
+	config.FoodWeights.HealthyMultiplier = 0.5  // multiplier for healthy range (70-79)
+	config.FoodWeights.HealthyEarlyMultiplier = 0.6  // multiplier for early game when healthy
 
 	config.LateGame.TurnThreshold = 150
 	config.LateGame.CautionMultiplier = 1.1

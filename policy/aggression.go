@@ -158,9 +158,9 @@ func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatche
 	cfg := getFoodWeightsConfig()
 	
 	// Health ceiling - significantly reduce food seeking when very healthy
-	if state.You.Health >= 80 {
+	if state.You.Health >= cfg.HealthyCeiling {
 		// Very healthy - minimal food seeking, focus on positioning
-		return 10.0
+		return cfg.HealthyCeilingWeight
 	}
 	
 	if state.You.Health < HealthCritical {
@@ -184,9 +184,9 @@ func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatche
 		return baseWeight
 	} else {
 		// Healthy (70-79) - reduced food priority
-		baseWeight := cfg.HealthyBase * 0.5  // Cut in half
+		baseWeight := cfg.HealthyBase * cfg.HealthyMultiplier
 		if state.Turn < 50 {
-			baseWeight = cfg.HealthyEarlyGame * 0.6  // Reduce early game aggression
+			baseWeight = cfg.HealthyEarlyGame * cfg.HealthyEarlyMultiplier
 		}
 		
 		if outmatched {
@@ -229,6 +229,10 @@ type FoodWeightsConfig struct {
 	HealthyBase             float64
 	HealthyEarlyGame        float64
 	HealthyOutmatched       float64
+	HealthyCeiling          int
+	HealthyCeilingWeight    float64
+	HealthyMultiplier       float64
+	HealthyEarlyMultiplier  float64
 }
 
 // getFoodWeightsConfig returns food weights from config or defaults
@@ -244,5 +248,9 @@ func getFoodWeightsConfig() FoodWeightsConfig {
 		HealthyBase:             cfg.FoodWeights.HealthyBase,
 		HealthyEarlyGame:        cfg.FoodWeights.HealthyEarlyGame,
 		HealthyOutmatched:       cfg.FoodWeights.HealthyOutmatched,
+		HealthyCeiling:          cfg.FoodWeights.HealthyCeiling,
+		HealthyCeilingWeight:    cfg.FoodWeights.HealthyCeilingWeight,
+		HealthyMultiplier:       cfg.FoodWeights.HealthyMultiplier,
+		HealthyEarlyMultiplier:  cfg.FoodWeights.HealthyEarlyMultiplier,
 	}
 }
