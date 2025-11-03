@@ -6,12 +6,12 @@ food_weights:
   critical_health: 500.0
   critical_health_outmatched: 400.0
   healthy_base: 80.0
-  healthy_early_game: 100.0
-  healthy_outmatched: 0.5
   healthy_ceiling: 80
   healthy_ceiling_weight: 10.0
-  healthy_multiplier: 0.5
+  healthy_early_game: 100.0
   healthy_early_multiplier: 0.6
+  healthy_multiplier: 0.5
+  healthy_outmatched: 0.5
   low_health: 220.0
   low_health_outmatched: 180.0
   medium_health: 120.0
@@ -58,20 +58,20 @@ trapping:
   trapped_ratio: 0.49
   weight: 503.7
 traps:
-  critical: 1955.0
+  critical: 1661.8
   food_trap: 411.5
   food_trap_threshold: 0.59
   moderate: 2000.0
   severe: 407.5
   space_reduction_50: 800.0
   space_reduction_60: 1500.0
+  space_reduction_min_base: 0.2
   space_reduction_ratio_50: 0.5
   space_reduction_ratio_60: 0.4
-  space_reduction_min_base: 0.2
 weights:
   center_control: 2.1
   cutoff: 958.8
-  food: 1.7
-  head_collision: 977.5
-  space: 7.5
+  food: 1.4
+  head_collision: 830.9
+  space: 6.4
   wall_penalty: 7.7
