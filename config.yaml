@@ -58,7 +58,7 @@ trapping:
   trapped_ratio: 0.49
   weight: 503.7
 traps:
-  critical: 1911.1
+  critical: 2000.0
   food_trap: 411.5
   food_trap_threshold: 0.59
   moderate: 2000.0
@@ -71,8 +71,8 @@ traps:
 weights:
   center_control: 2.3
   cutoff: 958.8
-  food: 1.6
-  head_collision: 955.5
-  space: 7.4
+  food: 1.8
+  head_collision: 1000.0
+  space: 8.5
   straight_movement: 25.0
   wall_penalty: 7.7
