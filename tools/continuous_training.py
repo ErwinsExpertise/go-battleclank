@@ -63,8 +63,8 @@ except ImportError:
 if PYTORCH_AVAILABLE:
     # Configuration vector size: calculated from config structure
     # This must match the number of parameters extracted in ContinuousTrainer._config_to_vector()
-    # weights(6) + traps(5) + pursuit(4) + trapping(3) + food_urgency(3) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(7) = 43
-    CONFIG_VECTOR_SIZE = 43
+    # weights(6) + traps(5) + pursuit(4) + trapping(3) + food_urgency(3) + food_weights(9) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(7) = 52
+    CONFIG_VECTOR_SIZE = 52
     
     class ConfigPatternNetwork(nn.Module):
         """Neural network that learns patterns in successful configurations"""
@@ -290,6 +290,8 @@ Key parameters:
 - head_collision: {config.get('weights', {}).get('head_collision', 500.0)}
 - food urgency critical: {config.get('food_urgency', {}).get('critical', 1.8)}
 - trap critical: {config.get('traps', {}).get('critical', 600.0)}
+- food weight critical health: {config.get('food_weights', {}).get('critical_health', 500.0)}
+- food weight healthy: {config.get('food_weights', {}).get('healthy_base', 80.0)}
 
 Based on this data, which 3-5 parameters should be adjusted and by how much (+/-10-20%)? Consider:
 1. If performance is declining, revert recent changes
@@ -318,7 +320,8 @@ Based on analysis, I suggest adjusting:"""
             'space', 'head_collision', 'center_control', 'wall_penalty', 'cutoff', 'food',
             'moderate', 'severe', 'critical', 'food_trap', 
             'distance_2', 'distance_3', 'distance_4', 'distance_5',
-            'food_urgency', 'caution', 'threshold'
+            'food_urgency', 'caution', 'threshold',
+            'critical_health', 'low_health', 'medium_health', 'healthy_base', 'healthy_early_game'
         ]
         
         response_lower = response.lower()
@@ -992,6 +995,17 @@ class ContinuousTrainer:
         for key in food_urgency.keys():
             tunable_params.append(('food_urgency', key, 1.0, 3.0))
         
+        # Food weights section (new configurable food weights)
+        food_weights = config.get('food_weights', {})
+        for key, val in food_weights.items():
+            if isinstance(val, (int, float)):
+                if 'multiplier' in key or 'mult' in key or 'outmatched' in key:
+                    # Multipliers should be in range 0.1 to 1.0
+                    tunable_params.append(('food_weights', key, 0.1, 1.0))
+                else:
+                    # Absolute weight values
+                    tunable_params.append(('food_weights', key, 50.0, 800.0))
+        
         # Trapping section
         trapping = config.get('trapping', {})
         for key, val in trapping.items():
@@ -1207,6 +1221,19 @@ class ContinuousTrainer:
                 food_urgency.get('critical', 1.8),
                 food_urgency.get('low', 1.2),
                 food_urgency.get('normal', 1.0)
+            ])
+            # Food weights section (9 params)
+            food_weights = config.get('food_weights', {})
+            vector.extend([
+                food_weights.get('critical_health', 500.0),
+                food_weights.get('critical_health_outmatched', 400.0),
+                food_weights.get('low_health', 220.0),
+                food_weights.get('low_health_outmatched', 180.0),
+                food_weights.get('medium_health', 120.0),
+                food_weights.get('medium_outmatched_mult', 0.6),
+                food_weights.get('healthy_base', 80.0),
+                food_weights.get('healthy_early_game', 100.0),
+                food_weights.get('healthy_outmatched', 0.5)
             ])
             # Late game section (2 params)
             late_game = config.get('late_game', {})

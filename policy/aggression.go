@@ -1,6 +1,9 @@
 package policy
 
-import "github.com/ErwinsExpertise/go-battleclank/engine/board"
+import (
+	"github.com/ErwinsExpertise/go-battleclank/config"
+	"github.com/ErwinsExpertise/go-battleclank/engine/board"
+)
 
 // Package policy provides aggression scoring and risk/reward decision making
 
@@ -150,36 +153,38 @@ func ShouldPrioritizeSurvival(aggression AggressionScore) bool {
 }
 
 // GetFoodWeight returns appropriate food seeking weight based on health and aggression
-// Reduced weights to make food less critical to tactics overall
+// Uses config values to allow tuning by continuous training
 func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatched bool) float64 {
+	cfg := getFoodWeightsConfig()
+	
 	if state.You.Health < HealthCritical {
 		// Critical health - food is high priority but not absolute
 		if outmatched {
-			return 400.0  // Reduced from 600 - still important but not reckless
+			return cfg.CriticalHealthOutmatched
 		}
-		return 500.0  // Reduced from 700 - prioritize survival over food
+		return cfg.CriticalHealth
 	} else if state.You.Health < HealthLow {
 		// Low health - seek food but consider survival
 		if outmatched {
-			return 180.0  // Reduced from 300
+			return cfg.LowHealthOutmatched
 		}
-		return 220.0  // Reduced from 350
+		return cfg.LowHealth
 	} else if state.You.Health < 70 {
 		// Medium health - moderate food priority
-		baseWeight := 120.0  // Reduced from 200
+		baseWeight := cfg.MediumHealth
 		if outmatched {
-			return baseWeight * 0.6  // Reduced multiplier
+			return baseWeight * cfg.MediumOutmatchedMult
 		}
 		return baseWeight
 	} else {
 		// Healthy - focus on positioning and tactics, food is secondary
-		baseWeight := 80.0  // Reduced from 150 - tactics over food
+		baseWeight := cfg.HealthyBase
 		if state.Turn < 50 {
-			baseWeight = 100.0  // Reduced from 180
+			baseWeight = cfg.HealthyEarlyGame
 		}
 		
 		if outmatched {
-			return baseWeight * 0.5  // Heavily reduced when outmatched
+			return baseWeight * cfg.HealthyOutmatched
 		}
 		return baseWeight
 	}
@@ -205,4 +210,33 @@ func IsOutmatched(state *board.GameState, proximityRadius int) bool {
 	}
 	
 	return false
+}
+
+// FoodWeightsConfig holds food weight configuration
+type FoodWeightsConfig struct {
+	CriticalHealth          float64
+	CriticalHealthOutmatched float64
+	LowHealth               float64
+	LowHealthOutmatched     float64
+	MediumHealth            float64
+	MediumOutmatchedMult    float64
+	HealthyBase             float64
+	HealthyEarlyGame        float64
+	HealthyOutmatched       float64
+}
+
+// getFoodWeightsConfig returns food weights from config or defaults
+func getFoodWeightsConfig() FoodWeightsConfig {
+	cfg := config.GetConfig()
+	return FoodWeightsConfig{
+		CriticalHealth:          cfg.FoodWeights.CriticalHealth,
+		CriticalHealthOutmatched: cfg.FoodWeights.CriticalHealthOutmatched,
+		LowHealth:               cfg.FoodWeights.LowHealth,
+		LowHealthOutmatched:     cfg.FoodWeights.LowHealthOutmatched,
+		MediumHealth:            cfg.FoodWeights.MediumHealth,
+		MediumOutmatchedMult:    cfg.FoodWeights.MediumOutmatchedMult,
+		HealthyBase:             cfg.FoodWeights.HealthyBase,
+		HealthyEarlyGame:        cfg.FoodWeights.HealthyEarlyGame,
+		HealthyOutmatched:       cfg.FoodWeights.HealthyOutmatched,
+	}
 }

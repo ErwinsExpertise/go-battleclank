@@ -52,6 +52,20 @@ type Config struct {
 		Low      float64 `yaml:"low"`
 		Normal   float64 `yaml:"normal"`
 	} `yaml:"food_urgency"`
+	
+	FoodWeights struct {
+		CriticalHealth          float64 `yaml:"critical_health"`
+		CriticalHealthOutmatched float64 `yaml:"critical_health_outmatched"`
+		LowHealth               float64 `yaml:"low_health"`
+		LowHealthOutmatched     float64 `yaml:"low_health_outmatched"`
+		MediumHealth            float64 `yaml:"medium_health"`
+		MediumHealthOutmatched  float64 `yaml:"medium_health_outmatched"`
+		HealthyBase             float64 `yaml:"healthy_base"`
+		HealthyEarlyGame        float64 `yaml:"healthy_early_game"`
+		HealthyOutmatched       float64 `yaml:"healthy_outmatched"`
+		OutmatchedMultiplier    float64 `yaml:"outmatched_multiplier"`
+		MediumOutmatchedMult    float64 `yaml:"medium_outmatched_mult"`
+	} `yaml:"food_weights"`
 
 	LateGame struct {
 		TurnThreshold      int     `yaml:"turn_threshold"`
@@ -194,6 +208,17 @@ func GetDefaultConfig() *Config {
 	config.FoodUrgency.Critical = 1.8
 	config.FoodUrgency.Low = 1.4
 	config.FoodUrgency.Normal = 1.0
+	
+	// Food weight configuration (tunable by training)
+	config.FoodWeights.CriticalHealth = 500.0
+	config.FoodWeights.CriticalHealthOutmatched = 400.0
+	config.FoodWeights.LowHealth = 220.0
+	config.FoodWeights.LowHealthOutmatched = 180.0
+	config.FoodWeights.MediumHealth = 120.0
+	config.FoodWeights.MediumHealthOutmatched = 0.6  // multiplier
+	config.FoodWeights.HealthyBase = 80.0
+	config.FoodWeights.HealthyEarlyGame = 100.0
+	config.FoodWeights.HealthyOutmatched = 0.5  // multiplier
 
 	config.LateGame.TurnThreshold = 150
 	config.LateGame.CautionMultiplier = 1.1
