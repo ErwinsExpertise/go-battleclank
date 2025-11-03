@@ -59,12 +59,10 @@ type Config struct {
 		LowHealth               float64 `yaml:"low_health"`
 		LowHealthOutmatched     float64 `yaml:"low_health_outmatched"`
 		MediumHealth            float64 `yaml:"medium_health"`
-		MediumHealthOutmatched  float64 `yaml:"medium_health_outmatched"`
+		MediumHealthOutmatched  float64 `yaml:"medium_health_outmatched"` // multiplier
 		HealthyBase             float64 `yaml:"healthy_base"`
 		HealthyEarlyGame        float64 `yaml:"healthy_early_game"`
-		HealthyOutmatched       float64 `yaml:"healthy_outmatched"`
-		OutmatchedMultiplier    float64 `yaml:"outmatched_multiplier"`
-		MediumOutmatchedMult    float64 `yaml:"medium_outmatched_mult"`
+		HealthyOutmatched       float64 `yaml:"healthy_outmatched"` // multiplier
 	} `yaml:"food_weights"`
 
 	LateGame struct {

@@ -1230,7 +1230,7 @@ class ContinuousTrainer:
                 food_weights.get('low_health', 220.0),
                 food_weights.get('low_health_outmatched', 180.0),
                 food_weights.get('medium_health', 120.0),
-                food_weights.get('medium_outmatched_mult', 0.6),
+                food_weights.get('medium_health_outmatched', 0.6),
                 food_weights.get('healthy_base', 80.0),
                 food_weights.get('healthy_early_game', 100.0),
                 food_weights.get('healthy_outmatched', 0.5)

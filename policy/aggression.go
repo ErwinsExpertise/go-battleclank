@@ -173,7 +173,7 @@ func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatche
 		// Medium health - moderate food priority
 		baseWeight := cfg.MediumHealth
 		if outmatched {
-			return baseWeight * cfg.MediumOutmatchedMult
+			return baseWeight * cfg.MediumHealthOutmatched
 		}
 		return baseWeight
 	} else {
@@ -219,7 +219,7 @@ type FoodWeightsConfig struct {
 	LowHealth               float64
 	LowHealthOutmatched     float64
 	MediumHealth            float64
-	MediumOutmatchedMult    float64
+	MediumHealthOutmatched  float64
 	HealthyBase             float64
 	HealthyEarlyGame        float64
 	HealthyOutmatched       float64
@@ -234,7 +234,7 @@ func getFoodWeightsConfig() FoodWeightsConfig {
 		LowHealth:               cfg.FoodWeights.LowHealth,
 		LowHealthOutmatched:     cfg.FoodWeights.LowHealthOutmatched,
 		MediumHealth:            cfg.FoodWeights.MediumHealth,
-		MediumOutmatchedMult:    cfg.FoodWeights.MediumOutmatchedMult,
+		MediumHealthOutmatched:  cfg.FoodWeights.MediumHealthOutmatched,
 		HealthyBase:             cfg.FoodWeights.HealthyBase,
 		HealthyEarlyGame:        cfg.FoodWeights.HealthyEarlyGame,
 		HealthyOutmatched:       cfg.FoodWeights.HealthyOutmatched,
