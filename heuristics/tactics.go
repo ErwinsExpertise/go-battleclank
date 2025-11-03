@@ -19,12 +19,13 @@ const (
 )
 
 // EvaluateInwardTrap attempts to trap enemy in center by surrounding from outside
-// Only activates when enemy length exceeds threshold (self-collision risk)
+// Only activates when: 1) We're longer than enemy, AND 2) We're closer to center
 // Returns bonus score if this move helps create an inward trap
 func EvaluateInwardTrap(state *board.GameState, nextPos board.Coord) float64 {
 	score := 0.0
 	centerX := state.Board.Width / 2
 	centerY := state.Board.Height / 2
+	myHeadDistToCenter := manhattanDistance(state.You.Head, board.Coord{X: centerX, Y: centerY})
 	
 	for _, enemy := range state.Board.Snakes {
 		if enemy.ID == state.You.ID {
@@ -40,6 +41,16 @@ func EvaluateInwardTrap(state *board.GameState, nextPos board.Coord) float64 {
 		enemyDistToCenter := manhattanDistance(enemy.Head, board.Coord{X: centerX, Y: centerY})
 		if enemyDistToCenter > InwardTrapCenterRadius {
 			continue // Enemy not in center, no inward trap opportunity
+		}
+		
+		// NEW: Only activate when we're LONGER than enemy
+		if state.You.Length <= enemy.Length {
+			continue // Don't try to trap snakes that are same size or larger
+		}
+		
+		// NEW: Only activate when we're CLOSER to center than enemy
+		if myHeadDistToCenter >= enemyDistToCenter {
+			continue // We're not closer to center, can't effectively trap
 		}
 		
 		// Check if our move positions us on the perimeter (surrounding)

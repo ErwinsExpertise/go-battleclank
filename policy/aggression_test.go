@@ -137,12 +137,12 @@ func TestGetFoodWeight(t *testing.T) {
 		minWeight  float64
 		maxWeight  float64
 	}{
-		{"Critical health, outmatched", 20, true, 550, 650},      // Updated for tuned weights
-		{"Critical health, not outmatched", 20, false, 650, 750}, // Updated for tuned weights
-		{"Low health, outmatched", 40, true, 280, 320},           // Updated for tuned weights
-		{"Low health, not outmatched", 40, false, 330, 370},      // Updated for tuned weights
-		{"Healthy, outmatched", 80, true, 100, 150},
-		{"Healthy, not outmatched", 80, false, 140, 190},
+		{"Critical health, outmatched", 20, true, 380, 420},      // Reduced: 400
+		{"Critical health, not outmatched", 20, false, 480, 520}, // Reduced: 500
+		{"Low health, outmatched", 40, true, 170, 190},           // Reduced: 180
+		{"Low health, not outmatched", 40, false, 210, 230},      // Reduced: 220
+		{"Healthy, outmatched", 80, true, 40, 60},                // Reduced: 50 (80 * 0.5)
+		{"Healthy, not outmatched", 80, false, 90, 110},          // Reduced: 100
 	}
 	
 	for _, tt := range tests {

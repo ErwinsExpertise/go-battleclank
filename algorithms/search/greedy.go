@@ -232,6 +232,10 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		score += 20.0  // Bonus for being healthy
 	}
 	
+	// Wall approach detection: when heading toward wall, prefer direction with more space
+	wallApproachBonus := evaluateWallApproachSpace(state, myHead, nextPos, move, g.MaxDepth)
+	score += wallApproachBonus
+	
 	return score
 }
 
@@ -328,4 +332,102 @@ func evaluateWallAvoidance(state *board.GameState, pos board.Coord) float64 {
 	}
 	
 	return penalty
+}
+
+// evaluateWallApproachSpace detects when heading toward a wall and rewards turning toward more space
+// This prevents aggressive moves from running into walls
+func evaluateWallApproachSpace(state *board.GameState, currentPos, nextPos board.Coord, move string, maxDepth int) float64 {
+	// Detect if we're approaching a wall (within 2 squares)
+	distToLeftWall := nextPos.X
+	distToRightWall := state.Board.Width - 1 - nextPos.X
+	distToBottomWall := nextPos.Y
+	distToTopWall := state.Board.Height - 1 - nextPos.Y
+	
+	// Find which wall we're closest to
+	minDist := distToLeftWall
+	approachingWall := ""
+	
+	if distToRightWall < minDist {
+		minDist = distToRightWall
+		approachingWall = "right"
+	} else if minDist == distToLeftWall {
+		approachingWall = "left"
+	}
+	
+	if distToBottomWall < minDist {
+		minDist = distToBottomWall
+		approachingWall = "bottom"
+	}
+	
+	if distToTopWall < minDist {
+		minDist = distToTopWall
+		approachingWall = "top"
+	}
+	
+	// Only activate when very close to wall (within 2 squares)
+	if minDist > 2 {
+		return 0.0
+	}
+	
+	// Check if we're moving toward the wall
+	movingTowardWall := false
+	switch approachingWall {
+	case "left":
+		movingTowardWall = (move == board.MoveLeft)
+	case "right":
+		movingTowardWall = (move == board.MoveRight)
+	case "bottom":
+		movingTowardWall = (move == board.MoveDown)
+	case "top":
+		movingTowardWall = (move == board.MoveUp)
+	}
+	
+	// If not moving toward wall, no adjustment needed
+	if !movingTowardWall {
+		return 0.0
+	}
+	
+	// We're heading toward a wall! Check perpendicular directions for more space
+	// Calculate space in perpendicular directions
+	var perp1Move, perp2Move string
+	
+	switch move {
+	case board.MoveUp, board.MoveDown:
+		// Moving vertically, check horizontal space
+		perp1Move = board.MoveLeft
+		perp2Move = board.MoveRight
+	case board.MoveLeft, board.MoveRight:
+		// Moving horizontally, check vertical space
+		perp1Move = board.MoveUp
+		perp2Move = board.MoveDown
+	}
+	
+	// Calculate space in perpendicular directions
+	perp1Pos := board.GetNextPosition(currentPos, perp1Move)
+	perp2Pos := board.GetNextPosition(currentPos, perp2Move)
+	
+	var perp1Space, perp2Space int
+	if state.Board.IsInBounds(perp1Pos) && !state.Board.IsOccupied(perp1Pos, true) {
+		perp1Space = heuristics.FloodFill(state, perp1Pos, maxDepth)
+	}
+	if state.Board.IsInBounds(perp2Pos) && !state.Board.IsOccupied(perp2Pos, true) {
+		perp2Space = heuristics.FloodFill(state, perp2Pos, maxDepth)
+	}
+	
+	// If both perpendicular directions have significantly more space than continuing toward wall,
+	// penalize the wall approach
+	currentMoveSpace := heuristics.FloodFill(state, nextPos, maxDepth)
+	maxPerpSpace := perp1Space
+	if perp2Space > maxPerpSpace {
+		maxPerpSpace = perp2Space
+	}
+	
+	// Strong penalty if perpendicular direction has much more space
+	if float64(maxPerpSpace) > float64(currentMoveSpace)*1.5 && maxPerpSpace > state.You.Length*2 {
+		// The perpendicular direction has significantly more space - penalize wall approach
+		spaceDiff := float64(maxPerpSpace - currentMoveSpace)
+		return -spaceDiff * 2.0  // Negative bonus (penalty) for approaching wall when better option exists
+	}
+	
+	return 0.0
 }
