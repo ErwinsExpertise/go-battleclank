@@ -39,7 +39,7 @@ pursuit:
   distance_2: 77.1
   distance_3: 39.9
   distance_4: 31.5
-  distance_5: 10.9
+  distance_5: 10.7
 search:
   algorithm: hybrid
   max_astar_nodes: 335
@@ -62,7 +62,7 @@ traps:
   food_trap: 411.5
   food_trap_threshold: 0.59
   moderate: 2000.0
-  severe: 407.5
+  severe: 467.4
   space_reduction_50: 800.0
   space_reduction_60: 1500.0
   space_reduction_min_base: 0.2
