@@ -15,7 +15,7 @@ food_weights:
   low_health: 220.0
   low_health_outmatched: 180.0
   medium_health: 120.0
-  medium_health_outmatched: 0.6
+  medium_health_outmatched: 0.65
 hybrid:
   critical_health: 30
   critical_nearby_enemies: 2
@@ -39,7 +39,7 @@ pursuit:
   distance_2: 77.1
   distance_3: 39.9
   distance_4: 31.5
-  distance_5: 10.7
+  distance_5: 10.3
 search:
   algorithm: hybrid
   max_astar_nodes: 335
@@ -69,7 +69,7 @@ traps:
   space_reduction_ratio_50: 0.5
   space_reduction_ratio_60: 0.4
 weights:
-  center_control: 2.1
+  center_control: 2.3
   cutoff: 958.8
   food: 1.6
   head_collision: 955.5
