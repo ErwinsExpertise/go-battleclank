@@ -83,7 +83,7 @@ func TestWallUTurnDefense(t *testing.T) {
 		// The critical check: when near wall with enemy approaching head-on,
 		// turning into the wall should be scored favorably because it allows a U-turn
 		// Currently, the snake might prefer turning right (away from wall) which leads to interception
-		
+
 		// Document current behavior
 		if bestMove == board.MoveRight {
 			t.Logf("WARNING: Snake chose to turn right (away from wall)")

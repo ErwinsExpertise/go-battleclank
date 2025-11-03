@@ -11,27 +11,27 @@ type DangerZone map[board.Coord][]board.Snake
 // Maps each position to the list of enemy snakes that can reach it
 func PredictEnemyDangerZones(state *board.GameState) DangerZone {
 	dangerZone := make(DangerZone)
-	
+
 	for _, snake := range state.Board.Snakes {
 		// Skip our own snake
 		if snake.ID == state.You.ID {
 			continue
 		}
-		
+
 		// For each possible direction the enemy can move
 		for _, move := range board.AllMoves() {
 			nextPos := board.GetNextPosition(snake.Head, move)
-			
+
 			// Skip if move would be fatal for enemy
 			if !state.Board.IsInBounds(nextPos) || state.Board.IsOccupied(nextPos, true) {
 				continue
 			}
-			
+
 			// Add this position to danger zone
 			dangerZone[nextPos] = append(dangerZone[nextPos], snake)
 		}
 	}
-	
+
 	return dangerZone
 }
 
@@ -49,7 +49,7 @@ func GetDangerLevel(dangerZone DangerZone, pos board.Coord, ourLength int) float
 	if !inDanger {
 		return 0.0
 	}
-	
+
 	danger := 0.0
 	for _, enemy := range enemies {
 		if enemy.Length > ourLength+1 {
@@ -63,7 +63,7 @@ func GetDangerLevel(dangerZone DangerZone, pos board.Coord, ourLength int) float
 			danger += 100.0
 		}
 	}
-	
+
 	return danger
 }
 
@@ -71,16 +71,16 @@ func GetDangerLevel(dangerZone DangerZone, pos board.Coord, ourLength int) float
 func IsHeadToHeadRisky(state *board.GameState, pos board.Coord) float64 {
 	risk := 0.0
 	ourLength := state.You.Length
-	
+
 	for _, snake := range state.Board.Snakes {
 		if snake.ID == state.You.ID {
 			continue
 		}
-		
+
 		// Check if enemy head could move to adjacent positions
 		for _, move := range board.AllMoves() {
 			enemyNextPos := board.GetNextPosition(snake.Head, move)
-			
+
 			if enemyNextPos.X == pos.X && enemyNextPos.Y == pos.Y {
 				// Potential head-to-head
 				if snake.Length >= ourLength {
@@ -91,7 +91,7 @@ func IsHeadToHeadRisky(state *board.GameState, pos board.Coord) float64 {
 			}
 		}
 	}
-	
+
 	return risk
 }
 
@@ -99,19 +99,19 @@ func IsHeadToHeadRisky(state *board.GameState, pos board.Coord) float64 {
 func DetectCutoff(state *board.GameState, pos board.Coord) float64 {
 	validMoves := 0
 	blockedByEnemies := 0
-	
+
 	for _, move := range board.AllMoves() {
 		nextPos := board.GetNextPosition(pos, move)
-		
+
 		// Check if valid
 		if !state.Board.IsInBounds(nextPos) {
 			continue
 		}
-		
+
 		// Check if blocked
 		blocked := false
 		blockedByEnemy := false
-		
+
 		for _, snake := range state.Board.Snakes {
 			for i, segment := range snake.Body {
 				// Skip tails that will move
@@ -130,14 +130,14 @@ func DetectCutoff(state *board.GameState, pos board.Coord) float64 {
 				break
 			}
 		}
-		
+
 		if !blocked {
 			validMoves++
 		} else if blockedByEnemy {
 			blockedByEnemies++
 		}
 	}
-	
+
 	// Return penalty based on how trapped we are
 	if validMoves == 0 {
 		return 10.0 // Completely trapped
@@ -146,7 +146,7 @@ func DetectCutoff(state *board.GameState, pos board.Coord) float64 {
 	} else if validMoves == 2 && blockedByEnemies >= 2 {
 		return 2.0 // Limited options
 	}
-	
+
 	return 0.0
 }
 
@@ -155,24 +155,24 @@ func IsBeingChased(state *board.GameState) bool {
 	if len(state.You.Body) == 0 {
 		return false
 	}
-	
+
 	myHead := state.You.Head
 	myTail := state.You.Body[len(state.You.Body)-1]
-	
+
 	for _, snake := range state.Board.Snakes {
 		if snake.ID == state.You.ID {
 			continue
 		}
-		
+
 		// Check if enemy head is close to our tail
 		distToTail := board.ManhattanDistance(snake.Head, myTail)
 		distToHead := board.ManhattanDistance(snake.Head, myHead)
-		
+
 		// Enemy is chasing if closer to tail than head and within range
 		if distToTail <= 3 && distToTail < distToHead {
 			return true
 		}
 	}
-	
+
 	return false
 }

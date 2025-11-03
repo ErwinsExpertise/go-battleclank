@@ -11,12 +11,12 @@ import (
 
 // MCTSSearch implements Monte Carlo Tree Search for multi-agent decision making
 type MCTSSearch struct {
-	MaxIterations  int
-	MaxTime        time.Duration
-	ExplorationC   float64 // UCB exploration constant (typically √2)
-	MaxDepth       int
-	rng            *rand.Rand
-	baseStrategy   *GreedySearch
+	MaxIterations int
+	MaxTime       time.Duration
+	ExplorationC  float64 // UCB exploration constant (typically √2)
+	MaxDepth      int
+	rng           *rand.Rand
+	baseStrategy  *GreedySearch
 }
 
 // NewMCTSSearch creates a new MCTS search
@@ -33,12 +33,12 @@ func NewMCTSSearch(maxIterations int, maxTime time.Duration) *MCTSSearch {
 
 // MCTSNode represents a node in the MCTS tree
 type MCTSNode struct {
-	state       *board.GameState
-	move        string
-	parent      *MCTSNode
-	children    []*MCTSNode
-	visits      int
-	wins        float64
+	state        *board.GameState
+	move         string
+	parent       *MCTSNode
+	children     []*MCTSNode
+	visits       int
+	wins         float64
 	untriedMoves []string
 }
 
@@ -48,27 +48,27 @@ func (m *MCTSSearch) FindBestMove(state *board.GameState) string {
 		state:        state,
 		untriedMoves: simulation.GetValidMoves(state, state.You.ID),
 	}
-	
+
 	startTime := time.Now()
 	iterations := 0
-	
+
 	// Run MCTS iterations until time/iteration limit
 	for iterations < m.MaxIterations && time.Since(startTime) < m.MaxTime {
 		// 1. Selection - traverse tree using UCB
 		selectedNode := m.selectNode(rootNode)
-		
+
 		// 2. Expansion - add new child if possible
 		expandedNode := m.expand(selectedNode)
-		
+
 		// 3. Simulation - play out random game
 		reward := m.simulate(expandedNode.state)
-		
+
 		// 4. Backpropagation - update statistics
 		m.backpropagate(expandedNode, reward)
-		
+
 		iterations++
 	}
-	
+
 	// Return move with highest visit count (most explored)
 	return m.bestMove(rootNode)
 }
@@ -76,12 +76,12 @@ func (m *MCTSSearch) FindBestMove(state *board.GameState) string {
 // selectNode traverses tree using UCB1 formula
 func (m *MCTSSearch) selectNode(node *MCTSNode) *MCTSNode {
 	current := node
-	
+
 	// Traverse until we find a node with untried moves or reach leaf
 	for len(current.untriedMoves) == 0 && len(current.children) > 0 {
 		current = m.selectBestChild(current)
 	}
-	
+
 	return current
 }
 
@@ -89,19 +89,19 @@ func (m *MCTSSearch) selectNode(node *MCTSNode) *MCTSNode {
 func (m *MCTSSearch) selectBestChild(node *MCTSNode) *MCTSNode {
 	bestScore := -math.MaxFloat64
 	var bestChild *MCTSNode
-	
+
 	for _, child := range node.children {
 		// UCB1 formula: exploitation + exploration
 		exploitation := child.wins / float64(child.visits)
 		exploration := m.ExplorationC * math.Sqrt(math.Log(float64(node.visits))/float64(child.visits))
 		score := exploitation + exploration
-		
+
 		if score > bestScore {
 			bestScore = score
 			bestChild = child
 		}
 	}
-	
+
 	return bestChild
 }
 
@@ -111,17 +111,17 @@ func (m *MCTSSearch) expand(node *MCTSNode) *MCTSNode {
 	if len(node.untriedMoves) == 0 {
 		return node
 	}
-	
+
 	// Pick random untried move
 	moveIndex := m.rng.Intn(len(node.untriedMoves))
 	move := node.untriedMoves[moveIndex]
-	
+
 	// Remove from untried moves
 	node.untriedMoves = append(node.untriedMoves[:moveIndex], node.untriedMoves[moveIndex+1:]...)
-	
+
 	// Simulate the move
 	newState := simulation.SimulateMove(node.state, node.state.You.ID, move)
-	
+
 	// Create child node
 	child := &MCTSNode{
 		state:        newState,
@@ -129,9 +129,9 @@ func (m *MCTSSearch) expand(node *MCTSNode) *MCTSNode {
 		parent:       node,
 		untriedMoves: simulation.GetValidMoves(newState, newState.You.ID),
 	}
-	
+
 	node.children = append(node.children, child)
-	
+
 	return child
 }
 
@@ -139,14 +139,14 @@ func (m *MCTSSearch) expand(node *MCTSNode) *MCTSNode {
 func (m *MCTSSearch) simulate(state *board.GameState) float64 {
 	currentState := state
 	depth := 0
-	
+
 	// Play random moves until game ends or max depth
 	for depth < m.MaxDepth {
 		// Check if our snake is still alive
 		if !isSnakeAlive(currentState, currentState.You.ID) {
 			return 0.0 // We lost
 		}
-		
+
 		// Check if we're the only snake left
 		aliveCount := 0
 		for _, snake := range currentState.Board.Snakes {
@@ -157,23 +157,23 @@ func (m *MCTSSearch) simulate(state *board.GameState) float64 {
 		if aliveCount == 1 {
 			return 1.0 // We won
 		}
-		
+
 		// Get valid moves
 		validMoves := simulation.GetValidMoves(currentState, currentState.You.ID)
 		if len(validMoves) == 0 {
 			return 0.0 // No valid moves - we lose
 		}
-		
+
 		// Pick random move (with slight bias toward heuristically good moves)
 		move := m.selectSimulationMove(currentState, validMoves)
 		currentState = simulation.SimulateMove(currentState, currentState.You.ID, move)
-		
+
 		// Simulate random enemy moves
 		currentState = m.simulateEnemyMoves(currentState)
-		
+
 		depth++
 	}
-	
+
 	// Game didn't end - evaluate final state heuristically
 	return m.evaluateState(currentState)
 }
@@ -185,7 +185,7 @@ func (m *MCTSSearch) selectSimulationMove(state *board.GameState, validMoves []s
 		// Use greedy heuristic to guide
 		bestMove := validMoves[0]
 		bestScore := m.baseStrategy.ScoreMove(state, bestMove)
-		
+
 		for _, move := range validMoves[1:] {
 			score := m.baseStrategy.ScoreMove(state, move)
 			if score > bestScore {
@@ -195,7 +195,7 @@ func (m *MCTSSearch) selectSimulationMove(state *board.GameState, validMoves []s
 		}
 		return bestMove
 	}
-	
+
 	// Random move
 	return validMoves[m.rng.Intn(len(validMoves))]
 }
@@ -203,19 +203,19 @@ func (m *MCTSSearch) selectSimulationMove(state *board.GameState, validMoves []s
 // simulateEnemyMoves simulates random enemy moves
 func (m *MCTSSearch) simulateEnemyMoves(state *board.GameState) *board.GameState {
 	newState := state
-	
+
 	for _, snake := range state.Board.Snakes {
 		if snake.ID == state.You.ID {
 			continue
 		}
-		
+
 		validMoves := simulation.GetValidMoves(newState, snake.ID)
 		if len(validMoves) > 0 {
 			move := validMoves[m.rng.Intn(len(validMoves))]
 			newState = simulation.SimulateMove(newState, snake.ID, move)
 		}
 	}
-	
+
 	return newState
 }
 
@@ -226,10 +226,10 @@ func (m *MCTSSearch) evaluateState(state *board.GameState) float64 {
 	if ourSnake == nil || ourSnake.Health <= 0 {
 		return 0.0
 	}
-	
+
 	// Heuristic evaluation: space, health, length
 	mySpace := heuristics.EvaluateSpace(state, ourSnake.Head, 15)
-	
+
 	// Calculate enemy threat
 	maxEnemyLength := 0
 	for _, snake := range state.Board.Snakes {
@@ -237,13 +237,13 @@ func (m *MCTSSearch) evaluateState(state *board.GameState) float64 {
 			maxEnemyLength = snake.Length
 		}
 	}
-	
+
 	lengthAdvantage := float64(ourSnake.Length - maxEnemyLength)
 	healthScore := float64(ourSnake.Health) / 100.0
-	
+
 	// Combine factors
 	score := mySpace*0.5 + healthScore*0.2 + (lengthAdvantage/10.0)*0.3
-	
+
 	// Clamp to [0, 1]
 	if score < 0 {
 		score = 0
@@ -251,14 +251,14 @@ func (m *MCTSSearch) evaluateState(state *board.GameState) float64 {
 	if score > 1 {
 		score = 1
 	}
-	
+
 	return score
 }
 
 // backpropagate updates node statistics up the tree
 func (m *MCTSSearch) backpropagate(node *MCTSNode, reward float64) {
 	current := node
-	
+
 	for current != nil {
 		current.visits++
 		current.wins += reward
@@ -276,17 +276,17 @@ func (m *MCTSSearch) bestMove(rootNode *MCTSNode) string {
 		}
 		return board.MoveUp
 	}
-	
+
 	bestVisits := -1
 	bestMove := board.MoveUp
-	
+
 	for _, child := range rootNode.children {
 		if child.visits > bestVisits {
 			bestVisits = child.visits
 			bestMove = child.move
 		}
 	}
-	
+
 	return bestMove
 }
 

@@ -89,14 +89,14 @@ func (b *Board) GetNeighbors(pos Coord) []Coord {
 		{X: -1, Y: 0}, // left
 		{X: 1, Y: 0},  // right
 	}
-	
+
 	for _, dir := range directions {
 		newPos := Coord{X: pos.X + dir.X, Y: pos.Y + dir.Y}
 		if b.IsInBounds(newPos) {
 			neighbors = append(neighbors, newPos)
 		}
 	}
-	
+
 	return neighbors
 }
 
