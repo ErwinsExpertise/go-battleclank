@@ -26,7 +26,7 @@ hybrid:
   use_lookahead_on_critical: true
   use_mcts_in_endgame: true
 late_game:
-  caution_multiplier: 1.02
+  caution_multiplier: 1.17
   turn_threshold: 120
 optimization:
   batch_size: 32
@@ -58,10 +58,10 @@ trapping:
   trapped_ratio: 0.49
   weight: 503.7
 traps:
-  critical: 2000.0
+  critical: 1700.0
   food_trap: 411.5
   food_trap_threshold: 0.59
-  moderate: 2000.0
+  moderate: 1700.0
   severe: 467.4
   space_reduction_50: 800.0
   space_reduction_60: 1500.0
@@ -72,7 +72,7 @@ weights:
   center_control: 2.3
   cutoff: 958.8
   food: 1.8
-  head_collision: 1000.0
-  space: 8.5
+  head_collision: 850.0
+  space: 8.3
   straight_movement: 25.0
   wall_penalty: 7.7
