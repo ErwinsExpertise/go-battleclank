@@ -119,10 +119,12 @@ go build -o go-battleclank .
 
 **Requirements for GPU acceleration:**
 - NVIDIA GPU with CUDA compute capability 3.0+
-- CUDA Toolkit 10.0 or higher
+- CUDA Toolkit 11.8 or higher (including CUDA 12.x)
 - NVIDIA GPU drivers
 - CGO enabled (default in Go)
 - **Linux system (Ubuntu, Debian, etc.) - Windows users should use WSL2**
+
+**Note:** This project uses the latest mumax/3 version with improved CUDA 12.x compatibility.
 
 **Benefits with CUDA:**
 - 5-10x faster MCTS simulations

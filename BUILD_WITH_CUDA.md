@@ -15,16 +15,16 @@ This document describes how to build go-battleclank with GPU acceleration using 
 
 ### 1. CUDA Toolkit Installation
 
-You need CUDA Toolkit 10.0 or higher installed on your system.
+**Note:** This project uses the latest version of mumax/3 (from master branch) which has improved compatibility with CUDA 11.x and 12.x.
 
-#### Ubuntu/Debian:
+#### CUDA Toolkit Installation (Ubuntu/Debian):
 ```bash
 # Add NVIDIA package repository
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
 sudo dpkg -i cuda-keyring_1.0-1_all.deb
 sudo apt-get update
 
-# Install CUDA Toolkit
+# Install CUDA Toolkit 12.x (or 11.8+ for older systems)
 sudo apt-get install cuda-toolkit-12-3
 
 # Verify installation
@@ -227,6 +227,36 @@ watch -n 0.5 nvidia-smi
 
 # You should see GPU utilization increase during MCTS operations
 ```
+
+### Problem: Build errors with deprecated CUDA APIs
+
+**Issue:** You see warnings about deprecated functions or API mismatches.
+
+**Solution:** This project now uses the latest mumax/3 version (from master branch) which has better CUDA compatibility. If you still encounter issues:
+
+1. **Update dependencies:**
+   ```bash
+   # Clean module cache and rebuild
+   go clean -modcache
+   go mod tidy
+   go build -tags cuda -o go-battleclank-cuda .
+   ```
+
+2. **Verify CUDA installation:**
+   ```bash
+   # Check CUDA version
+   nvcc --version
+   
+   # Ensure CUDA paths are set
+   echo $PATH | grep cuda
+   echo $LD_LIBRARY_PATH | grep cuda
+   ```
+
+3. **Use CPU-only build as fallback:**
+   ```bash
+   go build -o go-battleclank .
+   ./go-battleclank --enable-gpu  # Will use CPU fallback
+   ```
 
 ### Problem: Build errors on Windows (undefined: cu.Function, cufft.Handle, etc.)
 
