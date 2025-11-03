@@ -483,6 +483,7 @@ func evaluateWallApproachSpace(state *board.GameState, currentPos, nextPos board
 // This addresses the issue where snake near wall with enemy approaching head-on
 // should turn into wall rather than away (which leads to interception)
 func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos board.Coord, move string) float64 {
+	cfg := config.GetConfig()
 	// Only activate when within 1 tile of wall
 	distToLeftWall := currentPos.X
 	distToRightWall := state.Board.Width - 1 - currentPos.X
@@ -524,8 +525,8 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 		// Check distance to enemy head
 		dist := board.ManhattanDistance(currentPos, snake.Head)
 
-		// Enemy must be within 2-4 tiles to be a threat (not too far, not too close)
-		if dist < 2 || dist > 4 {
+		// Enemy must be within detection range to be a threat (not too far, not too close)
+		if dist < cfg.EmergencyWallEscape.MinDistance || dist > cfg.EmergencyWallEscape.MaxDistance {
 			continue
 		}
 
@@ -604,9 +605,9 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 	if movingTowardWall {
 		// Strong bonus to override normal wall avoidance
 		// Scaled by how close the enemy is
-		emergencyBonus := 150.0
-		if enemyDistance <= 2 {
-			emergencyBonus = 200.0 // Even stronger when enemy is very close
+		emergencyBonus := cfg.EmergencyWallEscape.TurnBonus
+		if enemyDistance <= cfg.EmergencyWallEscape.CloseThreshold {
+			emergencyBonus = cfg.EmergencyWallEscape.CloseBonus // Even stronger when enemy is very close
 		}
 		return emergencyBonus
 	}
@@ -627,7 +628,7 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 
 	if movingAwayFromWall {
 		// Penalty for turning away from wall toward potential interception
-		return -100.0
+		return -cfg.EmergencyWallEscape.AwayPenalty
 	}
 
 	// Perpendicular moves are neutral in this scenario

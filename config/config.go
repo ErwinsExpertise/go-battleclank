@@ -104,6 +104,15 @@ type Config struct {
 		ExplorationRate float64 `yaml:"exploration_rate"`
 		DiscountFactor  float64 `yaml:"discount_factor"`
 	} `yaml:"optimization"`
+
+	EmergencyWallEscape struct {
+		MinDistance      int     `yaml:"min_distance"`       // Minimum Manhattan distance to detect enemy threat
+		MaxDistance      int     `yaml:"max_distance"`       // Maximum Manhattan distance to detect enemy threat
+		TurnBonus        float64 `yaml:"turn_bonus"`         // Bonus for turning toward wall in emergency
+		CloseBonus       float64 `yaml:"close_bonus"`        // Higher bonus when enemy is very close
+		AwayPenalty      float64 `yaml:"away_penalty"`       // Penalty for turning away from wall
+		CloseThreshold   int     `yaml:"close_threshold"`    // Distance threshold for "very close" enemy
+	} `yaml:"emergency_wall_escape"`
 }
 
 var (
@@ -266,6 +275,14 @@ func GetDefaultConfig() *Config {
 	config.Optimization.Episodes = 1000
 	config.Optimization.ExplorationRate = 0.1
 	config.Optimization.DiscountFactor = 0.95
+
+	// Emergency wall escape configuration
+	config.EmergencyWallEscape.MinDistance = 2
+	config.EmergencyWallEscape.MaxDistance = 4
+	config.EmergencyWallEscape.TurnBonus = 150.0
+	config.EmergencyWallEscape.CloseBonus = 200.0
+	config.EmergencyWallEscape.AwayPenalty = 100.0
+	config.EmergencyWallEscape.CloseThreshold = 2
 
 	return config
 }

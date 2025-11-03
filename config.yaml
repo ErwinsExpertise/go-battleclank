@@ -68,6 +68,13 @@ traps:
   space_reduction_min_base: 0.2
   space_reduction_ratio_50: 1.0
   space_reduction_ratio_60: 0.4
+emergency_wall_escape:
+  away_penalty: 100.0
+  close_bonus: 200.0
+  close_threshold: 2
+  max_distance: 4
+  min_distance: 2
+  turn_bonus: 150.0
 weights:
   center_control: 2.3
   cutoff: 958.8
