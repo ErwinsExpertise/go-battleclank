@@ -10,10 +10,10 @@ import (
 // when there's no compelling reason to turn
 func TestStraightMovementBonus(t *testing.T) {
 	tests := []struct {
-		name           string
-		state          *board.GameState
-		expectedMove   string
-		description    string
+		name         string
+		state        *board.GameState
+		expectedMove string
+		description  string
 	}{
 		{
 			name: "Continue straight when healthy and no obstacles",
@@ -141,7 +141,7 @@ func TestStraightMovementBonus(t *testing.T) {
 
 			if bestMove != tt.expectedMove {
 				t.Errorf("%s: got %s, want %s", tt.description, bestMove, tt.expectedMove)
-				
+
 				// Log all move scores for debugging
 				t.Logf("Move scores:")
 				for _, move := range board.AllMoves() {

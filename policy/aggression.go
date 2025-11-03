@@ -10,10 +10,10 @@ import (
 const (
 	// AggressionLengthAdvantage for aggressive behavior
 	AggressionLengthAdvantage = 2
-	
+
 	// AggressionHealthThreshold for aggressive behavior
 	AggressionHealthThreshold = 60
-	
+
 	// Health thresholds
 	HealthCritical = 30
 	HealthLow      = 50
@@ -32,10 +32,10 @@ type AggressionScore struct {
 // Returns a score from 0.0 (defensive) to 1.0 (aggressive)
 func CalculateAggressionScore(state *board.GameState, mySpace float64) AggressionScore {
 	score := 0.5 // Start neutral
-	
+
 	myLength := state.You.Length
 	myHealth := state.You.Health
-	
+
 	// Health factor
 	healthFactor := 0.0
 	if myHealth >= AggressionHealthThreshold {
@@ -45,14 +45,14 @@ func CalculateAggressionScore(state *board.GameState, mySpace float64) Aggressio
 		healthFactor = -0.3
 		score -= 0.3
 	}
-	
+
 	// Length advantage factor
 	lengthFactor := 0.0
 	if len(state.Board.Snakes) > 1 {
 		totalEnemyLength := 0
 		enemyCount := 0
 		longestEnemy := 0
-		
+
 		for _, snake := range state.Board.Snakes {
 			if snake.ID != state.You.ID {
 				totalEnemyLength += snake.Length
@@ -62,10 +62,10 @@ func CalculateAggressionScore(state *board.GameState, mySpace float64) Aggressio
 				}
 			}
 		}
-		
+
 		if enemyCount > 0 {
 			avgEnemyLength := float64(totalEnemyLength) / float64(enemyCount)
-			
+
 			// Compare to longest enemy
 			if myLength > longestEnemy+AggressionLengthAdvantage {
 				lengthFactor = 0.3
@@ -77,7 +77,7 @@ func CalculateAggressionScore(state *board.GameState, mySpace float64) Aggressio
 				lengthFactor = -0.2
 				score -= 0.2
 			}
-			
+
 			// Compare to average
 			if float64(myLength) > avgEnemyLength+1 {
 				lengthFactor += 0.1
@@ -85,7 +85,7 @@ func CalculateAggressionScore(state *board.GameState, mySpace float64) Aggressio
 			}
 		}
 	}
-	
+
 	// Space control factor
 	spaceFactor := 0.0
 	if mySpace > 0.4 {
@@ -95,7 +95,7 @@ func CalculateAggressionScore(state *board.GameState, mySpace float64) Aggressio
 		spaceFactor = -0.2
 		score -= 0.2
 	}
-	
+
 	// Position factor (distance from walls)
 	positionFactor := 0.0
 	distToWall := getMinDistanceToWall(state, state.You.Head)
@@ -103,7 +103,7 @@ func CalculateAggressionScore(state *board.GameState, mySpace float64) Aggressio
 		positionFactor = -0.1
 		score -= 0.1
 	}
-	
+
 	// Clamp between 0 and 1
 	if score < 0 {
 		score = 0
@@ -111,7 +111,7 @@ func CalculateAggressionScore(state *board.GameState, mySpace float64) Aggressio
 	if score > 1 {
 		score = 1
 	}
-	
+
 	return AggressionScore{
 		Score:          score,
 		HealthFactor:   healthFactor,
@@ -127,7 +127,7 @@ func getMinDistanceToWall(state *board.GameState, pos board.Coord) int {
 	distFromRight := state.Board.Width - 1 - pos.X
 	distFromBottom := pos.Y
 	distFromTop := state.Board.Height - 1 - pos.Y
-	
+
 	minDist := distFromLeft
 	if distFromRight < minDist {
 		minDist = distFromRight
@@ -138,7 +138,7 @@ func getMinDistanceToWall(state *board.GameState, pos board.Coord) int {
 	if distFromTop < minDist {
 		minDist = distFromTop
 	}
-	
+
 	return minDist
 }
 
@@ -156,13 +156,13 @@ func ShouldPrioritizeSurvival(aggression AggressionScore) bool {
 // Uses config values to allow tuning by continuous training
 func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatched bool) float64 {
 	cfg := getFoodWeightsConfig()
-	
+
 	// Health ceiling - significantly reduce food seeking when very healthy
 	if state.You.Health >= cfg.HealthyCeiling {
 		// Very healthy - minimal food seeking, focus on positioning
 		return cfg.HealthyCeilingWeight
 	}
-	
+
 	if state.You.Health < HealthCritical {
 		// Critical health - food is high priority but not absolute
 		if outmatched {
@@ -188,7 +188,7 @@ func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatche
 		if state.Turn < 50 {
 			baseWeight = cfg.HealthyEarlyGame * cfg.HealthyEarlyMultiplier
 		}
-		
+
 		if outmatched {
 			return baseWeight * cfg.HealthyOutmatched
 		}
@@ -200,12 +200,12 @@ func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatche
 func IsOutmatched(state *board.GameState, proximityRadius int) bool {
 	myHead := state.You.Head
 	myLength := state.You.Length
-	
+
 	for _, snake := range state.Board.Snakes {
 		if snake.ID == state.You.ID {
 			continue
 		}
-		
+
 		dist := board.ManhattanDistance(myHead, snake.Head)
 		if dist <= proximityRadius {
 			// Enemy nearby - check if much larger
@@ -214,43 +214,43 @@ func IsOutmatched(state *board.GameState, proximityRadius int) bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
 // FoodWeightsConfig holds food weight configuration
 type FoodWeightsConfig struct {
-	CriticalHealth          float64
+	CriticalHealth           float64
 	CriticalHealthOutmatched float64
-	LowHealth               float64
-	LowHealthOutmatched     float64
-	MediumHealth            float64
-	MediumHealthOutmatched  float64
-	HealthyBase             float64
-	HealthyEarlyGame        float64
-	HealthyOutmatched       float64
-	HealthyCeiling          int
-	HealthyCeilingWeight    float64
-	HealthyMultiplier       float64
-	HealthyEarlyMultiplier  float64
+	LowHealth                float64
+	LowHealthOutmatched      float64
+	MediumHealth             float64
+	MediumHealthOutmatched   float64
+	HealthyBase              float64
+	HealthyEarlyGame         float64
+	HealthyOutmatched        float64
+	HealthyCeiling           int
+	HealthyCeilingWeight     float64
+	HealthyMultiplier        float64
+	HealthyEarlyMultiplier   float64
 }
 
 // getFoodWeightsConfig returns food weights from config or defaults
 func getFoodWeightsConfig() FoodWeightsConfig {
 	cfg := config.GetConfig()
 	return FoodWeightsConfig{
-		CriticalHealth:          cfg.FoodWeights.CriticalHealth,
+		CriticalHealth:           cfg.FoodWeights.CriticalHealth,
 		CriticalHealthOutmatched: cfg.FoodWeights.CriticalHealthOutmatched,
-		LowHealth:               cfg.FoodWeights.LowHealth,
-		LowHealthOutmatched:     cfg.FoodWeights.LowHealthOutmatched,
-		MediumHealth:            cfg.FoodWeights.MediumHealth,
-		MediumHealthOutmatched:  cfg.FoodWeights.MediumHealthOutmatched,
-		HealthyBase:             cfg.FoodWeights.HealthyBase,
-		HealthyEarlyGame:        cfg.FoodWeights.HealthyEarlyGame,
-		HealthyOutmatched:       cfg.FoodWeights.HealthyOutmatched,
-		HealthyCeiling:          cfg.FoodWeights.HealthyCeiling,
-		HealthyCeilingWeight:    cfg.FoodWeights.HealthyCeilingWeight,
-		HealthyMultiplier:       cfg.FoodWeights.HealthyMultiplier,
-		HealthyEarlyMultiplier:  cfg.FoodWeights.HealthyEarlyMultiplier,
+		LowHealth:                cfg.FoodWeights.LowHealth,
+		LowHealthOutmatched:      cfg.FoodWeights.LowHealthOutmatched,
+		MediumHealth:             cfg.FoodWeights.MediumHealth,
+		MediumHealthOutmatched:   cfg.FoodWeights.MediumHealthOutmatched,
+		HealthyBase:              cfg.FoodWeights.HealthyBase,
+		HealthyEarlyGame:         cfg.FoodWeights.HealthyEarlyGame,
+		HealthyOutmatched:        cfg.FoodWeights.HealthyOutmatched,
+		HealthyCeiling:           cfg.FoodWeights.HealthyCeiling,
+		HealthyCeilingWeight:     cfg.FoodWeights.HealthyCeilingWeight,
+		HealthyMultiplier:        cfg.FoodWeights.HealthyMultiplier,
+		HealthyEarlyMultiplier:   cfg.FoodWeights.HealthyEarlyMultiplier,
 	}
 }

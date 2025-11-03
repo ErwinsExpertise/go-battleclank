@@ -14,17 +14,17 @@ const (
 	// Using 93 (approximately 77% of 121) provides sufficient coverage while reducing
 	// computation time for pathfinding decisions that need to complete within turn time limits.
 	DefaultFloodFillDepth = 93
-	
+
 	// Path quality thresholds for space reduction penalties
 	// These determine when moving toward food becomes penalized due to space loss
-	PathQualityHighReduction    = 0.4  // >40% space reduction gets strong penalty (0.7x multiplier)
+	PathQualityHighReduction     = 0.4  // >40% space reduction gets strong penalty (0.7x multiplier)
 	PathQualityModerateReduction = 0.25 // >25% space reduction gets light penalty (0.85x multiplier)
-	
+
 	// Path quality multipliers applied to food score
 	PathQualityCornerPenalty   = 0.7  // Penalty for food in corners
 	PathQualityHighPenalty     = 0.7  // Penalty for high space reduction
 	PathQualityModeratePenalty = 0.85 // Penalty for moderate space reduction
-	
+
 	// Space availability threshold for corner penalty
 	// Only penalize corner food if we have >30% of board space available (not desperate)
 	PathQualityCornerSpaceThreshold = 0.3
@@ -35,10 +35,10 @@ func FindNearestFoodManhattan(state *board.GameState, from board.Coord) (board.C
 	if len(state.Board.Food) == 0 {
 		return board.Coord{}, -1
 	}
-	
+
 	minDist := math.MaxInt32
 	var nearestFood board.Coord
-	
+
 	for _, food := range state.Board.Food {
 		dist := board.ManhattanDistance(from, food)
 		if dist < minDist {
@@ -46,7 +46,7 @@ func FindNearestFoodManhattan(state *board.GameState, from board.Coord) (board.C
 			nearestFood = food
 		}
 	}
-	
+
 	return nearestFood, minDist
 }
 
@@ -54,12 +54,12 @@ func FindNearestFoodManhattan(state *board.GameState, from board.Coord) (board.C
 func IsFoodDangerous(state *board.GameState, food board.Coord, dangerRadius int) bool {
 	myDist := board.ManhattanDistance(state.You.Head, food)
 	isCritical := state.You.Health < 30
-	
+
 	for _, snake := range state.Board.Snakes {
 		if snake.ID == state.You.ID {
 			continue
 		}
-		
+
 		// Check distance to enemy body segments
 		for _, segment := range snake.Body {
 			dist := board.ManhattanDistance(food, segment)
@@ -67,13 +67,13 @@ func IsFoodDangerous(state *board.GameState, food board.Coord, dangerRadius int)
 				return true
 			}
 		}
-		
+
 		// Check if enemy can reach significantly faster
 		enemyDist := board.ManhattanDistance(snake.Head, food)
 		if enemyDist < myDist-2 {
 			return true
 		}
-		
+
 		// Check if arriving at same time with size disadvantage
 		lengthAdvantage := snake.Length - state.You.Length
 		if abs(enemyDist-myDist) <= 1 {
@@ -88,7 +88,7 @@ func IsFoodDangerous(state *board.GameState, food board.Coord, dangerRadius int)
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -108,10 +108,10 @@ func EvaluateFoodProximity(state *board.GameState, pos board.Coord, useAStar boo
 	if len(state.Board.Food) == 0 {
 		return 0
 	}
-	
+
 	var nearestFood board.Coord
 	var distance int
-	
+
 	if useAStar && state.You.Health < 50 {
 		// Use A* for more accurate pathfinding when health is low
 		food, path := FindNearestFoodAStar(state, pos, maxAStarNodes)
@@ -125,7 +125,7 @@ func EvaluateFoodProximity(state *board.GameState, pos board.Coord, useAStar boo
 	} else {
 		nearestFood, distance = FindNearestFoodManhattan(state, pos)
 	}
-	
+
 	// Check if food is dangerous
 	if IsFoodDangerous(state, nearestFood, 2) {
 		// Reduce score for dangerous food
@@ -134,7 +134,7 @@ func EvaluateFoodProximity(state *board.GameState, pos board.Coord, useAStar boo
 		}
 		return (1.0 / float64(distance)) * 0.1
 	}
-	
+
 	// Base food score - inverse of distance (closer food has higher score)
 	baseScore := 1.0
 	if distance == 0 {
@@ -144,10 +144,10 @@ func EvaluateFoodProximity(state *board.GameState, pos board.Coord, useAStar boo
 		// Score decreases with distance
 		baseScore = 1.0 / float64(distance)
 	}
-	
+
 	// NEW: Evaluate path quality - penalize if moving toward food reduces space/options
 	pathQualityFactor := EvaluatePathQuality(state, pos, nearestFood)
-	
+
 	return baseScore * pathQualityFactor
 }
 
@@ -158,12 +158,12 @@ func EvaluateFoodProximity(state *board.GameState, pos board.Coord, useAStar boo
 func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) float64 {
 	// Calculate current space at position
 	currentSpace := FloodFill(state, fromPos, DefaultFloodFillDepth)
-	
+
 	// If we're already very constrained, don't penalize further
 	if currentSpace < 10 {
 		return 1.0
 	}
-	
+
 	// Check if food is in a corner or near a wall
 	foodDistFromWalls := getMinDistanceFromWalls(state, toFood)
 	if foodDistFromWalls == 0 {
@@ -175,7 +175,7 @@ func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) fl
 		if toFood.Y == 0 || toFood.Y == state.Board.Height-1 {
 			wallCount++
 		}
-		
+
 		if wallCount >= 2 {
 			// Food is in a corner - moderate penalty unless desperate
 			totalBoardSpaces := float64(state.Board.Width * state.Board.Height)
@@ -184,17 +184,17 @@ func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) fl
 			}
 		}
 	}
-	
+
 	// Calculate direction toward food
 	dx := toFood.X - fromPos.X
 	dy := toFood.Y - fromPos.Y
-	
+
 	// If food is very close (1-2 steps), don't penalize
 	manhattanDist := abs(dx) + abs(dy)
 	if manhattanDist <= 2 {
 		return 1.0
 	}
-	
+
 	// Normalize to get unit direction
 	var moveTowardFood board.Coord
 	if abs(dx) > abs(dy) {
@@ -212,18 +212,18 @@ func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) fl
 			moveTowardFood = board.Coord{X: fromPos.X, Y: fromPos.Y - 1}
 		}
 	}
-	
+
 	// Check if move toward food is valid
 	if !state.Board.IsInBounds(moveTowardFood) || state.Board.IsOccupied(moveTowardFood, true) {
 		return 1.0 // Can't move that way anyway, don't apply path quality penalty
 	}
-	
+
 	// Calculate space at position toward food
 	spaceTowardFood := FloodFill(state, moveTowardFood, DefaultFloodFillDepth)
-	
+
 	// Calculate space reduction ratio
 	spaceReduction := float64(currentSpace-spaceTowardFood) / float64(currentSpace)
-	
+
 	// Only penalize if space reduction is significant
 	if spaceReduction > PathQualityHighReduction {
 		// Moving toward food cuts space by >40% - strong penalty
@@ -232,7 +232,7 @@ func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) fl
 		// Moving toward food cuts space by >25% - light penalty
 		return PathQualityModeratePenalty
 	}
-	
+
 	// Path looks good - no penalty
 	return 1.0
 }
@@ -243,7 +243,7 @@ func getMinDistanceFromWalls(state *board.GameState, pos board.Coord) int {
 	distFromRight := state.Board.Width - 1 - pos.X
 	distFromBottom := pos.Y
 	distFromTop := state.Board.Height - 1 - pos.Y
-	
+
 	minDist := distFromLeft
 	if distFromRight < minDist {
 		minDist = distFromRight
@@ -254,7 +254,7 @@ func getMinDistanceFromWalls(state *board.GameState, pos board.Coord) int {
 	if distFromTop < minDist {
 		minDist = distFromTop
 	}
-	
+
 	return minDist
 }
 
@@ -300,7 +300,7 @@ func FindNearestFoodAStar(state *board.GameState, start board.Coord, maxNodes in
 	var nearestFood board.Coord
 	var shortestPath []board.Coord
 	shortestLength := math.MaxInt32
-	
+
 	// Try A* to each food
 	for _, food := range state.Board.Food {
 		path := aStarSearch(state, start, food, maxNodes)
@@ -310,7 +310,7 @@ func FindNearestFoodAStar(state *board.GameState, start board.Coord, maxNodes in
 			shortestLength = len(path)
 		}
 	}
-	
+
 	return nearestFood, shortestPath
 }
 
@@ -319,14 +319,14 @@ func aStarSearch(state *board.GameState, start, goal board.Coord, maxNodes int) 
 	if state.Board.IsOccupied(goal, true) {
 		return nil
 	}
-	
+
 	if start.X == goal.X && start.Y == goal.Y {
 		return []board.Coord{start}
 	}
-	
+
 	openSet := &priorityQueue{}
 	heap.Init(openSet)
-	
+
 	startNode := &aStarNode{
 		pos:    start,
 		gScore: 0,
@@ -334,31 +334,31 @@ func aStarSearch(state *board.GameState, start, goal board.Coord, maxNodes int) 
 		parent: nil,
 	}
 	heap.Push(openSet, startNode)
-	
+
 	visited := make(map[board.Coord]int)
 	nodesExplored := 0
-	
+
 	for openSet.Len() > 0 && nodesExplored < maxNodes {
 		current := heap.Pop(openSet).(*aStarNode)
 		nodesExplored++
-		
+
 		if current.pos.X == goal.X && current.pos.Y == goal.Y {
 			return reconstructPath(current)
 		}
-		
+
 		visited[current.pos] = current.gScore
-		
+
 		for _, neighbor := range state.Board.GetNeighbors(current.pos) {
 			if state.Board.IsOccupied(neighbor, true) {
 				continue
 			}
-			
+
 			tentativeGScore := current.gScore + 1
-			
+
 			if prevScore, seen := visited[neighbor]; seen && prevScore <= tentativeGScore {
 				continue
 			}
-			
+
 			neighborNode := &aStarNode{
 				pos:    neighbor,
 				gScore: tentativeGScore,
@@ -368,23 +368,23 @@ func aStarSearch(state *board.GameState, start, goal board.Coord, maxNodes int) 
 			heap.Push(openSet, neighborNode)
 		}
 	}
-	
+
 	return nil
 }
 
 func reconstructPath(node *aStarNode) []board.Coord {
 	path := []board.Coord{}
 	current := node
-	
+
 	for current != nil {
 		path = append(path, current.pos)
 		current = current.parent
 	}
-	
+
 	// Reverse path
 	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
 		path[i], path[j] = path[j], path[i]
 	}
-	
+
 	return path
 }

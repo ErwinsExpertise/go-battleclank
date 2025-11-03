@@ -19,17 +19,17 @@ func SimulateMove(state *board.GameState, snakeID string, move string) *board.Ga
 		},
 		You: state.You,
 	}
-	
+
 	// Copy food and hazards
 	copy(newState.Board.Food, state.Board.Food)
 	copy(newState.Board.Hazards, state.Board.Hazards)
-	
+
 	// Copy and update snakes
 	for i, snake := range state.Board.Snakes {
 		if snake.ID == snakeID {
 			// Apply move to this snake
 			newHead := board.GetNextPosition(snake.Head, move)
-			
+
 			// Check if snake ate food
 			ateFood := false
 			for j, food := range newState.Board.Food {
@@ -40,11 +40,11 @@ func SimulateMove(state *board.GameState, snakeID string, move string) *board.Ga
 					break
 				}
 			}
-			
+
 			// Create new body
 			newBody := make([]board.Coord, len(snake.Body))
 			newBody[0] = newHead
-			
+
 			if ateFood {
 				// Snake grows - copy entire body
 				copy(newBody[1:], snake.Body)
@@ -68,7 +68,7 @@ func SimulateMove(state *board.GameState, snakeID string, move string) *board.Ga
 					Length: snake.Length,
 				}
 			}
-			
+
 			// Update You if this is our snake
 			if snake.ID == state.You.ID {
 				newState.You = newState.Board.Snakes[i]
@@ -78,7 +78,7 @@ func SimulateMove(state *board.GameState, snakeID string, move string) *board.Ga
 			newState.Board.Snakes[i] = snake
 		}
 	}
-	
+
 	return newState
 }
 
@@ -88,32 +88,32 @@ func IsMoveValid(state *board.GameState, snakeID string, move string) bool {
 	if snake == nil {
 		return false
 	}
-	
+
 	nextPos := board.GetNextPosition(snake.Head, move)
-	
+
 	// Check bounds
 	if !state.Board.IsInBounds(nextPos) {
 		return false
 	}
-	
+
 	// Check collision with snake bodies (skip tails that will move)
 	if state.Board.IsOccupied(nextPos, true) {
 		return false
 	}
-	
+
 	return true
 }
 
 // GetValidMoves returns all valid moves for a snake
 func GetValidMoves(state *board.GameState, snakeID string) []string {
 	validMoves := make([]string, 0, 4)
-	
+
 	for _, move := range board.AllMoves() {
 		if IsMoveValid(state, snakeID, move) {
 			validMoves = append(validMoves, move)
 		}
 	}
-	
+
 	return validMoves
 }
 
@@ -123,10 +123,10 @@ func SimulateMultipleMoves(state *board.GameState, moves map[string]string) *boa
 	// For simplicity, apply moves sequentially
 	// In a more sophisticated implementation, we'd apply all moves truly simultaneously
 	newState := state
-	
+
 	for snakeID, move := range moves {
 		newState = SimulateMove(newState, snakeID, move)
 	}
-	
+
 	return newState
 }

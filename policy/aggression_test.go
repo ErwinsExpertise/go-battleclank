@@ -69,16 +69,16 @@ func TestCalculateAggressionScore(t *testing.T) {
 			description: "Should be defensive when outmatched",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := CalculateAggressionScore(tt.state, tt.mySpace)
-			
+
 			if result.Score < tt.minScore || result.Score > tt.maxScore {
 				t.Errorf("%s: got score %.2f, want between %.2f and %.2f",
 					tt.description, result.Score, tt.minScore, tt.maxScore)
 			}
-			
+
 			t.Logf("✓ %s: Aggression score %.2f (in range %.2f-%.2f)",
 				tt.description, result.Score, tt.minScore, tt.maxScore)
 		})
@@ -95,7 +95,7 @@ func TestShouldAttemptTrap(t *testing.T) {
 		{"Moderate aggression", AggressionScore{Score: 0.5}, false},
 		{"Low aggression", AggressionScore{Score: 0.2}, false},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ShouldAttemptTrap(tt.score)
@@ -117,7 +117,7 @@ func TestShouldPrioritizeSurvival(t *testing.T) {
 		{"Moderate aggression", AggressionScore{Score: 0.5}, false},
 		{"Low aggression", AggressionScore{Score: 0.2}, true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ShouldPrioritizeSurvival(tt.score)
@@ -144,16 +144,16 @@ func TestGetFoodWeight(t *testing.T) {
 		{"Healthy, outmatched", 80, true, 8, 12},                 // NEW: Health ceiling at 80+ = 10.0
 		{"Healthy, not outmatched", 80, false, 8, 12},            // NEW: Health ceiling at 80+ = 10.0
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &board.GameState{
 				You: board.Snake{Health: tt.health},
 			}
-			
+
 			aggression := AggressionScore{Score: 0.5}
 			weight := GetFoodWeight(state, aggression, tt.outmatched)
-			
+
 			if weight < tt.minWeight || weight > tt.maxWeight {
 				t.Errorf("GetFoodWeight(health=%d, outmatched=%v) = %.2f, want between %.2f and %.2f",
 					tt.health, tt.outmatched, weight, tt.minWeight, tt.maxWeight)
@@ -214,7 +214,7 @@ func TestIsOutmatched(t *testing.T) {
 			expected: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := IsOutmatched(tt.state, 3)

@@ -7,7 +7,7 @@ import "github.com/ErwinsExpertise/go-battleclank/engine/board"
 const (
 	// TrapSpaceThreshold is minimum percentage of space enemy must lose for trap
 	TrapSpaceThreshold = 0.15
-	
+
 	// TrapSafetyMargin is minimum space advantage we need when trapping
 	TrapSafetyMargin = 1.2
 )
@@ -17,30 +17,30 @@ const (
 func EvaluateTrapOpportunity(state *board.GameState, nextPos board.Coord, maxDepth int) float64 {
 	trapScore := 0.0
 	totalSpaces := float64(state.Board.Width * state.Board.Height)
-	
+
 	for _, enemy := range state.Board.Snakes {
 		if enemy.ID == state.You.ID {
 			continue
 		}
-		
+
 		// Calculate enemy's current reachable space
 		enemyCurrentSpace := FloodFillForSnake(state, enemy.ID, enemy.Head, maxDepth)
-		
+
 		// Simulate the move and check enemy's new space
 		// Create a simple simulation by moving our snake
 		simState := simulateOurMove(state, nextPos)
 		enemyNewSpace := FloodFillForSnake(simState, enemy.ID, enemy.Head, maxDepth)
-		
+
 		// Check space reduction
 		spaceReduction := float64(enemyCurrentSpace - enemyNewSpace)
 		spaceReductionPercent := spaceReduction / totalSpaces
-		
+
 		// Only consider trap if significant space reduction
 		if spaceReductionPercent > TrapSpaceThreshold {
 			// Safety check: ensure we have enough space
 			mySimSpace := EvaluateSpace(simState, nextPos, maxDepth)
 			enemySimSpace := float64(enemyNewSpace) / totalSpaces
-			
+
 			if mySimSpace > enemySimSpace*TrapSafetyMargin {
 				// Safe trap opportunity
 				if enemy.Length <= state.You.Length {
@@ -51,7 +51,7 @@ func EvaluateTrapOpportunity(state *board.GameState, nextPos board.Coord, maxDep
 			}
 		}
 	}
-	
+
 	return trapScore
 }
 
@@ -68,7 +68,7 @@ func simulateOurMove(state *board.GameState, newHead board.Coord) *board.GameSta
 		},
 		You: state.You,
 	}
-	
+
 	// Copy snakes and update our snake
 	for i, snake := range state.Board.Snakes {
 		if snake.ID == state.You.ID {
@@ -76,7 +76,7 @@ func simulateOurMove(state *board.GameState, newHead board.Coord) *board.GameSta
 			newBody := make([]board.Coord, len(snake.Body))
 			newBody[0] = newHead
 			copy(newBody[1:], snake.Body[:len(snake.Body)-1])
-			
+
 			newState.Board.Snakes[i] = board.Snake{
 				ID:     snake.ID,
 				Name:   snake.Name,
@@ -90,7 +90,7 @@ func simulateOurMove(state *board.GameState, newHead board.Coord) *board.GameSta
 			newState.Board.Snakes[i] = snake
 		}
 	}
-	
+
 	return newState
 }
 
@@ -98,7 +98,7 @@ func simulateOurMove(state *board.GameState, newHead board.Coord) *board.GameSta
 func IsTrapSafe(state *board.GameState, nextPos board.Coord, maxDepth int) bool {
 	simState := simulateOurMove(state, nextPos)
 	mySpace := EvaluateSpace(simState, nextPos, maxDepth)
-	
+
 	// Need reasonable amount of space after trap attempt
 	return mySpace > 0.15 // At least 15% of board
 }
@@ -111,42 +111,42 @@ func EvaluateDeadEndAhead(state *board.GameState, currentPos board.Coord, maxDep
 	currentSpace := FloodFill(state, currentPos, maxDepth)
 	bodyLength := state.You.Length
 	currentRatio := float64(currentSpace) / float64(bodyLength)
-	
+
 	if currentSpace == 0 {
 		return 0.0 // Already trapped, no point in lookahead
 	}
-	
+
 	// Simulate one move ahead for each possible direction
 	worstNextRatio := currentRatio
-	
+
 	directions := []string{"up", "down", "left", "right"}
 	for _, dir := range directions {
 		nextPos := getNextPosForDir(currentPos, dir, state)
 		if nextPos == nil {
 			continue // Invalid move
 		}
-		
+
 		// Check if this move is valid
 		if !state.Board.IsInBounds(*nextPos) || state.Board.IsOccupied(*nextPos, true) {
 			continue
 		}
-		
+
 		// Calculate space after this move
 		simState := simulateOurMove(state, *nextPos)
 		futureSpace := FloodFill(simState, *nextPos, maxDepth)
 		futureRatio := float64(futureSpace) / float64(bodyLength)
-		
+
 		if futureRatio < worstNextRatio {
 			worstNextRatio = futureRatio
 		}
 	}
-	
+
 	// If worst future ratio < 80% of current ratio, apply penalty
 	// This means all paths lead to significantly worse space
 	if worstNextRatio < currentRatio*0.8 {
 		return 200.0 // Dead end penalty
 	}
-	
+
 	return 0.0
 }
 

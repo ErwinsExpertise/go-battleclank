@@ -209,9 +209,9 @@ func TestWallApproachSpacePreference(t *testing.T) {
 
 	greedy := NewGreedySearch()
 
-	leftScore := greedy.ScoreMove(state, board.MoveLeft)  // Toward wall
-	upScore := greedy.ScoreMove(state, board.MoveUp)      // Perpendicular
-	downScore := greedy.ScoreMove(state, board.MoveDown)  // Perpendicular
+	leftScore := greedy.ScoreMove(state, board.MoveLeft)   // Toward wall
+	upScore := greedy.ScoreMove(state, board.MoveUp)       // Perpendicular
+	downScore := greedy.ScoreMove(state, board.MoveDown)   // Perpendicular
 	rightScore := greedy.ScoreMove(state, board.MoveRight) // Away from wall
 
 	t.Logf("Wall approach scores - Left: %.2f, Up: %.2f, Down: %.2f, Right: %.2f",

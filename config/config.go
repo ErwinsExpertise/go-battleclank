@@ -18,13 +18,13 @@ type Config struct {
 	} `yaml:"search"`
 
 	Weights struct {
-		Space          float64 `yaml:"space"`
-		HeadCollision  float64 `yaml:"head_collision"`
-		CenterControl  float64 `yaml:"center_control"`
-		WallPenalty    float64 `yaml:"wall_penalty"`
-		Cutoff         float64 `yaml:"cutoff"`
-		Food           float64 `yaml:"food"`
-		StraightMovement       float64 `yaml:"straight_movement"`         // bonus for continuing in same direction
+		Space                  float64 `yaml:"space"`
+		HeadCollision          float64 `yaml:"head_collision"`
+		CenterControl          float64 `yaml:"center_control"`
+		WallPenalty            float64 `yaml:"wall_penalty"`
+		Cutoff                 float64 `yaml:"cutoff"`
+		Food                   float64 `yaml:"food"`
+		StraightMovement       float64 `yaml:"straight_movement"`        // bonus for continuing in same direction
 		SpaceBaseMultiplier    float64 `yaml:"space_base_multiplier"`    // multiplier for base space weight
 		SpaceEnemyMultiplier   float64 `yaml:"space_enemy_multiplier"`   // multiplier when enemies nearby
 		SpaceHealthyMultiplier float64 `yaml:"space_healthy_multiplier"` // multiplier when healthy with good space
@@ -34,12 +34,12 @@ type Config struct {
 		Moderate              float64 `yaml:"moderate"`
 		Severe                float64 `yaml:"severe"`
 		Critical              float64 `yaml:"critical"`
-		FoodTrap              float64 `yaml:"food_trap"`              // 50% increase from 800 to prevent dangerous food
+		FoodTrap              float64 `yaml:"food_trap"` // 50% increase from 800 to prevent dangerous food
 		FoodTrapThreshold     float64 `yaml:"food_trap_threshold"`
-		FoodTrapCritical      float64 `yaml:"food_trap_critical"`      // penalty at critical health
-		FoodTrapLow           float64 `yaml:"food_trap_low"`           // penalty at low health
-		SpaceReduction60      float64 `yaml:"space_reduction_60"`      // penalty for 60%+ space reduction
-		SpaceReduction50      float64 `yaml:"space_reduction_50"`      // penalty for 50%+ space reduction
+		FoodTrapCritical      float64 `yaml:"food_trap_critical"`       // penalty at critical health
+		FoodTrapLow           float64 `yaml:"food_trap_low"`            // penalty at low health
+		SpaceReduction60      float64 `yaml:"space_reduction_60"`       // penalty for 60%+ space reduction
+		SpaceReduction50      float64 `yaml:"space_reduction_50"`       // penalty for 50%+ space reduction
 		SpaceReductionRatio60 float64 `yaml:"space_reduction_ratio_60"` // threshold ratio for 60% reduction (0.4)
 		SpaceReductionRatio50 float64 `yaml:"space_reduction_ratio_50"` // threshold ratio for 50% reduction (0.5)
 		SpaceReductionMinBase float64 `yaml:"space_reduction_min_base"` // minimum base space to apply penalties (0.2)
@@ -63,26 +63,26 @@ type Config struct {
 		Low      float64 `yaml:"low"`
 		Normal   float64 `yaml:"normal"`
 	} `yaml:"food_urgency"`
-	
+
 	FoodWeights struct {
-		CriticalHealth          float64 `yaml:"critical_health"`
+		CriticalHealth           float64 `yaml:"critical_health"`
 		CriticalHealthOutmatched float64 `yaml:"critical_health_outmatched"`
-		LowHealth               float64 `yaml:"low_health"`
-		LowHealthOutmatched     float64 `yaml:"low_health_outmatched"`
-		MediumHealth            float64 `yaml:"medium_health"`
-		MediumHealthOutmatched  float64 `yaml:"medium_health_outmatched"` // multiplier
-		HealthyBase             float64 `yaml:"healthy_base"`
-		HealthyEarlyGame        float64 `yaml:"healthy_early_game"`
-		HealthyOutmatched       float64 `yaml:"healthy_outmatched"` // multiplier
-		HealthyCeiling          int     `yaml:"healthy_ceiling"`          // health threshold for minimal food seeking
-		HealthyCeilingWeight    float64 `yaml:"healthy_ceiling_weight"`   // food weight when at/above ceiling
-		HealthyMultiplier       float64 `yaml:"healthy_multiplier"`       // multiplier for healthy range (70-79)
-		HealthyEarlyMultiplier  float64 `yaml:"healthy_early_multiplier"` // multiplier for early game when healthy
+		LowHealth                float64 `yaml:"low_health"`
+		LowHealthOutmatched      float64 `yaml:"low_health_outmatched"`
+		MediumHealth             float64 `yaml:"medium_health"`
+		MediumHealthOutmatched   float64 `yaml:"medium_health_outmatched"` // multiplier
+		HealthyBase              float64 `yaml:"healthy_base"`
+		HealthyEarlyGame         float64 `yaml:"healthy_early_game"`
+		HealthyOutmatched        float64 `yaml:"healthy_outmatched"`       // multiplier
+		HealthyCeiling           int     `yaml:"healthy_ceiling"`          // health threshold for minimal food seeking
+		HealthyCeilingWeight     float64 `yaml:"healthy_ceiling_weight"`   // food weight when at/above ceiling
+		HealthyMultiplier        float64 `yaml:"healthy_multiplier"`       // multiplier for healthy range (70-79)
+		HealthyEarlyMultiplier   float64 `yaml:"healthy_early_multiplier"` // multiplier for early game when healthy
 	} `yaml:"food_weights"`
 
 	LateGame struct {
-		TurnThreshold      int     `yaml:"turn_threshold"`
-		CautionMultiplier  float64 `yaml:"caution_multiplier"`
+		TurnThreshold     int     `yaml:"turn_threshold"`
+		CautionMultiplier float64 `yaml:"caution_multiplier"`
 	} `yaml:"late_game"`
 
 	Hybrid struct {
@@ -97,13 +97,23 @@ type Config struct {
 	} `yaml:"hybrid"`
 
 	Optimization struct {
-		Enabled          bool    `yaml:"enabled"`
-		LearningRate     float64 `yaml:"learning_rate"`
-		BatchSize        int     `yaml:"batch_size"`
-		Episodes         int     `yaml:"episodes"`
-		ExplorationRate  float64 `yaml:"exploration_rate"`
-		DiscountFactor   float64 `yaml:"discount_factor"`
+		Enabled         bool    `yaml:"enabled"`
+		LearningRate    float64 `yaml:"learning_rate"`
+		BatchSize       int     `yaml:"batch_size"`
+		Episodes        int     `yaml:"episodes"`
+		ExplorationRate float64 `yaml:"exploration_rate"`
+		DiscountFactor  float64 `yaml:"discount_factor"`
 	} `yaml:"optimization"`
+
+	EmergencyWallEscape struct {
+		MinDistance         int     `yaml:"min_distance"`          // Minimum Manhattan distance to detect enemy threat
+		MaxDistance         int     `yaml:"max_distance"`          // Maximum Manhattan distance to detect enemy threat
+		TurnBonus           float64 `yaml:"turn_bonus"`            // Bonus for turning toward wall in emergency
+		CloseBonus          float64 `yaml:"close_bonus"`           // Higher bonus when enemy is very close
+		AwayPenalty         float64 `yaml:"away_penalty"`          // Penalty for turning away from wall
+		CloseThreshold      int     `yaml:"close_threshold"`       // Distance threshold for "very close" enemy
+		CoordTolerance      int     `yaml:"coord_tolerance"`       // Tolerance for "similar coordinates" in head-on detection
+	} `yaml:"emergency_wall_escape"`
 }
 
 var (
@@ -146,7 +156,7 @@ func GetConfig() *Config {
 		mu.Lock()
 		globalConfig = config
 		mu.Unlock()
-		
+
 		log.Printf("✓ Configuration loaded successfully:")
 		log.Printf("  - Algorithm: %s", config.Search.Algorithm)
 		log.Printf("  - Space weight: %.1f", config.Weights.Space)
@@ -177,13 +187,13 @@ func ReloadConfig() error {
 	mu.Lock()
 	globalConfig = config
 	mu.Unlock()
-	
+
 	log.Printf("✓ Configuration reloaded:")
 	log.Printf("  - Algorithm: %s", config.Search.Algorithm)
 	log.Printf("  - Space weight: %.1f", config.Weights.Space)
 	log.Printf("  - Head collision weight: %.1f", config.Weights.HeadCollision)
 	log.Printf("  - Food trap penalty: %.1f", config.Traps.FoodTrap)
-	
+
 	return nil
 }
 
@@ -210,14 +220,14 @@ func GetDefaultConfig() *Config {
 	config.Traps.Moderate = 250.0
 	config.Traps.Severe = 450.0
 	config.Traps.Critical = 600.0
-	config.Traps.FoodTrap = 1200.0  // Increased 50% from 800 to prevent dangerous food pursuit
+	config.Traps.FoodTrap = 1200.0 // Increased 50% from 800 to prevent dangerous food pursuit
 	config.Traps.FoodTrapCritical = 500.0
 	config.Traps.FoodTrapLow = 800.0
 	config.Traps.SpaceReduction60 = 1500.0
 	config.Traps.SpaceReduction50 = 800.0
-	config.Traps.SpaceReductionRatio60 = 0.4  // 60% reduction threshold
-	config.Traps.SpaceReductionRatio50 = 0.5  // 50% reduction threshold
-	config.Traps.SpaceReductionMinBase = 0.2  // minimum base space to check
+	config.Traps.SpaceReductionRatio60 = 0.4 // 60% reduction threshold
+	config.Traps.SpaceReductionRatio50 = 0.5 // 50% reduction threshold
+	config.Traps.SpaceReductionMinBase = 0.2 // minimum base space to check
 	config.Traps.FoodTrapThreshold = 0.7
 
 	config.Pursuit.Distance2 = 100.0
@@ -232,21 +242,21 @@ func GetDefaultConfig() *Config {
 	config.FoodUrgency.Critical = 1.8
 	config.FoodUrgency.Low = 1.4
 	config.FoodUrgency.Normal = 1.0
-	
+
 	// Food weight configuration (tunable by training)
 	config.FoodWeights.CriticalHealth = 500.0
 	config.FoodWeights.CriticalHealthOutmatched = 400.0
 	config.FoodWeights.LowHealth = 220.0
 	config.FoodWeights.LowHealthOutmatched = 180.0
 	config.FoodWeights.MediumHealth = 120.0
-	config.FoodWeights.MediumHealthOutmatched = 0.6  // multiplier
+	config.FoodWeights.MediumHealthOutmatched = 0.6 // multiplier
 	config.FoodWeights.HealthyBase = 80.0
 	config.FoodWeights.HealthyEarlyGame = 100.0
-	config.FoodWeights.HealthyOutmatched = 0.5  // multiplier
-	config.FoodWeights.HealthyCeiling = 80  // health threshold for minimal food seeking
+	config.FoodWeights.HealthyOutmatched = 0.5      // multiplier
+	config.FoodWeights.HealthyCeiling = 80          // health threshold for minimal food seeking
 	config.FoodWeights.HealthyCeilingWeight = 10.0  // minimal food weight at/above ceiling
-	config.FoodWeights.HealthyMultiplier = 0.5  // multiplier for healthy range (70-79)
-	config.FoodWeights.HealthyEarlyMultiplier = 0.6  // multiplier for early game when healthy
+	config.FoodWeights.HealthyMultiplier = 0.5      // multiplier for healthy range (70-79)
+	config.FoodWeights.HealthyEarlyMultiplier = 0.6 // multiplier for early game when healthy
 
 	config.LateGame.TurnThreshold = 150
 	config.LateGame.CautionMultiplier = 1.1
@@ -266,6 +276,15 @@ func GetDefaultConfig() *Config {
 	config.Optimization.Episodes = 1000
 	config.Optimization.ExplorationRate = 0.1
 	config.Optimization.DiscountFactor = 0.95
+
+	// Emergency wall escape configuration
+	config.EmergencyWallEscape.MinDistance = 2
+	config.EmergencyWallEscape.MaxDistance = 4
+	config.EmergencyWallEscape.TurnBonus = 150.0
+	config.EmergencyWallEscape.CloseBonus = 200.0
+	config.EmergencyWallEscape.AwayPenalty = 100.0
+	config.EmergencyWallEscape.CloseThreshold = 2
+	config.EmergencyWallEscape.CoordTolerance = 3
 
 	return config
 }
