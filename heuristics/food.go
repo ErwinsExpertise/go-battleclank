@@ -78,6 +78,7 @@ func abs(x int) int {
 }
 
 // EvaluateFoodProximity scores based on distance to nearest safe food
+// Now also considers path quality - penalizes paths that lead to worse positions
 func EvaluateFoodProximity(state *board.GameState, pos board.Coord, useAStar bool, maxAStarNodes int) float64 {
 	if len(state.Board.Food) == 0 {
 		return 0
@@ -109,11 +110,120 @@ func EvaluateFoodProximity(state *board.GameState, pos board.Coord, useAStar boo
 		return (1.0 / float64(distance)) * 0.1
 	}
 	
-	// Normal food score
-	if distance == 0 {
+	// Base food score
+	baseScore := 1.0
+	if distance > 0 {
+		baseScore = 1.0 / float64(distance)
+	}
+	
+	// NEW: Evaluate path quality - penalize if moving toward food reduces space/options
+	pathQualityFactor := EvaluatePathQuality(state, pos, nearestFood)
+	
+	return baseScore * pathQualityFactor
+}
+
+// EvaluatePathQuality checks if the path toward food leads to progressively worse positions
+// Returns a multiplier between 0.5 and 1.0 based on path quality
+func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) float64 {
+	// Calculate current space at position
+	currentSpace := FloodFill(state, fromPos, 93)
+	
+	// If we're already very constrained, don't penalize further
+	if currentSpace < 10 {
 		return 1.0
 	}
-	return 1.0 / float64(distance)
+	
+	// Check if food is in a corner or near a wall
+	foodDistFromWalls := getMinDistanceFromWalls(state, toFood)
+	if foodDistFromWalls == 0 {
+		// Food is against a wall - check if it's a corner
+		wallCount := 0
+		if toFood.X == 0 || toFood.X == state.Board.Width-1 {
+			wallCount++
+		}
+		if toFood.Y == 0 || toFood.Y == state.Board.Height-1 {
+			wallCount++
+		}
+		
+		if wallCount >= 2 {
+			// Food is in a corner - moderate penalty unless desperate
+			if float64(currentSpace) > 0.3*float64(state.Board.Width*state.Board.Height) {
+				return 0.7
+			}
+		}
+	}
+	
+	// Calculate direction toward food
+	dx := toFood.X - fromPos.X
+	dy := toFood.Y - fromPos.Y
+	
+	// If food is very close (1-2 steps), don't penalize
+	manhattanDist := abs(dx) + abs(dy)
+	if manhattanDist <= 2 {
+		return 1.0
+	}
+	
+	// Normalize to get unit direction
+	var moveTowardFood board.Coord
+	if abs(dx) > abs(dy) {
+		// Move horizontally toward food
+		if dx > 0 {
+			moveTowardFood = board.Coord{X: fromPos.X + 1, Y: fromPos.Y}
+		} else {
+			moveTowardFood = board.Coord{X: fromPos.X - 1, Y: fromPos.Y}
+		}
+	} else {
+		// Move vertically toward food
+		if dy > 0 {
+			moveTowardFood = board.Coord{X: fromPos.X, Y: fromPos.Y + 1}
+		} else {
+			moveTowardFood = board.Coord{X: fromPos.X, Y: fromPos.Y - 1}
+		}
+	}
+	
+	// Check if move toward food is valid
+	if !state.Board.IsInBounds(moveTowardFood) || state.Board.IsOccupied(moveTowardFood, true) {
+		return 1.0 // Can't move that way anyway, don't apply path quality penalty
+	}
+	
+	// Calculate space at position toward food
+	spaceTowardFood := FloodFill(state, moveTowardFood, 93)
+	
+	// Calculate space reduction ratio
+	spaceReduction := float64(currentSpace-spaceTowardFood) / float64(currentSpace)
+	
+	// Only penalize if space reduction is significant
+	if spaceReduction > 0.4 {
+		// Moving toward food cuts space by >40% - moderate penalty
+		return 0.7
+	} else if spaceReduction > 0.25 {
+		// Moving toward food cuts space by >25% - light penalty
+		return 0.85
+	}
+	
+	// Path looks good - no penalty
+	return 1.0
+}
+
+// getMinDistanceFromWalls returns the minimum distance from any wall
+func getMinDistanceFromWalls(state *board.GameState, pos board.Coord) int {
+	distFromLeft := pos.X
+	distFromRight := state.Board.Width - 1 - pos.X
+	distFromBottom := pos.Y
+	distFromTop := state.Board.Height - 1 - pos.Y
+	
+	minDist := distFromLeft
+	if distFromRight < minDist {
+		minDist = distFromRight
+	}
+	if distFromBottom < minDist {
+		minDist = distFromBottom
+	}
+	if distFromTop < minDist {
+		minDist = distFromTop
+	}
+	
+	return minDist
 }
 
 // A* implementation for pathfinding
