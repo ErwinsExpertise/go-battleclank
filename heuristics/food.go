@@ -12,6 +12,16 @@ const (
 	// DefaultFloodFillDepth is the standard depth limit for flood fill operations
 	// This matches the typical board size limit (11x11 = 121 cells, using 93 for performance)
 	DefaultFloodFillDepth = 93
+	
+	// Path quality thresholds for space reduction penalties
+	// These determine when moving toward food becomes penalized due to space loss
+	PathQualityHighReduction    = 0.4  // >40% space reduction gets strong penalty (0.7x multiplier)
+	PathQualityModerateReduction = 0.25 // >25% space reduction gets light penalty (0.85x multiplier)
+	
+	// Path quality multipliers applied to food score
+	PathQualityCornerPenalty   = 0.7  // Penalty for food in corners
+	PathQualityHighPenalty     = 0.7  // Penalty for high space reduction
+	PathQualityModeratePenalty = 0.85 // Penalty for moderate space reduction
 )
 
 // FindNearestFoodManhattan finds the nearest food using Manhattan distance
@@ -76,6 +86,9 @@ func IsFoodDangerous(state *board.GameState, food board.Coord, dangerRadius int)
 	return false
 }
 
+// abs returns the absolute value of an integer.
+// Using a custom implementation instead of math.Abs because math.Abs works with float64,
+// and converting int->float64->int adds unnecessary overhead and potential precision issues.
 func abs(x int) int {
 	if x < 0 {
 		return -x
@@ -130,6 +143,8 @@ func EvaluateFoodProximity(state *board.GameState, pos board.Coord, useAStar boo
 
 // EvaluatePathQuality checks if the path toward food leads to progressively worse positions
 // Returns a multiplier between 0.5 and 1.0 based on path quality
+// Note: This function calls FloodFill twice - once for current position and once for
+// the position toward food. Both calls are necessary to compare space availability.
 func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) float64 {
 	// Calculate current space at position
 	currentSpace := FloodFill(state, fromPos, DefaultFloodFillDepth)
@@ -154,7 +169,7 @@ func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) fl
 		if wallCount >= 2 {
 			// Food is in a corner - moderate penalty unless desperate
 			if float64(currentSpace) > 0.3*float64(state.Board.Width*state.Board.Height) {
-				return 0.7
+				return PathQualityCornerPenalty
 			}
 		}
 	}
@@ -199,12 +214,12 @@ func EvaluatePathQuality(state *board.GameState, fromPos, toFood board.Coord) fl
 	spaceReduction := float64(currentSpace-spaceTowardFood) / float64(currentSpace)
 	
 	// Only penalize if space reduction is significant
-	if spaceReduction > 0.4 {
-		// Moving toward food cuts space by >40% - moderate penalty
-		return 0.7
-	} else if spaceReduction > 0.25 {
+	if spaceReduction > PathQualityHighReduction {
+		// Moving toward food cuts space by >40% - strong penalty
+		return PathQualityHighPenalty
+	} else if spaceReduction > PathQualityModerateReduction {
 		// Moving toward food cuts space by >25% - light penalty
-		return 0.85
+		return PathQualityModeratePenalty
 	}
 	
 	// Path looks good - no penalty
