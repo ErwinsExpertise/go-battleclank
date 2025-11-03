@@ -46,6 +46,13 @@ func NewGreedySearch() *GreedySearch {
 
 // FindBestMove evaluates all possible moves and returns the best one
 func (g *GreedySearch) FindBestMove(state *board.GameState) string {
+	// PRIORITY 1: Check for deterministic cutoff kill opportunity
+	// This bypasses all other strategies and scoring
+	cutoffMove := heuristics.DetectCutoffKill(state)
+	if cutoffMove != "" {
+		return cutoffMove
+	}
+	
 	bestMove := board.MoveUp
 	bestScore := -math.MaxFloat64
 	
