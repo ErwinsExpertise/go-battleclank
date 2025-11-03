@@ -88,10 +88,14 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	mySpace := heuristics.EvaluateSpace(state, myHead, g.MaxDepth)
 	nextSpace := heuristics.EvaluateSpace(state, nextPos, g.MaxDepth)
 	
-	// CRITICAL: Avoid moves that drastically reduce our space
-	if nextSpace < mySpace * 0.3 && mySpace > 0.2 {
-		// Moving here cuts our space by 70%+ - dangerous!
-		score -= 1000.0
+	// CRITICAL: Avoid moves that drastically reduce our space (prevents self-trapping)
+	cfg := config.GetConfig()
+	if nextSpace < mySpace * cfg.Traps.SpaceReductionRatio60 && mySpace > cfg.Traps.SpaceReductionMinBase {
+		// Moving here cuts our space by 60%+ - dangerous!
+		score -= cfg.Traps.SpaceReduction60
+	} else if nextSpace < mySpace * cfg.Traps.SpaceReductionRatio50 && mySpace > cfg.Traps.SpaceReductionMinBase {
+		// Moving here cuts our space by 50%+ - risky
+		score -= cfg.Traps.SpaceReduction50
 	}
 	
 	// NEW: One-move lookahead for dead end detection (matches baseline snake)
@@ -117,16 +121,16 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	
 	// Space availability - CRITICAL for survival (use pre-calculated nextSpace)
 	spaceFactor := nextSpace
-	spaceWeight := g.SpaceWeight
+	spaceWeight := g.SpaceWeight * cfg.Weights.SpaceBaseMultiplier
 	
 	// Increase space weight when enemies are nearby
 	if hasEnemiesNearby(state, 3) {
-		spaceWeight = g.SpaceWeight * 2.2  // Moderate increase
+		spaceWeight = g.SpaceWeight * cfg.Weights.SpaceEnemyMultiplier
 	}
 	
 	// Bonus for having more space when healthy (allows aggressive play)
 	if state.You.Health > policy.HealthLow && spaceFactor > 0.4 {
-		spaceWeight *= 1.1
+		spaceWeight *= cfg.Weights.SpaceHealthyMultiplier
 	}
 	
 	score += spaceFactor * spaceWeight
@@ -146,11 +150,11 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		isTrap, _ := heuristics.EvaluateFoodTrapRatio(state, nextPos, g.MaxDepth)
 		if isTrap {
 			// Food death trap - dangerous but reduce penalty if health is critical
-			foodTrapPenalty := 800.0
+			foodTrapPenalty := cfg.Traps.FoodTrap
 			if state.You.Health < policy.HealthCritical {
-				foodTrapPenalty = 400.0  // Risk it when starving
+				foodTrapPenalty = cfg.Traps.FoodTrapCritical
 			} else if state.You.Health < policy.HealthLow {
-				foodTrapPenalty = 600.0  // Reduced risk when low health
+				foodTrapPenalty = cfg.Traps.FoodTrapLow
 			}
 			score -= foodTrapPenalty
 		}

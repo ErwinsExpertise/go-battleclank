@@ -8,6 +8,10 @@ food_weights:
   healthy_base: 80.0
   healthy_early_game: 100.0
   healthy_outmatched: 0.5
+  healthy_ceiling: 80
+  healthy_ceiling_weight: 10.0
+  healthy_multiplier: 0.5
+  healthy_early_multiplier: 0.6
   low_health: 220.0
   low_health_outmatched: 180.0
   medium_health: 120.0
@@ -59,6 +63,11 @@ traps:
   food_trap_threshold: 0.59
   moderate: 2000.0
   severe: 407.5
+  space_reduction_50: 800.0
+  space_reduction_60: 1500.0
+  space_reduction_ratio_50: 0.5
+  space_reduction_ratio_60: 0.4
+  space_reduction_min_base: 0.2
 weights:
   center_control: 2.1
   cutoff: 958.8

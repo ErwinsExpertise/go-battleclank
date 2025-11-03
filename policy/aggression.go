@@ -157,6 +157,12 @@ func ShouldPrioritizeSurvival(aggression AggressionScore) bool {
 func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatched bool) float64 {
 	cfg := getFoodWeightsConfig()
 	
+	// Health ceiling - significantly reduce food seeking when very healthy
+	if state.You.Health >= cfg.HealthyCeiling {
+		// Very healthy - minimal food seeking, focus on positioning
+		return cfg.HealthyCeilingWeight
+	}
+	
 	if state.You.Health < HealthCritical {
 		// Critical health - food is high priority but not absolute
 		if outmatched {
@@ -177,10 +183,10 @@ func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatche
 		}
 		return baseWeight
 	} else {
-		// Healthy - focus on positioning and tactics, food is secondary
-		baseWeight := cfg.HealthyBase
+		// Healthy (70-79) - reduced food priority
+		baseWeight := cfg.HealthyBase * cfg.HealthyMultiplier
 		if state.Turn < 50 {
-			baseWeight = cfg.HealthyEarlyGame
+			baseWeight = cfg.HealthyEarlyGame * cfg.HealthyEarlyMultiplier
 		}
 		
 		if outmatched {
@@ -223,6 +229,10 @@ type FoodWeightsConfig struct {
 	HealthyBase             float64
 	HealthyEarlyGame        float64
 	HealthyOutmatched       float64
+	HealthyCeiling          int
+	HealthyCeilingWeight    float64
+	HealthyMultiplier       float64
+	HealthyEarlyMultiplier  float64
 }
 
 // getFoodWeightsConfig returns food weights from config or defaults
@@ -238,5 +248,9 @@ func getFoodWeightsConfig() FoodWeightsConfig {
 		HealthyBase:             cfg.FoodWeights.HealthyBase,
 		HealthyEarlyGame:        cfg.FoodWeights.HealthyEarlyGame,
 		HealthyOutmatched:       cfg.FoodWeights.HealthyOutmatched,
+		HealthyCeiling:          cfg.FoodWeights.HealthyCeiling,
+		HealthyCeilingWeight:    cfg.FoodWeights.HealthyCeilingWeight,
+		HealthyMultiplier:       cfg.FoodWeights.HealthyMultiplier,
+		HealthyEarlyMultiplier:  cfg.FoodWeights.HealthyEarlyMultiplier,
 	}
 }
