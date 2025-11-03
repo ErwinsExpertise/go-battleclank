@@ -3,7 +3,7 @@ food_urgency:
   low: 1.0
   normal: 1.09
 food_weights:
-  critical_health: 500.0
+  critical_health: 499.1
   critical_health_outmatched: 400.0
   healthy_base: 80.0
   healthy_ceiling: 80
@@ -21,7 +21,7 @@ hybrid:
   critical_nearby_enemies: 2
   critical_space_ratio: 2.9
   lookahead_depth: 3
-  mcts_iterations: 86
+  mcts_iterations: 87
   mcts_timeout_ms: 209
   use_lookahead_on_critical: true
   use_mcts_in_endgame: true
@@ -50,7 +50,7 @@ tactics:
   aggressive_space_control_weight: 30.0
   aggressive_space_turn_threshold: 50
   energy_conservation_weight: 12.7
-  inward_trap_min_enemy_length: 5
+  inward_trap_min_enemy_length: 6
   inward_trap_weight: 45.0
   predictive_avoidance_weight: 112.0
 trapping:
