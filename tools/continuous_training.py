@@ -1550,6 +1550,10 @@ class ContinuousTrainer:
             
             start_time = time.time()
             
+            # Initialize variables that may not be set in all code paths
+            win_rate_std = 0.0
+            death_analysis = {}
+            
             # Load current best config
             current_config = self.load_config()
             
@@ -1611,14 +1615,14 @@ class ContinuousTrainer:
                 'iteration': iteration,
                 'timestamp': datetime.now().isoformat(),
                 'win_rate': win_rate,
-                'win_rate_std': win_rate_std if 'win_rate_std' in locals() else 0.0,
+                'win_rate_std': win_rate_std,
                 'best_win_rate': self.state['best_win_rate'],
                 'improvement': win_rate - self.state['best_win_rate'],
                 'games': self.games_per_iteration,
                 'benchmark_rounds': self.benchmark_rounds,
                 'duration_seconds': int(duration),
                 'config': candidate_config,
-                'death_analysis': death_analysis if 'death_analysis' in locals() else {}
+                'death_analysis': death_analysis
             }
             self.log_iteration(iteration_data)
             

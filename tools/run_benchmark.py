@@ -133,30 +133,28 @@ class BenchmarkRunner:
     
     def _categorize_death(self, turns, winner, output):
         """Categorize death reason based on available context"""
-        # If we lost, try to categorize why
-        if winner != "go-battleclank":
-            # Check for specific patterns in output
-            if "eliminated" in output.lower():
-                # Try to extract elimination reason from output
-                # Check head collision first (before general collision)
-                for line in output.split('\n'):
-                    if 'eliminated' in line.lower():
-                        if 'head' in line.lower() and 'collision' in line.lower():
-                            return "head_collision"
-                        elif 'starvation' in line.lower() or 'starved' in line.lower():
-                            return "starvation"
-                        elif 'collision' in line.lower():
-                            return "collision"
-            
-            # Categorize by game phase
-            if turns < 50:
-                return "early_game_death"
-            elif turns < 150:
-                return "mid_game_death"
-            else:
-                return "late_game_death"
+        # If we won, no death reason needed
+        if winner == "go-battleclank":
+            return None
         
-        return None
+        # Check for specific patterns in output (single pass optimization)
+        output_lower = output.lower()
+        if "eliminated" in output_lower:
+            # Check head collision first (more specific than general collision)
+            if 'head' in output_lower and 'collision' in output_lower:
+                return "head_collision"
+            elif 'starvation' in output_lower or 'starved' in output_lower:
+                return "starvation"
+            elif 'collision' in output_lower:
+                return "collision"
+        
+        # Categorize by game phase if no specific reason found
+        if turns < 50:
+            return "early_game_death"
+        elif turns < 150:
+            return "mid_game_death"
+        else:
+            return "late_game_death"
     
     def run_benchmark(self):
         """Run all games and collect statistics"""
