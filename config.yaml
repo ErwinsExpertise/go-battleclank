@@ -1,3 +1,5 @@
+# DISABLED: Emergency wall escape feature (caused win regression in PR #60)
+# This feature is no longer active but config is kept for reference
 emergency_wall_escape:
   away_penalty: 100.0
   close_bonus: 200.0

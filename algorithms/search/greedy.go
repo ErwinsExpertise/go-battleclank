@@ -137,10 +137,12 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 
 	score -= dangerLevel * dangerMultiplier
 
-	// EMERGENCY: Wall-side escape logic for head-on collision scenarios
-	// When near wall with enemy approaching head-on, prefer turning toward wall for U-turn escape
-	wallEscapeBonus := evaluateWallEscapeEmergency(state, myHead, nextPos, move)
-	score += wallEscapeBonus
+	// EMERGENCY: Wall-side escape logic for head-on collision scenarios (DISABLED - caused win regression)
+	// This logic was added in PR #60 but caused the snake to win far less often
+	// The bonuses/penalties were too aggressive and overrode better strategic choices
+	// Keeping the function for reference but not using it
+	// wallEscapeBonus := evaluateWallEscapeEmergency(state, myHead, nextPos, move)
+	// score += wallEscapeBonus
 
 	// Space availability - CRITICAL for survival (use pre-calculated nextSpace)
 	spaceFactor := nextSpace
