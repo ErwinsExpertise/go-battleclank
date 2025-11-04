@@ -1,6 +1,6 @@
 emergency_wall_escape:
-  away_penalty: 40.0
-  close_bonus: 75.0
+  away_penalty: 50.0
+  close_bonus: 78.4
   close_threshold: 2
   coord_tolerance: 1
   max_distance: 3
@@ -19,7 +19,7 @@ food_weights:
   healthy_early_game: 100.0
   healthy_early_multiplier: 0.6
   healthy_multiplier: 0.5
-  healthy_outmatched: 0.51
+  healthy_outmatched: 0.58
   low_health: 220.0
   low_health_outmatched: 180.0
   medium_health: 115.0
@@ -46,7 +46,7 @@ optimization:
 pursuit:
   distance_2: 77.1
   distance_3: 39.9
-  distance_4: 30.3
+  distance_4: 31.4
   distance_5: 10.6
 search:
   algorithm: hybrid
@@ -71,7 +71,7 @@ traps:
   food_trap_threshold: 0.59
   moderate: 2000.0
   severe: 467.4
-  space_reduction_50: 800.0
+  space_reduction_50: 874.4
   space_reduction_60: 1500.0
   space_reduction_min_base: 1.0
   space_reduction_ratio_50: 1.0
@@ -82,5 +82,5 @@ weights:
   food: 12.4
   head_collision: 1000.0
   space: 31.5
-  straight_movement: 25.0
+  straight_movement: 25.9
   wall_penalty: 30.0
