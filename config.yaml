@@ -77,10 +77,10 @@ traps:
   space_reduction_ratio_50: 1.0
   space_reduction_ratio_60: 0.4
 weights:
-  center_control: 2.3
+  center_control: 75.0
   cutoff: 958.8
-  food: 3.2
+  food: 3.7
   head_collision: 1000.0
-  space: 13.9
+  space: 16.0
   straight_movement: 25.0
-  wall_penalty: 7.7
+  wall_penalty: 30.0
