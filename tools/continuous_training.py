@@ -666,7 +666,8 @@ class ContinuousTrainer:
                 timeout=num_games * 60  # 60 seconds per game max
             )
             
-            win_rate = 0.0
+            # Initialize return values (will be populated from stdout or file)
+            win_rate = 0.0  # Ratio format (0.0-1.0)
             death_analysis = {}
             
             # Parse output for win rate
@@ -699,6 +700,7 @@ class ContinuousTrainer:
                     with open(result_files[-1], 'r') as f:
                         data = json.load(f)
                         if win_rate == 0.0:  # Only use file data if we didn't parse from stdout
+                            # File stores win_rate as percentage (0-100), convert to ratio (0-1)
                             win_rate = data.get('results', {}).get('win_rate', 0.0) / 100.0
                         death_analysis = data.get('death_analysis', {})
             

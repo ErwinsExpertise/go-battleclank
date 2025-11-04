@@ -83,7 +83,14 @@ class BenchmarkRunner:
                 self.rust_process.kill()
     
     def run_game(self, game_num):
-        """Run a single game and return the winner, turns, and death context"""
+        """Run a single game and return the winner, turns, and death context
+        
+        Returns:
+            tuple: (winner, turns, death_context) where:
+                - winner: str - Name of winning snake or "draw"/"error"
+                - turns: int - Number of turns played
+                - death_context: str or None - Death reason category if lost
+        """
         try:
             # Get battlesnake path
             gopath = subprocess.check_output(['go', 'env', 'GOPATH'], text=True).strip()
