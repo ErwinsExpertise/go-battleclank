@@ -1,13 +1,14 @@
-# DISABLED: Emergency wall escape feature (caused win regression in PR #60)
-# This feature is no longer active but config is kept for reference
+# NOTE: Emergency wall escape feature was removed (caused win regression in PR #60)
+# The feature was too aggressive and overrode better strategic decisions
+# Config section kept for backwards compatibility with training scripts
 emergency_wall_escape:
-  away_penalty: 100.0
-  close_bonus: 200.0
-  close_threshold: 2
-  coord_tolerance: 3
-  max_distance: 4
-  min_distance: 2
-  turn_bonus: 150.0
+  away_penalty: 0.0
+  close_bonus: 0.0
+  close_threshold: 0
+  coord_tolerance: 0
+  max_distance: 0
+  min_distance: 0
+  turn_bonus: 0.0
 food_urgency:
   critical: 1.65
   low: 1.0
