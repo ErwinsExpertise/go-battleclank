@@ -522,3 +522,113 @@ func getWallSide(pos board.Coord, boardWidth, boardHeight int) string {
 
 	return ""
 }
+
+// EvaluateWallInterception detects when an enemy is heading toward a wall and calculates
+// an interception route to trap them. Returns bonus score if this move helps with interception.
+// NEW AGGRESSIVE TACTIC: Cut off enemies heading to walls
+func EvaluateWallInterception(state *board.GameState, nextPos board.Coord) float64 {
+	score := 0.0
+	myHead := state.You.Head
+	
+	// Only attempt when we're healthy and aggressive
+	if state.You.Health < 50 {
+		return 0.0
+	}
+	
+	for _, enemy := range state.Board.Snakes {
+		if enemy.ID == state.You.ID || len(enemy.Body) < 2 {
+			continue
+		}
+		
+		// Determine enemy's direction
+		enemyHead := enemy.Head
+		enemyNeck := enemy.Body[1]
+		enemyDx := enemyHead.X - enemyNeck.X
+		enemyDy := enemyHead.Y - enemyNeck.Y
+		
+		// Check if enemy is heading toward a wall (within 5 tiles and moving toward it)
+		isHeadingToWall := false
+		var wallX, wallY int
+		
+		// Check left wall
+		if enemyDx < 0 && enemyHead.X <= 5 {
+			isHeadingToWall = true
+			wallX = 0
+			wallY = enemyHead.Y
+		}
+		// Check right wall
+		if enemyDx > 0 && enemyHead.X >= state.Board.Width-6 {
+			isHeadingToWall = true
+			wallX = state.Board.Width - 1
+			wallY = enemyHead.Y
+		}
+		// Check bottom wall
+		if enemyDy < 0 && enemyHead.Y <= 5 {
+			isHeadingToWall = true
+			wallX = enemyHead.X
+			wallY = 0
+		}
+		// Check top wall
+		if enemyDy > 0 && enemyHead.Y >= state.Board.Height-6 {
+			isHeadingToWall = true
+			wallX = enemyHead.X
+			wallY = state.Board.Height - 1
+		}
+		
+		if !isHeadingToWall {
+			continue
+		}
+		
+		// Calculate interception point - ahead of enemy along their path
+		interceptX := enemyHead.X + enemyDx * 2
+		interceptY := enemyHead.Y + enemyDy * 2
+		
+		// Clamp to board bounds
+		if interceptX < 0 {
+			interceptX = 0
+		} else if interceptX >= state.Board.Width {
+			interceptX = state.Board.Width - 1
+		}
+		if interceptY < 0 {
+			interceptY = 0
+		} else if interceptY >= state.Board.Height {
+			interceptY = state.Board.Height - 1
+		}
+		
+		interceptPoint := board.Coord{X: interceptX, Y: interceptY}
+		
+		// Calculate distances
+		myDistToIntercept := board.ManhattanDistance(myHead, interceptPoint)
+		enemyDistToWall := board.ManhattanDistance(enemyHead, board.Coord{X: wallX, Y: wallY})
+		nextDistToIntercept := board.ManhattanDistance(nextPos, interceptPoint)
+		
+		// Only pursue if we can reasonably intercept (we're closer or equal distance)
+		if myDistToIntercept > enemyDistToWall+3 {
+			continue
+		}
+		
+		// Check if this move brings us closer to the interception point
+		if nextDistToIntercept < myDistToIntercept {
+			// Moving toward interception point
+			closerBy := float64(myDistToIntercept - nextDistToIntercept)
+			
+			// Bonus scales with how much closer we get and how trapped the enemy is
+			trapFactor := 1.0
+			if enemyDistToWall <= 3 {
+				trapFactor = 2.0 // Enemy is very close to wall - big opportunity
+			}
+			
+			// Size advantage bonus
+			sizeAdvantage := 1.0
+			if state.You.Length > enemy.Length+2 {
+				sizeAdvantage = 1.5 // We're significantly larger
+			} else if state.You.Length <= enemy.Length {
+				sizeAdvantage = 0.5 // They're equal or larger - less aggressive
+			}
+			
+			score += closerBy * 30.0 * trapFactor * sizeAdvantage
+		}
+	}
+	
+	return score
+}

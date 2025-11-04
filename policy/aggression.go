@@ -30,23 +30,35 @@ type AggressionScore struct {
 
 // CalculateAggressionScore determines how aggressive the snake should be
 // Returns a score from 0.0 (defensive) to 1.0 (aggressive)
+// INCREASED AGGRESSION: More aggressive when we have size/health advantage
 func CalculateAggressionScore(state *board.GameState, mySpace float64) AggressionScore {
 	score := 0.5 // Start neutral
 
 	myLength := state.You.Length
 	myHealth := state.You.Health
 
-	// Health factor
+	// Health factor - MORE AGGRESSIVE when healthy
 	healthFactor := 0.0
 	if myHealth >= AggressionHealthThreshold {
-		healthFactor = 0.2
-		score += 0.2
+		healthFactor = 0.3 // Was 0.2 - increased by 50%
+		score += 0.3
 	} else if myHealth < HealthCritical {
 		healthFactor = -0.3
 		score -= 0.3
 	}
 
-	// Length advantage factor
+	// NEW: Size-based aggression boost
+	// After reaching half the board length, become significantly more aggressive
+	if state.Board.Width > 0 && state.Board.Height > 0 {
+		halfBoardLength := (state.Board.Width + state.Board.Height) / 2
+		if myLength >= halfBoardLength {
+			score += 0.2
+		} else if myLength >= halfBoardLength * 3/4 {
+			score += 0.1
+		}
+	}
+
+	// Length advantage factor - MUCH MORE AGGRESSIVE
 	lengthFactor := 0.0
 	if len(state.Board.Snakes) > 1 {
 		totalEnemyLength := 0
@@ -66,22 +78,22 @@ func CalculateAggressionScore(state *board.GameState, mySpace float64) Aggressio
 		if enemyCount > 0 {
 			avgEnemyLength := float64(totalEnemyLength) / float64(enemyCount)
 
-			// Compare to longest enemy
+			// Compare to longest enemy - INCREASED bonuses
 			if myLength > longestEnemy+AggressionLengthAdvantage {
-				lengthFactor = 0.3
-				score += 0.3
+				lengthFactor = 0.4 // Was 0.3 - increased by 33%
+				score += 0.4
 			} else if myLength > longestEnemy {
-				lengthFactor = 0.1
-				score += 0.1
+				lengthFactor = 0.2 // Was 0.1 - doubled
+				score += 0.2
 			} else if myLength < longestEnemy-AggressionLengthAdvantage {
 				lengthFactor = -0.2
 				score -= 0.2
 			}
 
-			// Compare to average
+			// Compare to average - INCREASED bonus
 			if float64(myLength) > avgEnemyLength+1 {
-				lengthFactor += 0.1
-				score += 0.1
+				lengthFactor += 0.15 // Was 0.1 - increased by 50%
+				score += 0.15
 			}
 		}
 	}
@@ -154,34 +166,53 @@ func ShouldPrioritizeSurvival(aggression AggressionScore) bool {
 
 // GetFoodWeight returns appropriate food seeking weight based on health and aggression
 // Uses config values to allow tuning by continuous training
+// REDUCED FOOD SEEKING: After reaching half board length, minimize food seeking
 func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatched bool) float64 {
 	cfg := getFoodWeightsConfig()
+	
+	// NEW: Size-based food reduction
+	// After reaching half the board length, drastically reduce food seeking
+	sizeReductionFactor := 1.0
+	if state.Board.Width > 0 && state.Board.Height > 0 {
+		halfBoardLength := (state.Board.Width + state.Board.Height) / 2
+		
+		if state.You.Length >= halfBoardLength {
+			// We're big enough - reduce food seeking by 60% to focus on aggression
+			sizeReductionFactor = 0.4
+		} else if state.You.Length >= halfBoardLength * 3/4 {
+			// Getting close - reduce by 30%
+			sizeReductionFactor = 0.7
+		}
+	}
 
 	// Health ceiling - significantly reduce food seeking when very healthy
 	if state.You.Health >= cfg.HealthyCeiling {
 		// Very healthy - minimal food seeking, focus on positioning
-		return cfg.HealthyCeilingWeight
+		return cfg.HealthyCeilingWeight * sizeReductionFactor
 	}
 
 	if state.You.Health < HealthCritical {
 		// Critical health - food is high priority but not absolute
+		// Don't apply size reduction when health is critical
 		if outmatched {
 			return cfg.CriticalHealthOutmatched
 		}
 		return cfg.CriticalHealth
 	} else if state.You.Health < HealthLow {
 		// Low health - seek food but consider survival
+		// Reduced size penalty when health is low
+		reducedFactor := sizeReductionFactor * 0.5 + 0.5 // Soften the reduction
 		if outmatched {
-			return cfg.LowHealthOutmatched
+			return cfg.LowHealthOutmatched * reducedFactor
 		}
-		return cfg.LowHealth
+		return cfg.LowHealth * reducedFactor
 	} else if state.You.Health < 70 {
 		// Medium health - moderate food priority
 		baseWeight := cfg.MediumHealth
 		if outmatched {
-			return baseWeight * cfg.MediumHealthOutmatched
+			return baseWeight * cfg.MediumHealthOutmatched * sizeReductionFactor
 		}
-		return baseWeight
+		return baseWeight * sizeReductionFactor
 	} else {
 		// Healthy (70-79) - reduced food priority
 		baseWeight := cfg.HealthyBase * cfg.HealthyMultiplier
@@ -190,9 +221,9 @@ func GetFoodWeight(state *board.GameState, aggression AggressionScore, outmatche
 		}
 
 		if outmatched {
-			return baseWeight * cfg.HealthyOutmatched
+			return baseWeight * cfg.HealthyOutmatched * sizeReductionFactor
 		}
-		return baseWeight
+		return baseWeight * sizeReductionFactor
 	}
 }
 

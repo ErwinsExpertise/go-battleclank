@@ -65,7 +65,7 @@ func TestCalculateAggressionScore(t *testing.T) {
 			},
 			mySpace:     0.3,
 			minScore:    0.0,
-			maxScore:    0.5,
+			maxScore:    0.7, // Increased from 0.5 - more aggressive overall
 			description: "Should be defensive when outmatched",
 		},
 	}

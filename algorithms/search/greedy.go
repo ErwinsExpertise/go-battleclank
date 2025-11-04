@@ -219,6 +219,13 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		score += trapScore * trapWeight
 	}
 
+	// NEW: Wall interception - aggressively cut off enemies heading to walls
+	// Only when we're aggressive and healthy
+	if aggression.Score > 0.5 && state.You.Health > 50 {
+		wallInterceptScore := heuristics.EvaluateWallInterception(state, nextPos)
+		score += wallInterceptScore
+	}
+
 	// Survival bonus: MASSIVELY reward moves that maintain good space
 	if nextSpace > 0.3 {
 		survivalBonus := 120.0 // Large bonus for good space

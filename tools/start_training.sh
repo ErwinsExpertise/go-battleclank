@@ -67,7 +67,7 @@ while true; do
     python3 tools/continuous_training.py \
         --games 100 \
         --checkpoint-interval 10 \
-        --min-improvement 0.1 \
+        --min-improvement 0.001 \
         --parallel-configs $PARALLEL_CONFIGS \
         2>&1 | tee -a "$LOG_FILE"
     
