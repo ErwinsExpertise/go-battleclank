@@ -5,7 +5,7 @@ emergency_wall_escape:
   coord_tolerance: 0
   max_distance: 3
   min_distance: 2
-  turn_bonus: 50.0
+  turn_bonus: 51.8
 food_urgency:
   critical: 1.65
   low: 1.0
@@ -13,13 +13,13 @@ food_urgency:
 food_weights:
   critical_health: 499.1
   critical_health_outmatched: 400.0
-  healthy_base: 80.0
+  healthy_base: 71.0
   healthy_ceiling: 80
   healthy_ceiling_weight: 10.0
   healthy_early_game: 100.0
   healthy_early_multiplier: 0.6
   healthy_multiplier: 0.5
-  healthy_outmatched: 0.48
+  healthy_outmatched: 0.51
   low_health: 220.0
   low_health_outmatched: 180.0
   medium_health: 115.0
@@ -46,7 +46,7 @@ optimization:
 pursuit:
   distance_2: 77.1
   distance_3: 39.9
-  distance_4: 31.5
+  distance_4: 30.3
   distance_5: 9.5
 search:
   algorithm: hybrid
@@ -79,7 +79,7 @@ traps:
 weights:
   center_control: 2.3
   cutoff: 958.8
-  food: 2.3
+  food: 2.4
   head_collision: 850.0
   space: 10.5
   straight_movement: 25.0
