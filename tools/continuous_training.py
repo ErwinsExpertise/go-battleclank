@@ -1582,6 +1582,17 @@ class ContinuousTrainer:
                 
                 print(f"  Best of {len(results)} parallel configs: {win_rate:.1%}")
                 
+                # Run a final benchmark with death analysis on the best config
+                print(f"  Running death analysis on best config...")
+                self.save_config(candidate_config)
+                reload_success = self.reload_config_via_endpoint()
+                if not reload_success:
+                    self.rebuild_snake()
+                # Use single round for death analysis to avoid extra overhead
+                stats = self.run_benchmark_rounds(self.games_per_iteration, rounds=1)
+                death_analysis = stats.get('death_analysis', {})
+                self.state['total_games'] += self.games_per_iteration
+                
             else:
                 # Sequential mode: Generate and test single candidate
                 print("🔄 Generating candidate configuration...")
