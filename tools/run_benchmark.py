@@ -83,13 +83,14 @@ class BenchmarkRunner:
                 self.rust_process.kill()
     
     def run_game(self, game_num):
-        """Run a single game and return the winner, turns, and death context
+        """Run a single game and return the winner, turns, death reason, and game phase
         
         Returns:
-            tuple: (winner, turns, death_context) where:
+            tuple: (winner, turns, death_reason, game_phase) where:
                 - winner: str - Name of winning snake or "draw"/"error"
                 - turns: int - Number of turns played
-                - death_context: str or None - Death reason category if lost
+                - death_reason: str or None - Actual death reason (head_collision, starvation, etc.)
+                - game_phase: str or None - Game phase when death occurred (early, mid, late)
         """
         try:
             # Get battlesnake path
@@ -123,45 +124,70 @@ class BenchmarkRunner:
                 turns = int(match.group(1))
                 winner = match.group(2)
                 
-                # Categorize death reason based on turn number and context
-                death_context = self._categorize_death(turns, winner, output)
-                return winner, turns, death_context
+                # Get death reason and game phase separately
+                death_reason, game_phase = self._categorize_death(turns, winner, output)
+                return winner, turns, death_reason, game_phase
             
             # Check if both snakes died
             if "Game completed" in output and "no winner" in output.lower():
-                return "draw", 0, "both-eliminated"
+                phase = self._get_game_phase(0)
+                return "draw", 0, "both_eliminated", phase
             
-            return "error", 0, "parse-failed"
+            return "error", 0, "parse_failed", None
             
         except subprocess.TimeoutExpired:
-            return "error", 0, "timeout"
+            return "error", 0, "timeout", None
         except Exception as e:
-            return "error", 0, str(e)
+            return "error", 0, str(e), None
+    
+    def _get_game_phase(self, turns):
+        """Determine game phase based on turn count"""
+        if turns < 50:
+            return "early"
+        elif turns < 150:
+            return "mid"
+        else:
+            return "late"
     
     def _categorize_death(self, turns, winner, output):
-        """Categorize death reason based on available context"""
-        # If we won, no death reason needed
+        """Categorize death reason and game phase separately
+        
+        Returns:
+            tuple: (death_reason, game_phase) where:
+                - death_reason: actual cause of death (head_collision, starvation, etc.) or None if won
+                - game_phase: early/mid/late or None if won
+        """
+        # If we won, no death reason or phase needed
         if winner == "go-battleclank":
-            return None
+            return None, None
         
-        # Check for specific patterns in output (single pass optimization)
+        # Determine game phase first
+        game_phase = self._get_game_phase(turns)
+        
+        # Parse actual death reason from output (single pass optimization)
         output_lower = output.lower()
-        if "eliminated" in output_lower:
-            # Check head collision first (more specific than general collision)
-            if 'head' in output_lower and 'collision' in output_lower:
-                return "head_collision"
-            elif 'starvation' in output_lower or 'starved' in output_lower:
-                return "starvation"
-            elif 'collision' in output_lower:
-                return "collision"
+        death_reason = "unknown"  # Default if we can't determine specific reason
         
-        # Categorize by game phase if no specific reason found
-        if turns < 50:
-            return "early_game_death"
-        elif turns < 150:
-            return "mid_game_death"
-        else:
-            return "late_game_death"
+        if "eliminated" in output_lower:
+            # Check for specific death causes
+            if 'head' in output_lower and 'collision' in output_lower:
+                death_reason = "head_collision"
+            elif 'starvation' in output_lower or 'starved' in output_lower:
+                death_reason = "starvation"
+            elif 'self' in output_lower and 'collision' in output_lower:
+                death_reason = "self_collision"
+            elif 'body' in output_lower and 'collision' in output_lower:
+                death_reason = "body_collision"
+            elif 'wall' in output_lower and 'collision' in output_lower:
+                death_reason = "wall_collision"
+            elif 'collision' in output_lower:
+                death_reason = "collision"
+            elif 'trap' in output_lower:
+                death_reason = "trapped"
+            elif 'out of bounds' in output_lower:
+                death_reason = "out_of_bounds"
+        
+        return death_reason, game_phase
     
     def run_benchmark(self):
         """Run all games and collect statistics"""
@@ -186,9 +212,9 @@ class BenchmarkRunner:
         draws = 0
         errors = 0
         
-        # Track death reasons for failed games
-        death_reasons = {}
-        turn_stats = {"early": 0, "mid": 0, "late": 0}
+        # Track death reasons and phases separately for failed games
+        death_reasons = {}  # Actual causes: head_collision, starvation, etc.
+        death_by_phase = {"early": 0, "mid": 0, "late": 0}  # Game phase when death occurred
         
         print("\n" + "="*60)
         print("  Running Games")
@@ -198,7 +224,7 @@ class BenchmarkRunner:
             progress = i / self.num_games * 100
             print(f"Game {i}/{self.num_games} ({progress:.1f}%)...", end=" ", flush=True)
             
-            winner, turns, death_context = self.run_game(i)
+            winner, turns, death_reason, game_phase = self.run_game(i)
             
             if winner == "go-battleclank":
                 wins += 1
@@ -207,23 +233,20 @@ class BenchmarkRunner:
                 losses += 1
                 print(f"LOSS (turns: {turns})")
                 
-                # Track death reason
-                if death_context:
-                    death_reasons[death_context] = death_reasons.get(death_context, 0) + 1
+                # Track actual death reason
+                if death_reason:
+                    death_reasons[death_reason] = death_reasons.get(death_reason, 0) + 1
                     
-                    # Track by game phase
-                    if turns < 50:
-                        turn_stats["early"] += 1
-                    elif turns < 150:
-                        turn_stats["mid"] += 1
-                    else:
-                        turn_stats["late"] += 1
+                # Track by game phase
+                if game_phase:
+                    death_by_phase[game_phase] = death_by_phase.get(game_phase, 0) + 1
             elif winner == "draw":
                 draws += 1
                 print(f"DRAW")
             else:
                 errors += 1
-                print(f"ERROR ({death_context})")
+                error_msg = death_reason if death_reason else "unknown"
+                print(f"ERROR ({error_msg})")
         
         if self.manage_servers:
             self.cleanup()
@@ -239,18 +262,23 @@ class BenchmarkRunner:
         print(f"Draws:  {draws} ({(draws/self.num_games)*100:.1f}%)")
         print(f"Errors: {errors}\n")
         
-        # Print death reason analysis
+        # Print death reason analysis (actual causes)
         if death_reasons:
-            print("Death Reason Analysis:")
+            print("Death Reason Analysis (by actual cause):")
             for reason, count in sorted(death_reasons.items(), key=lambda x: x[1], reverse=True):
                 pct = (count / losses * 100) if losses > 0 else 0
                 print(f"  {reason}: {count} ({pct:.1f}% of losses)")
             print()
-            
+        
+        # Print death by game phase analysis
+        total_phase_deaths = sum(death_by_phase.values())
+        if total_phase_deaths > 0:
             print("Death by Game Phase:")
-            for phase, count in turn_stats.items():
-                pct = (count / losses * 100) if losses > 0 else 0
-                print(f"  {phase}: {count} ({pct:.1f}% of losses)")
+            for phase in ["early", "mid", "late"]:
+                count = death_by_phase.get(phase, 0)
+                if count > 0:
+                    pct = (count / total_phase_deaths * 100) if total_phase_deaths > 0 else 0
+                    print(f"  {phase}: {count} ({pct:.1f}% of losses)")
             print()
         
         # Save results
@@ -271,7 +299,7 @@ class BenchmarkRunner:
             },
             "death_analysis": {
                 "by_reason": death_reasons,
-                "by_phase": turn_stats
+                "by_phase": death_by_phase
             }
         }
         
