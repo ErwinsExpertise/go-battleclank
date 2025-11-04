@@ -260,7 +260,7 @@ class LLMWeightAdvisor:
             return None
     
     def _build_prompt(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None):
-        """Build a prompt for the LLM with training context, NN patterns, and change history"""
+        """Build a prompt for the LLM with training context, NN patterns, death reasons, and change history"""
         # Summarize recent performance - increased from 10 to 30 for more context
         recent_improvements = [h for h in recent_history[-30:] if h.get('improvement', 0) > 0]
         recent_declines = [h for h in recent_history[-30:] if h.get('improvement', 0) <= 0]
@@ -272,6 +272,9 @@ class LLMWeightAdvisor:
         pattern_insights = ""
         if nn_patterns:
             pattern_insights = f"\nNeural Network Insights:\n{nn_patterns}\n"
+        
+        # Aggregate death reason statistics from recent failed runs
+        death_summary = self._summarize_death_reasons(recent_history[-30:])
         
         prompt = f"""<|system|>
 You are an AI expert in Battlesnake game optimization. Analyze training results and suggest parameter adjustments.
@@ -285,6 +288,7 @@ Recent performance (last 30 iterations):
 - Declines: {len(recent_declines)} ({len(recent_declines)/30*100:.1f}%)
 - Stagnating: {'Yes' if len(recent_improvements) == 0 else 'No'}
 {pattern_insights}
+{death_summary}
 Previously tried adjustments (avoid repeating):
 {change_summary}
 
@@ -302,7 +306,8 @@ Based on this data, which 3-5 parameters should be adjusted and by how much (+/-
 3. Balance offensive (food) and defensive (traps) parameters
 4. Avoid parameters that were recently tried without success
 5. Follow neural network insights on winning patterns
-6. Respond with parameter names and adjustment directions only.
+6. Address common death reasons with targeted parameter changes
+7. Respond with parameter names and adjustment directions only.
 </s>
 <|assistant|>
 Based on analysis, I suggest adjusting:"""
@@ -379,6 +384,68 @@ Based on analysis, I suggest adjusting:"""
             summary_parts.append(f"{param} ({count}x)")
         
         return "Recently adjusted: " + ", ".join(summary_parts)
+    
+    def _summarize_death_reasons(self, history_slice):
+        """Summarize death reasons from recent iterations for LLM context
+        
+        Args:
+            history_slice: List of recent iteration data dictionaries
+            
+        Returns:
+            str: Formatted death reason summary
+        """
+        if not history_slice:
+            return ""
+        
+        # Aggregate death reasons across iterations
+        total_by_reason = {}
+        total_by_phase = {'early': 0, 'mid': 0, 'late': 0}
+        total_iterations = 0
+        
+        for iteration in history_slice:
+            death_analysis = iteration.get('death_analysis', {})
+            if not death_analysis:
+                continue
+            
+            total_iterations += 1
+            
+            # Aggregate by reason
+            by_reason = death_analysis.get('by_reason', {})
+            for reason, count in by_reason.items():
+                total_by_reason[reason] = total_by_reason.get(reason, 0) + count
+            
+            # Aggregate by phase
+            by_phase = death_analysis.get('by_phase', {})
+            for phase, count in by_phase.items():
+                if phase in total_by_phase:
+                    total_by_phase[phase] += count
+        
+        if not total_by_reason and sum(total_by_phase.values()) == 0:
+            return ""
+        
+        # Build summary string
+        summary_parts = ["\nDeath Reason Analysis (recent losses):"]
+        
+        # Top death reasons
+        if total_by_reason:
+            sorted_reasons = sorted(total_by_reason.items(), key=lambda x: x[1], reverse=True)[:3]
+            total_deaths = sum(total_by_reason.values())
+            
+            for reason, count in sorted_reasons:
+                pct = (count / total_deaths * 100) if total_deaths > 0 else 0
+                summary_parts.append(f"- {reason}: {count} ({pct:.1f}%)")
+        
+        # Death by game phase
+        total_phase_deaths = sum(total_by_phase.values())
+        if total_phase_deaths > 0:
+            summary_parts.append("\nBy game phase:")
+            for phase in ['early', 'mid', 'late']:
+                count = total_by_phase[phase]
+                if count > 0:
+                    pct = (count / total_phase_deaths * 100)
+                    summary_parts.append(f"- {phase}: {count} ({pct:.1f}%)")
+        
+        return "\n".join(summary_parts)
 
 
 def _test_single_config_worker(args):
@@ -628,14 +695,14 @@ class ContinuousTrainer:
             f.write(json.dumps(iteration_data) + '\n')
     
     def run_benchmark(self, num_games, algorithm=None):
-        """Run benchmark and return win rate
+        """Run benchmark and return win rate with death analysis
         
         Args:
             num_games: Number of games to run
             algorithm: Algorithm to use (overrides config if specified)
         
         Returns:
-            float: Win rate (0.0 to 1.0)
+            tuple: (win_rate, death_analysis_dict) where death_analysis contains reason/phase stats
         """
         algo_str = f" with {algorithm}" if algorithm else ""
         print(f"  Running {num_games}-game benchmark{algo_str}...")
@@ -664,6 +731,9 @@ class ContinuousTrainer:
                 timeout=num_games * 60  # 60 seconds per game max
             )
             
+            win_rate = 0.0
+            death_analysis = {}
+            
             # Parse output for win rate
             # Look for "Wins:   X (YY.Y%)" format
             for line in result.stdout.split('\n'):
@@ -673,7 +743,6 @@ class ContinuousTrainer:
                     if match:
                         try:
                             win_rate = float(match.group(1)) / 100.0
-                            return win_rate
                         except:
                             pass
                 # Also support legacy "Win rate:" format
@@ -683,28 +752,32 @@ class ContinuousTrainer:
                     if len(parts) >= 2:
                         pct_str = parts[1].strip().split()[0].replace('%', '')
                         try:
-                            return float(pct_str) / 100.0
+                            win_rate = float(pct_str) / 100.0
                         except:
                             pass
             
-            # Fallback: try to find results file
+            # Fallback: try to find results file for both win rate and death analysis
             results_dir = Path('benchmark_results_live')
             if results_dir.exists():
                 result_files = sorted(results_dir.glob('results_*.json'))
                 if result_files:
                     with open(result_files[-1], 'r') as f:
                         data = json.load(f)
-                        return data.get('win_rate', 0.0)
+                        if win_rate == 0.0:  # Only use file data if we didn't parse from stdout
+                            win_rate = data.get('results', {}).get('win_rate', 0.0) / 100.0
+                        death_analysis = data.get('death_analysis', {})
             
-            print(f"  Warning: Could not parse win rate, assuming 0")
-            return 0.0
+            if win_rate == 0.0:
+                print(f"  Warning: Could not parse win rate, assuming 0")
+            
+            return win_rate, death_analysis
             
         except subprocess.TimeoutExpired:
             print(f"  Warning: Benchmark timeout, assuming 0")
-            return 0.0
+            return 0.0, {}
         except Exception as e:
             print(f"  Error running benchmark: {e}")
-            return 0.0
+            return 0.0, {}
         finally:
             # Restore original config if modified
             if config_modified and original_config:
@@ -715,7 +788,7 @@ class ContinuousTrainer:
                     pass
     
     def run_benchmark_rounds(self, num_games, rounds=1, algorithm=None):
-        """Run multiple benchmark rounds and return statistics
+        """Run multiple benchmark rounds and return statistics with aggregated death analysis
         
         Args:
             num_games: Number of games per round
@@ -723,26 +796,29 @@ class ContinuousTrainer:
             algorithm: Algorithm to use (overrides config if specified)
         
         Returns:
-            dict: Statistics including mean, std, min, max, and all round results
+            dict: Statistics including mean, std, min, max, all round results, and aggregated death analysis
         """
         if rounds == 1:
-            win_rate = self.run_benchmark(num_games, algorithm)
+            win_rate, death_analysis = self.run_benchmark(num_games, algorithm)
             return {
                 'mean': win_rate,
                 'std': 0.0,
                 'min': win_rate,
                 'max': win_rate,
                 'rounds': [win_rate],
-                'count': 1
+                'count': 1,
+                'death_analysis': death_analysis
             }
         
         print(f"  📊 Running {rounds} rounds for validation (averaging)...")
         round_results = []
+        all_death_analyses = []
         
         for round_num in range(1, rounds + 1):
             print(f"    Round {round_num}/{rounds}...", end=" ", flush=True)
-            win_rate = self.run_benchmark(num_games, algorithm)
+            win_rate, death_analysis = self.run_benchmark(num_games, algorithm)
             round_results.append(win_rate)
+            all_death_analyses.append(death_analysis)
             print(f"{win_rate:.1%}")
         
         if PYTORCH_AVAILABLE:
@@ -756,6 +832,9 @@ class ContinuousTrainer:
             min_wr = min(round_results)
             max_wr = max(round_results)
         
+        # Aggregate death analysis across all rounds
+        aggregated_death_analysis = self._aggregate_death_analyses(all_death_analyses)
+        
         print(f"  📊 Average: {mean_wr:.1%} (±{std_wr:.1%}), Range: [{min_wr:.1%}, {max_wr:.1%}]")
         
         return {
@@ -764,8 +843,40 @@ class ContinuousTrainer:
             'min': min_wr,
             'max': max_wr,
             'rounds': round_results,
-            'count': rounds
+            'count': rounds,
+            'death_analysis': aggregated_death_analysis
         }
+    
+    def _aggregate_death_analyses(self, analyses):
+        """Aggregate death analyses from multiple rounds
+        
+        Args:
+            analyses: List of death_analysis dictionaries
+            
+        Returns:
+            dict: Aggregated death analysis with combined statistics
+        """
+        aggregated = {
+            'by_reason': {},
+            'by_phase': {'early': 0, 'mid': 0, 'late': 0}
+        }
+        
+        for analysis in analyses:
+            if not analysis:
+                continue
+            
+            # Aggregate by reason
+            by_reason = analysis.get('by_reason', {})
+            for reason, count in by_reason.items():
+                aggregated['by_reason'][reason] = aggregated['by_reason'].get(reason, 0) + count
+            
+            # Aggregate by phase
+            by_phase = analysis.get('by_phase', {})
+            for phase, count in by_phase.items():
+                if phase in aggregated['by_phase']:
+                    aggregated['by_phase'][phase] += count
+        
+        return aggregated
     
     def run_parallel_benchmarks(self, configs, games_per_config):
         """Run benchmarks for multiple configurations in parallel to maximize GPU usage
@@ -1489,11 +1600,12 @@ class ContinuousTrainer:
                 stats = self.run_benchmark_rounds(self.games_per_iteration, rounds=self.benchmark_rounds)
                 win_rate = stats['mean']  # Use average win rate
                 win_rate_std = stats['std']
+                death_analysis = stats.get('death_analysis', {})
                 self.state['total_games'] += self.games_per_iteration * self.benchmark_rounds
             
             duration = time.time() - start_time
             
-            # Log iteration
+            # Log iteration with death analysis
             iteration_data = {
                 'iteration': iteration,
                 'timestamp': datetime.now().isoformat(),
@@ -1504,7 +1616,8 @@ class ContinuousTrainer:
                 'games': self.games_per_iteration,
                 'benchmark_rounds': self.benchmark_rounds,
                 'duration_seconds': int(duration),
-                'config': candidate_config
+                'config': candidate_config,
+                'death_analysis': death_analysis if 'death_analysis' in locals() else {}
             }
             self.log_iteration(iteration_data)
             
