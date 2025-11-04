@@ -150,7 +150,7 @@ class BenchmarkRunner:
                 # Clean up temporary file
                 try:
                     os.unlink(game_state_file)
-                except:
+                except (OSError, FileNotFoundError):
                     pass
             
         except subprocess.TimeoutExpired:
@@ -250,15 +250,18 @@ class BenchmarkRunner:
         last_state_with_snake = None
         state_before_death = None
         
-        for i, state in enumerate(reversed(states)):
+        # Reverse states once for efficient iteration
+        reversed_states = list(reversed(states))
+        
+        for i, state in enumerate(reversed_states):
             snakes = state['board']['snakes']
             for snake in snakes:
                 if snake['id'] == our_snake_id:
                     our_snake = snake
                     last_state_with_snake = state
                     # Get the state before this one (if available)
-                    if i + 1 < len(states):
-                        state_before_death = list(reversed(states))[i + 1]
+                    if i + 1 < len(reversed_states):
+                        state_before_death = reversed_states[i + 1]
                     break
             if our_snake:
                 break
@@ -274,8 +277,10 @@ class BenchmarkRunner:
         board_width = last_state_with_snake['board']['width']
         board_height = last_state_with_snake['board']['height']
         
-        # We need to infer what move the snake made that led to death
-        # by comparing the state before death (if available)
+        # Infer collision type by analyzing state transitions
+        # Note: When a snake dies, it's removed from the board. The last state where
+        # our snake exists (last_state_with_snake) is from the turn BEFORE death.
+        # We analyze what happened on the next move to determine collision type.
         if state_before_death:
             # Find snake's position in previous state
             prev_snake = None
