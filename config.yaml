@@ -2,7 +2,7 @@ emergency_wall_escape:
   away_penalty: 40.0
   close_bonus: 75.0
   close_threshold: 2
-  coord_tolerance: 0
+  coord_tolerance: 1
   max_distance: 3
   min_distance: 2
   turn_bonus: 51.8
@@ -56,7 +56,7 @@ search:
 tactics:
   adaptive_wall_hugging_weight: 25.0
   aggressive_space_control_weight: 30.0
-  aggressive_space_turn_threshold: 50
+  aggressive_space_turn_threshold: 51
   energy_conservation_weight: 14.5
   inward_trap_min_enemy_length: 6
   inward_trap_weight: 45.0
