@@ -14,7 +14,7 @@ food_weights:
   critical_health: 499.1
   critical_health_outmatched: 400.0
   healthy_base: 71.0
-  healthy_ceiling: 80
+  healthy_ceiling: 89
   healthy_ceiling_weight: 10.0
   healthy_early_game: 100.0
   healthy_early_multiplier: 0.6
@@ -47,17 +47,17 @@ pursuit:
   distance_2: 77.1
   distance_3: 39.9
   distance_4: 30.3
-  distance_5: 9.5
+  distance_5: 10.6
 search:
   algorithm: hybrid
-  max_astar_nodes: 335
+  max_astar_nodes: 368
   max_depth: 93
   use_astar: true
 tactics:
   adaptive_wall_hugging_weight: 25.0
   aggressive_space_control_weight: 30.0
   aggressive_space_turn_threshold: 50
-  energy_conservation_weight: 12.7
+  energy_conservation_weight: 14.5
   inward_trap_min_enemy_length: 6
   inward_trap_weight: 45.0
   predictive_avoidance_weight: 112.0
@@ -80,7 +80,7 @@ weights:
   center_control: 2.3
   cutoff: 958.8
   food: 2.4
-  head_collision: 850.0
+  head_collision: 852.5
   space: 10.5
   straight_movement: 25.0
   wall_penalty: 7.7
