@@ -138,14 +138,15 @@ class BenchmarkRunner:
             # Check for specific patterns in output
             if "eliminated" in output.lower():
                 # Try to extract elimination reason from output
+                # Check head collision first (before general collision)
                 for line in output.split('\n'):
                     if 'eliminated' in line.lower():
-                        if 'collision' in line.lower():
-                            return "collision"
+                        if 'head' in line.lower() and 'collision' in line.lower():
+                            return "head_collision"
                         elif 'starvation' in line.lower() or 'starved' in line.lower():
                             return "starvation"
-                        elif 'head' in line.lower():
-                            return "head_collision"
+                        elif 'collision' in line.lower():
+                            return "collision"
             
             # Categorize by game phase
             if turns < 50:

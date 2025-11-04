@@ -224,14 +224,14 @@ class LLMWeightAdvisor:
                     print("  Falling back to random perturbation")
                     self.model = None
     
-    def suggest_adjustments(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None):
+    def suggest_adjustments(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None, death_summary=""):
         """Use LLM to suggest intelligent weight adjustments based on training history and NN patterns"""
         if self.model is None or self.tokenizer is None:
             return None
         
         try:
             # Build context for the LLM including NN patterns and change history
-            prompt = self._build_prompt(config, recent_history, current_win_rate, best_win_rate, nn_patterns)
+            prompt = self._build_prompt(config, recent_history, current_win_rate, best_win_rate, nn_patterns, death_summary)
             
             # Generate suggestion
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
@@ -259,7 +259,7 @@ class LLMWeightAdvisor:
             print(f"  ⚠ LLM suggestion failed: {e}")
             return None
     
-    def _build_prompt(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None):
+    def _build_prompt(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None, death_summary=""):
         """Build a prompt for the LLM with training context, NN patterns, death reasons, and change history"""
         # Summarize recent performance - increased from 10 to 30 for more context
         recent_improvements = [h for h in recent_history[-30:] if h.get('improvement', 0) > 0]
@@ -272,9 +272,6 @@ class LLMWeightAdvisor:
         pattern_insights = ""
         if nn_patterns:
             pattern_insights = f"\nNeural Network Insights:\n{nn_patterns}\n"
-        
-        # Aggregate death reason statistics from recent failed runs
-        death_summary = self._summarize_death_reasons(recent_history[-30:])
         
         prompt = f"""<|system|>
 You are an AI expert in Battlesnake game optimization. Analyze training results and suggest parameter adjustments.
@@ -384,68 +381,6 @@ Based on analysis, I suggest adjusting:"""
             summary_parts.append(f"{param} ({count}x)")
         
         return "Recently adjusted: " + ", ".join(summary_parts)
-    
-    def _summarize_death_reasons(self, history_slice):
-        """Summarize death reasons from recent iterations for LLM context
-        
-        Args:
-            history_slice: List of recent iteration data dictionaries
-            
-        Returns:
-            str: Formatted death reason summary
-        """
-        if not history_slice:
-            return ""
-        
-        # Aggregate death reasons across iterations
-        total_by_reason = {}
-        total_by_phase = {'early': 0, 'mid': 0, 'late': 0}
-        total_iterations = 0
-        
-        for iteration in history_slice:
-            death_analysis = iteration.get('death_analysis', {})
-            if not death_analysis:
-                continue
-            
-            total_iterations += 1
-            
-            # Aggregate by reason
-            by_reason = death_analysis.get('by_reason', {})
-            for reason, count in by_reason.items():
-                total_by_reason[reason] = total_by_reason.get(reason, 0) + count
-            
-            # Aggregate by phase
-            by_phase = death_analysis.get('by_phase', {})
-            for phase, count in by_phase.items():
-                if phase in total_by_phase:
-                    total_by_phase[phase] += count
-        
-        if not total_by_reason and sum(total_by_phase.values()) == 0:
-            return ""
-        
-        # Build summary string
-        summary_parts = ["\nDeath Reason Analysis (recent losses):"]
-        
-        # Top death reasons
-        if total_by_reason:
-            sorted_reasons = sorted(total_by_reason.items(), key=lambda x: x[1], reverse=True)[:3]
-            total_deaths = sum(total_by_reason.values())
-            
-            for reason, count in sorted_reasons:
-                pct = (count / total_deaths * 100) if total_deaths > 0 else 0
-                summary_parts.append(f"- {reason}: {count} ({pct:.1f}%)")
-        
-        # Death by game phase
-        total_phase_deaths = sum(total_by_phase.values())
-        if total_phase_deaths > 0:
-            summary_parts.append("\nBy game phase:")
-            for phase in ['early', 'mid', 'late']:
-                count = total_by_phase[phase]
-                if count > 0:
-                    pct = (count / total_phase_deaths * 100)
-                    summary_parts.append(f"- {phase}: {count} ({pct:.1f}%)")
-        
-        return "\n".join(summary_parts)
 
 
 def _test_single_config_worker(args):
@@ -878,6 +813,68 @@ class ContinuousTrainer:
         
         return aggregated
     
+    def _summarize_death_reasons(self, history_slice):
+        """Summarize death reasons from recent iterations for LLM context
+        
+        Args:
+            history_slice: List of recent iteration data dictionaries
+            
+        Returns:
+            str: Formatted death reason summary
+        """
+        if not history_slice:
+            return ""
+        
+        # Aggregate death reasons across iterations
+        total_by_reason = {}
+        total_by_phase = {'early': 0, 'mid': 0, 'late': 0}
+        total_iterations = 0
+        
+        for iteration in history_slice:
+            death_analysis = iteration.get('death_analysis', {})
+            if not death_analysis:
+                continue
+            
+            total_iterations += 1
+            
+            # Aggregate by reason
+            by_reason = death_analysis.get('by_reason', {})
+            for reason, count in by_reason.items():
+                total_by_reason[reason] = total_by_reason.get(reason, 0) + count
+            
+            # Aggregate by phase
+            by_phase = death_analysis.get('by_phase', {})
+            for phase, count in by_phase.items():
+                if phase in total_by_phase:
+                    total_by_phase[phase] += count
+        
+        if not total_by_reason and sum(total_by_phase.values()) == 0:
+            return ""
+        
+        # Build summary string
+        summary_parts = ["\nDeath Reason Analysis (recent losses):"]
+        
+        # Top death reasons
+        if total_by_reason:
+            sorted_reasons = sorted(total_by_reason.items(), key=lambda x: x[1], reverse=True)[:3]
+            total_deaths = sum(total_by_reason.values())
+            
+            for reason, count in sorted_reasons:
+                pct = (count / total_deaths * 100) if total_deaths > 0 else 0
+                summary_parts.append(f"- {reason}: {count} ({pct:.1f}%)")
+        
+        # Death by game phase
+        total_phase_deaths = sum(total_by_phase.values())
+        if total_phase_deaths > 0:
+            summary_parts.append("\nBy game phase:")
+            for phase in ['early', 'mid', 'late']:
+                count = total_by_phase[phase]
+                if count > 0:
+                    pct = (count / total_phase_deaths * 100)
+                    summary_parts.append(f"- {phase}: {count} ({pct:.1f}%)")
+        
+        return "\n".join(summary_parts)
+    
     def run_parallel_benchmarks(self, configs, games_per_config):
         """Run benchmarks for multiple configurations in parallel to maximize GPU usage
         
@@ -1244,16 +1241,20 @@ class ContinuousTrainer:
             except Exception as e:
                 print(f"  ⚠ NN pattern extraction warning: {e}")
         
-        # Get LLM suggestions if available, passing NN patterns
+        # Get LLM suggestions if available, passing NN patterns and death summary
         llm_suggestions = None
         if self.use_llm and self.llm_advisor is not None:
             try:
+                # Generate death summary for LLM context
+                death_summary = self._summarize_death_reasons(self.recent_history[-30:])
+                
                 llm_suggestions = self.llm_advisor.suggest_adjustments(
                     config, 
                     self.recent_history,
                     self.state.get('best_win_rate', 0.0),
                     self.state.get('best_win_rate', 0.0),
-                    nn_patterns
+                    nn_patterns,
+                    death_summary
                 )
                 if llm_suggestions:
                     print(f"  🤖 LLM suggested {len(llm_suggestions)} parameter adjustments")
