@@ -219,6 +219,13 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 		score += trapScore * trapWeight
 	}
 
+	// NEW: Wall interception - aggressively cut off enemies heading to walls
+	// Only when we're aggressive and healthy
+	if aggression.Score > 0.5 && state.You.Health > 50 {
+		wallInterceptScore := heuristics.EvaluateWallInterception(state, nextPos)
+		score += wallInterceptScore
+	}
+
 	// Survival bonus: MASSIVELY reward moves that maintain good space
 	if nextSpace > 0.3 {
 		survivalBonus := 120.0 // Large bonus for good space
@@ -478,13 +485,13 @@ func evaluateWallApproachSpace(state *board.GameState, currentPos, nextPos board
 	return 0.0
 }
 
-// evaluateWallEscapeEmergency detects emergency situations near walls where turning toward
-// the wall provides a defensive U-turn escape from head-on collision
-// This addresses the issue where snake near wall with enemy approaching head-on
-// should turn into wall rather than away (which leads to interception)
+// evaluateWallEscapeEmergency detects VERY SPECIFIC emergency situations near walls where turning
+// toward the wall provides a defensive U-turn escape from head-on collision.
+// MUCH MORE RESTRICTIVE than original PR #60 - only activates in extremely specific scenarios
+// to avoid overriding better strategic decisions.
 func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos board.Coord, move string) float64 {
-	cfg := config.GetConfig()
-	// Only activate when within 1 tile of wall
+	// RESTRICTION 1: Only activate when EXACTLY at wall (0 tiles away), not 1 tile away
+	// This makes it much more specific to true emergency situations
 	distToLeftWall := currentPos.X
 	distToRightWall := state.Board.Width - 1 - currentPos.X
 	distToBottomWall := currentPos.Y
@@ -506,8 +513,8 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 		nearWall = "top"
 	}
 
-	// Only activate when within 1 tile of wall
-	if minDistToWall > 1 {
+	// MUCH MORE RESTRICTIVE: only when AT the wall (was >1, now >0)
+	if minDistToWall > 0 {
 		return 0.0
 	}
 
@@ -524,17 +531,15 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 		// Check distance to enemy head
 		dist := board.ManhattanDistance(currentPos, snake.Head)
 
-		// Enemy must be within detection range to be a threat (not too far, not too close)
-		// Use <= to include enemies exactly at MinDistance
-		if dist < cfg.EmergencyWallEscape.MinDistance || dist > cfg.EmergencyWallEscape.MaxDistance {
+		// RESTRICTION 2: Narrower distance range (was 2-4, now 2-3)
+		// Enemy must be very close for this to be a true emergency
+		if dist < 2 || dist > 3 {
 			continue
 		}
 
-		// Check if enemy is same size or larger (head-on would be bad for us)
-		// This check is per-enemy and should be inside the loop
-		enemyIsLargerOrEqual := snake.Length >= state.You.Length
-		if !enemyIsLargerOrEqual {
-			// Skip smaller enemies - we can win head-on against them
+		// RESTRICTION 3: Enemy must be LARGER, not equal size
+		// Equal size is a 50/50, larger size means we should definitely avoid
+		if snake.Length <= state.You.Length {
 			continue
 		}
 
@@ -558,20 +563,22 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 		// Head-on: we're moving toward each other on same axis
 		isHeadOn := false
 
-		// Vertical head-on: both on similar X, opposite Y directions
+		// RESTRICTION 4: MUCH tighter coordinate tolerance (was 3, now 0)
+		// Must be EXACTLY on same line for true head-on collision
+		// Vertical head-on: both on EXACT same X, opposite Y directions
 		if (ourDirection == board.MoveUp && enemyDirection == board.MoveDown) ||
 			(ourDirection == board.MoveDown && enemyDirection == board.MoveUp) {
-			// Check if we're on similar X coordinates
-			if abs(currentPos.X-snake.Head.X) <= cfg.EmergencyWallEscape.CoordTolerance {
+			// Must be on EXACT same X coordinate
+			if currentPos.X == snake.Head.X {
 				isHeadOn = true
 			}
 		}
 
-		// Horizontal head-on: both on similar Y, opposite X directions
+		// Horizontal head-on: both on EXACT same Y, opposite X directions
 		if (ourDirection == board.MoveRight && enemyDirection == board.MoveLeft) ||
 			(ourDirection == board.MoveLeft && enemyDirection == board.MoveRight) {
-			// Check if we're on similar Y coordinates
-			if abs(currentPos.Y-snake.Head.Y) <= cfg.EmergencyWallEscape.CoordTolerance {
+			// Must be on EXACT same Y coordinate
+			if currentPos.Y == snake.Head.Y {
 				isHeadOn = true
 			}
 		}
@@ -589,6 +596,33 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 		return 0.0
 	}
 
+	// RESTRICTION 5: Check that perpendicular moves are blocked/bad
+	// Only use this emergency logic if we truly have no other good options
+	perpendicularMovesAvailable := 0
+	for _, testMove := range board.AllMoves() {
+		// Check if this is a perpendicular move (not toward/away from wall)
+		isPerpendicular := false
+		switch nearWall {
+		case "left", "right":
+			isPerpendicular = (testMove == board.MoveUp || testMove == board.MoveDown)
+		case "bottom", "top":
+			isPerpendicular = (testMove == board.MoveLeft || testMove == board.MoveRight)
+		}
+		
+		if isPerpendicular {
+			testPos := board.GetNextPosition(currentPos, testMove)
+			// Check if move is valid and safe
+			if state.Board.IsInBounds(testPos) && !state.Board.IsOccupied(testPos, true) {
+				perpendicularMovesAvailable++
+			}
+		}
+	}
+	
+	// If we have perpendicular escape options, don't use emergency logic
+	if perpendicularMovesAvailable > 0 {
+		return 0.0
+	}
+
 	// Now check if this move turns us TOWARD the wall (defensive) or AWAY from wall (risky)
 	movingTowardWall := false
 
@@ -603,20 +637,18 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 		movingTowardWall = (move == board.MoveUp)
 	}
 
-	// If moving toward wall in this emergency situation, give significant bonus
-	// This allows the snake to perform a defensive U-turn maneuver
+	// RESTRICTION 6: MUCH smaller bonuses (was 150-200, now 50-75)
+	// Just enough to prefer wall over collision, but not override all other heuristics
 	if movingTowardWall {
-		// Strong bonus to override normal wall avoidance
-		// Scaled by how close the enemy is
-		emergencyBonus := cfg.EmergencyWallEscape.TurnBonus
-		if enemyDistance <= cfg.EmergencyWallEscape.CloseThreshold {
-			emergencyBonus = cfg.EmergencyWallEscape.CloseBonus // Even stronger when enemy is very close
+		// Modest bonus - just enough to prefer wall turn over certain death
+		emergencyBonus := 50.0  // Was 150
+		if enemyDistance <= 2 {
+			emergencyBonus = 75.0  // Was 200
 		}
 		return emergencyBonus
 	}
 
-	// If moving away from wall in this emergency, apply penalty
-	// This discourages turning into the enemy's interception path
+	// RESTRICTION 7: Smaller penalty too (was 100, now 40)
 	movingAwayFromWall := false
 	switch nearWall {
 	case "left":
@@ -630,8 +662,8 @@ func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos boa
 	}
 
 	if movingAwayFromWall {
-		// Penalty for turning away from wall toward potential interception
-		return -cfg.EmergencyWallEscape.AwayPenalty
+		// Modest penalty for turning away from wall toward potential interception
+		return -40.0  // Was -100
 	}
 
 	// Perpendicular moves are neutral in this scenario

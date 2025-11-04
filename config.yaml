@@ -1,11 +1,14 @@
+# Emergency wall escape - MUCH MORE RESTRICTIVE than original PR #60
+# Only activates in very specific scenarios: AT wall (not near), EXACT head-on, larger enemy, no perpendicular escape
+# Bonuses/penalties reduced by 66-75% to avoid overriding strategic decisions
 emergency_wall_escape:
-  away_penalty: 100.0
-  close_bonus: 200.0
-  close_threshold: 2
-  coord_tolerance: 3
-  max_distance: 4
-  min_distance: 2
-  turn_bonus: 150.0
+  away_penalty: 40.0      # Was 100.0 - reduced 60%
+  close_bonus: 75.0       # Was 200.0 - reduced 62.5%
+  close_threshold: 2      # Unchanged - enemy very close
+  coord_tolerance: 0      # Was 3 - now requires EXACT alignment
+  max_distance: 3         # Was 4 - narrower range
+  min_distance: 2         # Unchanged
+  turn_bonus: 50.0        # Was 150.0 - reduced 66%
 food_urgency:
   critical: 1.65
   low: 1.0
