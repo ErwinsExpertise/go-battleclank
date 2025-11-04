@@ -5,6 +5,7 @@ Uses battlesnake CLI to run real games and parses the output
 """
 
 import subprocess
+import tempfile
 import time
 import os
 import sys
@@ -97,43 +98,60 @@ class BenchmarkRunner:
             gopath = subprocess.check_output(['go', 'env', 'GOPATH'], text=True).strip()
             battlesnake_path = f"{gopath}/bin/battlesnake"
             
-            result = subprocess.run(
-                [
-                    battlesnake_path, 'play',
-                    '-W', str(self.board_size),
-                    '-H', str(self.board_size),
-                    '-t', str(self.max_turns),
-                    '--name', 'go-battleclank',
-                    '--url', f'http://localhost:{self.go_port}',
-                    '--name', 'rust-baseline',
-                    '--url', f'http://localhost:{self.rust_port}',
-                    '--sequential',
-                    '-r', str(game_num * 12345)  # Use game num as seed
-                ],
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
+            # Use temporary file for game state output
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                game_state_file = f.name
             
-            output = result.stdout + result.stderr
-            
-            # Parse winner from output
-            # Look for line like: "Game completed after N turns. WINNER was the winner."
-            match = re.search(r'Game completed after (\d+) turns\. (.+?) was the winner\.', output)
-            if match:
-                turns = int(match.group(1))
-                winner = match.group(2)
+            try:
+                result = subprocess.run(
+                    [
+                        battlesnake_path, 'play',
+                        '-W', str(self.board_size),
+                        '-H', str(self.board_size),
+                        '-t', str(self.max_turns),
+                        '--name', 'go-battleclank',
+                        '--url', f'http://localhost:{self.go_port}',
+                        '--name', 'rust-baseline',
+                        '--url', f'http://localhost:{self.rust_port}',
+                        '--sequential',
+                        '-r', str(game_num * 12345),  # Use game num as seed
+                        '--output', game_state_file  # Save game state for death reason analysis
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
                 
-                # Get death reason and game phase separately
-                death_reason, game_phase = self._categorize_death(turns, winner, output)
-                return winner, turns, death_reason, game_phase
-            
-            # Check if both snakes died
-            if "Game completed" in output and "no winner" in output.lower():
-                phase = self._get_game_phase(0)
-                return "draw", 0, "both_eliminated", phase
-            
-            return "error", 0, "parse_failed", None
+                output = result.stdout + result.stderr
+                
+                # Parse winner from output
+                # Look for line like: "Game completed after N turns. WINNER was the winner."
+                match = re.search(r'Game completed after (\d+) turns\. (.+?) was the winner\.', output)
+                if match:
+                    turns = int(match.group(1))
+                    winner = match.group(2)
+                    
+                    # Get death reason from game state file
+                    death_reason, game_phase = self._analyze_death_from_game_state(
+                        game_state_file, turns, winner
+                    )
+                    return winner, turns, death_reason, game_phase
+                
+                # Check if both snakes died (draw)
+                if "Game completed" in output and ("draw" in output.lower() or "no winner" in output.lower()):
+                    # Parse turn count from draw message
+                    draw_match = re.search(r'after (\d+) turns', output)
+                    turns = int(draw_match.group(1)) if draw_match else 0
+                    phase = self._get_game_phase(turns)
+                    return "draw", turns, "both_eliminated", phase
+                
+                return "error", 0, "parse_failed", None
+            finally:
+                # Clean up temporary file
+                try:
+                    os.unlink(game_state_file)
+                except:
+                    pass
             
         except subprocess.TimeoutExpired:
             return "error", 0, "timeout", None
@@ -148,6 +166,195 @@ class BenchmarkRunner:
             return "mid"
         else:
             return "late"
+    
+    def _analyze_death_from_game_state(self, game_state_file, turns, winner):
+        """Analyze game state JSON to determine death reason
+        
+        Args:
+            game_state_file: Path to JSON file containing game states
+            turns: Number of turns the game lasted
+            winner: Name of the winning snake
+            
+        Returns:
+            tuple: (death_reason, game_phase) or (None, None) if we won
+        """
+        # If we won, no death reason needed
+        if winner == "go-battleclank":
+            return None, None
+        
+        # Determine game phase
+        game_phase = self._get_game_phase(turns)
+        
+        # Try to parse the game state file to determine death cause
+        try:
+            with open(game_state_file, 'r') as f:
+                lines = f.readlines()
+            
+            if len(lines) < 2:
+                return "unknown", game_phase
+            
+            # Parse the last few turns to analyze what happened
+            # The file contains one JSON object per line
+            last_states = []
+            for line in reversed(lines):
+                try:
+                    state = json.loads(line.strip())
+                    # Look for turn data (has 'board' key)
+                    if 'board' in state and 'snakes' in state['board']:
+                        last_states.insert(0, state)
+                        if len(last_states) >= 3:  # Get last 3 states
+                            break
+                except json.JSONDecodeError:
+                    continue
+            
+            if not last_states:
+                return "unknown", game_phase
+            
+            # Find our snake in the game state
+            our_snake_id = None
+            our_snake_name = "go-battleclank"
+            
+            # Look for our snake in the first state
+            for snake in last_states[0]['board']['snakes']:
+                if snake['name'] == our_snake_name:
+                    our_snake_id = snake['id']
+                    break
+            
+            if not our_snake_id:
+                return "unknown", game_phase
+            
+            # Analyze death reason from state transitions
+            death_reason = self._infer_death_reason(last_states, our_snake_id, our_snake_name)
+            return death_reason, game_phase
+            
+        except Exception as e:
+            # If we can't parse the game state, fall back to unknown
+            return "unknown", game_phase
+    
+    def _infer_death_reason(self, states, our_snake_id, our_snake_name):
+        """Infer death reason from game state transitions
+        
+        Args:
+            states: List of game state dictionaries (last few turns)
+            our_snake_id: ID of our snake
+            our_snake_name: Name of our snake
+            
+        Returns:
+            str: Death reason (starvation, head_collision, body_collision, wall_collision, self_collision, etc.)
+        """
+        if not states or len(states) < 1:
+            return "unknown"
+        
+        # Find our snake in the last state where it existed
+        our_snake = None
+        last_state_with_snake = None
+        state_before_death = None
+        
+        for i, state in enumerate(reversed(states)):
+            snakes = state['board']['snakes']
+            for snake in snakes:
+                if snake['id'] == our_snake_id:
+                    our_snake = snake
+                    last_state_with_snake = state
+                    # Get the state before this one (if available)
+                    if i + 1 < len(states):
+                        state_before_death = list(reversed(states))[i + 1]
+                    break
+            if our_snake:
+                break
+        
+        if not our_snake:
+            return "unknown"
+        
+        # Check for starvation (health reached 0)
+        if our_snake['health'] <= 0:
+            return "starvation"
+        
+        # Get board dimensions
+        board_width = last_state_with_snake['board']['width']
+        board_height = last_state_with_snake['board']['height']
+        
+        # We need to infer what move the snake made that led to death
+        # by comparing the state before death (if available)
+        if state_before_death:
+            # Find snake's position in previous state
+            prev_snake = None
+            for snake in state_before_death['board']['snakes']:
+                if snake['id'] == our_snake_id:
+                    prev_snake = snake
+                    break
+            
+            if prev_snake:
+                prev_head = prev_snake['head']
+                curr_head = our_snake['head']
+                
+                # Calculate the move direction
+                dx = curr_head['x'] - prev_head['x']
+                dy = curr_head['y'] - prev_head['y']
+                
+                # Predict next position (where collision would have occurred)
+                next_x = curr_head['x'] + dx
+                next_y = curr_head['y'] + dy
+                
+                # Check for wall collision
+                if next_x < 0 or next_x >= board_width or next_y < 0 or next_y >= board_height:
+                    return "wall_collision"
+                
+                # Check for self collision at next position
+                for segment in our_snake['body']:
+                    if segment['x'] == next_x and segment['y'] == next_y:
+                        return "self_collision"
+                
+                # Check for collision with other snakes at next position
+                other_snakes = [s for s in last_state_with_snake['board']['snakes'] 
+                               if s['id'] != our_snake_id]
+                
+                for other_snake in other_snakes:
+                    # Check head-to-head collision
+                    # Both snakes moved their head to same position
+                    if (other_snake['head']['x'] == next_x and 
+                        other_snake['head']['y'] == next_y):
+                        # In head-to-head, smaller or equal length snake loses
+                        if len(our_snake['body']) <= len(other_snake['body']):
+                            return "head_collision"
+                    
+                    # Check body collision with current positions
+                    for segment in other_snake['body']:
+                        if segment['x'] == next_x and segment['y'] == next_y:
+                            return "body_collision"
+        
+        # Fallback: analyze current state if we don't have previous state
+        head = our_snake['head']
+        
+        # Check for self collision (head overlaps with body)
+        if len(our_snake['body']) > 1:
+            for segment in our_snake['body'][1:]:  # Skip head itself
+                if segment['x'] == head['x'] and segment['y'] == head['y']:
+                    return "self_collision"
+        
+        # Check for collision with other snakes in current state
+        other_snakes = [s for s in last_state_with_snake['board']['snakes'] 
+                       if s['id'] != our_snake_id]
+        
+        for other_snake in other_snakes:
+            # Check head-to-head collision (heads at same position)
+            if (other_snake['head']['x'] == head['x'] and 
+                other_snake['head']['y'] == head['y']):
+                if len(our_snake['body']) <= len(other_snake['body']):
+                    return "head_collision"
+            
+            # Check body collision
+            for segment in other_snake['body']:
+                if segment['x'] == head['x'] and segment['y'] == head['y']:
+                    return "body_collision"
+        
+        # Check if at board edge (possible wall collision)
+        if (head['x'] == 0 or head['x'] == board_width - 1 or
+            head['y'] == 0 or head['y'] == board_height - 1):
+            return "wall_collision"
+        
+        # If we can't determine specific reason, return generic collision
+        return "collision"
     
     def _categorize_death(self, turns, winner, output):
         """Categorize death reason and game phase separately
