@@ -137,6 +137,11 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 
 	score -= dangerLevel * dangerMultiplier
 
+	// EMERGENCY: Wall-side escape logic for head-on collision scenarios
+	// When near wall with enemy approaching head-on, prefer turning toward wall for U-turn escape
+	wallEscapeBonus := evaluateWallEscapeEmergency(state, myHead, nextPos, move)
+	score += wallEscapeBonus
+
 	// Space availability - CRITICAL for survival (use pre-calculated nextSpace)
 	spaceFactor := nextSpace
 	spaceWeight := g.SpaceWeight * cfg.Weights.SpaceBaseMultiplier
@@ -473,4 +478,195 @@ func evaluateWallApproachSpace(state *board.GameState, currentPos, nextPos board
 	return 0.0
 }
 
+// evaluateWallEscapeEmergency detects VERY SPECIFIC emergency situations near walls where turning
+// toward the wall provides a defensive U-turn escape from head-on collision.
+// MUCH MORE RESTRICTIVE than original PR #60 - only activates in extremely specific scenarios
+// to avoid overriding better strategic decisions.
+func evaluateWallEscapeEmergency(state *board.GameState, currentPos, nextPos board.Coord, move string) float64 {
+	// RESTRICTION 1: Only activate when EXACTLY at wall (0 tiles away), not 1 tile away
+	// This makes it much more specific to true emergency situations
+	distToLeftWall := currentPos.X
+	distToRightWall := state.Board.Width - 1 - currentPos.X
+	distToBottomWall := currentPos.Y
+	distToTopWall := state.Board.Height - 1 - currentPos.Y
 
+	minDistToWall := distToLeftWall
+	nearWall := "left"
+
+	if distToRightWall < minDistToWall {
+		minDistToWall = distToRightWall
+		nearWall = "right"
+	}
+	if distToBottomWall < minDistToWall {
+		minDistToWall = distToBottomWall
+		nearWall = "bottom"
+	}
+	if distToTopWall < minDistToWall {
+		minDistToWall = distToTopWall
+		nearWall = "top"
+	}
+
+	// MUCH MORE RESTRICTIVE: only when AT the wall (was >1, now >0)
+	if minDistToWall > 0 {
+		return 0.0
+	}
+
+	// Detect if there's an enemy approaching head-on within detection range
+	// "Head-on" means: we're moving in one direction, enemy is moving in opposite/intercepting direction
+	hasHeadOnThreat := false
+	enemyDistance := 100
+
+	for _, snake := range state.Board.Snakes {
+		if snake.ID == state.You.ID {
+			continue
+		}
+
+		// Check distance to enemy head
+		dist := board.ManhattanDistance(currentPos, snake.Head)
+
+		// RESTRICTION 2: Narrower distance range (was 2-4, now 2-3)
+		// Enemy must be very close for this to be a true emergency
+		if dist < 2 || dist > 3 {
+			continue
+		}
+
+		// RESTRICTION 3: Enemy must be LARGER, not equal size
+		// Equal size is a 50/50, larger size means we should definitely avoid
+		if snake.Length <= state.You.Length {
+			continue
+		}
+
+		// Determine our movement direction
+		var ourDirection string
+		if len(state.You.Body) >= 2 {
+			ourDirection = getCurrentDirection(state.You.Head, state.You.Body[1])
+		} else {
+			continue
+		}
+
+		// Determine enemy's likely direction (from their last movement)
+		var enemyDirection string
+		if len(snake.Body) >= 2 {
+			enemyDirection = getCurrentDirection(snake.Head, snake.Body[1])
+		} else {
+			continue
+		}
+
+		// Check if this is a head-on or intercepting situation
+		// Head-on: we're moving toward each other on same axis
+		isHeadOn := false
+
+		// RESTRICTION 4: MUCH tighter coordinate tolerance (was 3, now 0)
+		// Must be EXACTLY on same line for true head-on collision
+		// Vertical head-on: both on EXACT same X, opposite Y directions
+		if (ourDirection == board.MoveUp && enemyDirection == board.MoveDown) ||
+			(ourDirection == board.MoveDown && enemyDirection == board.MoveUp) {
+			// Must be on EXACT same X coordinate
+			if currentPos.X == snake.Head.X {
+				isHeadOn = true
+			}
+		}
+
+		// Horizontal head-on: both on EXACT same Y, opposite X directions
+		if (ourDirection == board.MoveRight && enemyDirection == board.MoveLeft) ||
+			(ourDirection == board.MoveLeft && enemyDirection == board.MoveRight) {
+			// Must be on EXACT same Y coordinate
+			if currentPos.Y == snake.Head.Y {
+				isHeadOn = true
+			}
+		}
+
+		if isHeadOn {
+			hasHeadOnThreat = true
+			if dist < enemyDistance {
+				enemyDistance = dist
+			}
+		}
+	}
+
+	// No head-on threat detected
+	if !hasHeadOnThreat {
+		return 0.0
+	}
+
+	// RESTRICTION 5: Check that perpendicular moves are blocked/bad
+	// Only use this emergency logic if we truly have no other good options
+	perpendicularMovesAvailable := 0
+	for _, testMove := range board.AllMoves() {
+		// Check if this is a perpendicular move (not toward/away from wall)
+		isPerpendicular := false
+		switch nearWall {
+		case "left", "right":
+			isPerpendicular = (testMove == board.MoveUp || testMove == board.MoveDown)
+		case "bottom", "top":
+			isPerpendicular = (testMove == board.MoveLeft || testMove == board.MoveRight)
+		}
+		
+		if isPerpendicular {
+			testPos := board.GetNextPosition(currentPos, testMove)
+			// Check if move is valid and safe
+			if state.Board.IsInBounds(testPos) && !state.Board.IsOccupied(testPos, true) {
+				perpendicularMovesAvailable++
+			}
+		}
+	}
+	
+	// If we have perpendicular escape options, don't use emergency logic
+	if perpendicularMovesAvailable > 0 {
+		return 0.0
+	}
+
+	// Now check if this move turns us TOWARD the wall (defensive) or AWAY from wall (risky)
+	movingTowardWall := false
+
+	switch nearWall {
+	case "left":
+		movingTowardWall = (move == board.MoveLeft)
+	case "right":
+		movingTowardWall = (move == board.MoveRight)
+	case "bottom":
+		movingTowardWall = (move == board.MoveDown)
+	case "top":
+		movingTowardWall = (move == board.MoveUp)
+	}
+
+	// RESTRICTION 6: MUCH smaller bonuses (was 150-200, now 50-75)
+	// Just enough to prefer wall over collision, but not override all other heuristics
+	if movingTowardWall {
+		// Modest bonus - just enough to prefer wall turn over certain death
+		emergencyBonus := 50.0  // Was 150
+		if enemyDistance <= 2 {
+			emergencyBonus = 75.0  // Was 200
+		}
+		return emergencyBonus
+	}
+
+	// RESTRICTION 7: Smaller penalty too (was 100, now 40)
+	movingAwayFromWall := false
+	switch nearWall {
+	case "left":
+		movingAwayFromWall = (move == board.MoveRight)
+	case "right":
+		movingAwayFromWall = (move == board.MoveLeft)
+	case "bottom":
+		movingAwayFromWall = (move == board.MoveUp)
+	case "top":
+		movingAwayFromWall = (move == board.MoveDown)
+	}
+
+	if movingAwayFromWall {
+		// Modest penalty for turning away from wall toward potential interception
+		return -40.0  // Was -100
+	}
+
+	// Perpendicular moves are neutral in this scenario
+	return 0.0
+}
+
+// abs returns absolute value of an integer
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
