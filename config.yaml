@@ -79,8 +79,8 @@ traps:
 weights:
   center_control: 75.0
   cutoff: 958.8
-  food: 4.9
+  food: 6.4
   head_collision: 1000.0
-  space: 21.2
+  space: 24.4
   straight_movement: 25.0
   wall_penalty: 30.0
