@@ -891,7 +891,7 @@ class ContinuousTrainer:
             for config in configs:
                 self.save_config(config)
                 self.rebuild_snake()
-                win_rate = self.run_benchmark(games_per_config)
+                win_rate, _ = self.run_benchmark(games_per_config)  # Ignore death analysis in parallel mode
                 results.append((config, win_rate))
             return results
         
@@ -937,7 +937,7 @@ class ContinuousTrainer:
             for config in configs:
                 self.save_config(config)
                 self.rebuild_snake()
-                win_rate = self.run_benchmark(games_per_config)
+                win_rate, _ = self.run_benchmark(games_per_config)  # Ignore death analysis in parallel mode
                 results.append((config, win_rate))
             return results
     
@@ -1009,7 +1009,7 @@ class ContinuousTrainer:
         
         for algo in self.test_algorithms:
             print(f"    Testing {algo}...", end=" ", flush=True)
-            win_rate = self.run_benchmark(games_per_test, algorithm=algo)
+            win_rate, _ = self.run_benchmark(games_per_test, algorithm=algo)  # Ignore death analysis for algo testing
             results[algo] = win_rate
             print(f"{win_rate:.1%}")
         
@@ -1523,7 +1523,7 @@ class ContinuousTrainer:
         # Get baseline win rate if not set
         if self.state['best_win_rate'] == 0.0:
             print("📊 Establishing baseline win rate...")
-            baseline_wr = self.run_benchmark(50)
+            baseline_wr, _ = self.run_benchmark(50)  # Ignore death analysis for baseline
             self.state['best_win_rate'] = baseline_wr
             self.state['best_config'] = self.load_config()
             print(f"✓ Baseline: {baseline_wr:.1%}\n")
