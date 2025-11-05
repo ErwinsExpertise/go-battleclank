@@ -36,6 +36,15 @@ TOP_CONSISTENT_PARAMS = 5  # Number of most consistent parameters to identify
 MAX_WINNING_PATTERNS = 50  # Maximum number of winning configs to keep in memory
 MAX_CHANGE_HISTORY = 100  # Maximum number of change attempts to track
 
+# Stagnation detection and aggressive tuning constants
+STAGNATION_THRESHOLD = 50  # Number of iterations without win rate improvement before triggering aggressive mode
+STAGNANT_MAGNITUDE = 0.40  # Parameter adjustment magnitude when stagnant (40%)
+MAX_STAGNANT_MAGNITUDE = 0.50  # Maximum suggested adjustment magnitude for stagnant mode (50%)
+NORMAL_MAGNITUDE = 0.15  # Parameter adjustment magnitude during normal operation (15%)
+STAGNANT_TEMPERATURE = 0.9  # LLM temperature when stagnant (more creative)
+NORMAL_TEMPERATURE = 0.7  # LLM temperature during normal operation
+SEVERE_STAGNATION_THRESHOLD = 100  # Number of iterations for severe stagnation warning
+
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -224,14 +233,17 @@ class LLMWeightAdvisor:
                     print("  Falling back to random perturbation")
                     self.model = None
     
-    def suggest_adjustments(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None, death_summary=""):
+    def suggest_adjustments(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None, death_summary="", is_stagnant=False):
         """Use LLM to suggest intelligent weight adjustments based on training history and NN patterns"""
         if self.model is None or self.tokenizer is None:
             return None
         
         try:
             # Build context for the LLM including NN patterns and change history
-            prompt = self._build_prompt(config, recent_history, current_win_rate, best_win_rate, nn_patterns, death_summary)
+            prompt = self._build_prompt(config, recent_history, current_win_rate, best_win_rate, nn_patterns, death_summary, is_stagnant)
+            
+            # Adjust temperature based on stagnation - more aggressive when stuck
+            temperature = STAGNANT_TEMPERATURE if is_stagnant else NORMAL_TEMPERATURE
             
             # Generate suggestion
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
@@ -240,7 +252,7 @@ class LLMWeightAdvisor:
                 outputs = self.model.generate(
                     **inputs,
                     max_new_tokens=512,  # Increased from 200 to 512 for more detailed analysis
-                    temperature=0.7,
+                    temperature=temperature,
                     do_sample=True,
                     pad_token_id=self.tokenizer.eos_token_id
                 )
@@ -259,7 +271,7 @@ class LLMWeightAdvisor:
             print(f"  ⚠ LLM suggestion failed: {e}")
             return None
     
-    def _build_prompt(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None, death_summary=""):
+    def _build_prompt(self, config, recent_history, current_win_rate, best_win_rate, nn_patterns=None, death_summary="", is_stagnant=False):
         """Build a prompt for the LLM with training context, NN patterns, death reasons, and change history"""
         # Summarize recent performance - increased from 10 to 30 for more context
         recent_improvements = [h for h in recent_history[-30:] if h.get('improvement', 0) > 0]
@@ -273,8 +285,17 @@ class LLMWeightAdvisor:
         if nn_patterns:
             pattern_insights = f"\nNeural Network Insights:\n{nn_patterns}\n"
         
+        # Build comprehensive parameter listing organized by section
+        params_str = self._format_all_parameters(config)
+        
+        # Add stagnation notice if applicable
+        stagnation_notice = ""
+        if is_stagnant:
+            stagnation_notice = f"\n⚠️ STAGNATION DETECTED: No improvement in {STAGNATION_THRESHOLD}+ iterations. Use AGGRESSIVE exploration with +/-{int(STAGNANT_MAGNITUDE*100)}-{int(MAX_STAGNANT_MAGNITUDE*100)}% changes!"
+        
         prompt = f"""<|system|>
 You are an AI expert in Battlesnake game optimization. Analyze training results and suggest parameter adjustments.
+When stagnation is detected, you MUST suggest bold, large-magnitude changes to escape local optima.
 </s>
 <|user|>
 Current battlesnake win rate: {current_win_rate:.1%}
@@ -284,35 +305,161 @@ Recent performance (last 30 iterations):
 - Improvements: {len(recent_improvements)} ({len(recent_improvements)/30*100:.1f}%)
 - Declines: {len(recent_declines)} ({len(recent_declines)/30*100:.1f}%)
 - Stagnating: {'Yes' if len(recent_improvements) == 0 else 'No'}
+{stagnation_notice}
 {pattern_insights}
 {death_summary}
 Previously tried adjustments (avoid repeating):
 {change_summary}
 
-Key parameters:
-- space weight: {config.get('weights', {}).get('space', 5.0)}
-- head_collision: {config.get('weights', {}).get('head_collision', 500.0)}
-- food urgency critical: {config.get('food_urgency', {}).get('critical', 1.8)}
-- trap critical: {config.get('traps', {}).get('critical', 600.0)}
-- food weight critical health: {config.get('food_weights', {}).get('critical_health', 500.0)}
-- food weight healthy: {config.get('food_weights', {}).get('healthy_base', 80.0)}
+Current Configuration (ALL tunable parameters):
+{params_str}
 
-Based on this data, which 3-5 parameters should be adjusted and by how much (+/-10-20%)? Consider:
-1. If performance is declining, revert recent changes
-2. If stagnating, try larger adjustments
-3. Balance offensive (food) and defensive (traps) parameters
+Based on this data, which parameters should be adjusted and by how much? You may adjust as many parameters as needed. Consider:
+1. If performance is declining, revert recent changes with small adjustments (±10-15%)
+2. If stagnating, try LARGE adjustments (±{int(STAGNANT_MAGNITUDE*100)}-{int(MAX_STAGNANT_MAGNITUDE*100)}%) to escape local optima
+3. Balance offensive (food, pursuit) and defensive (traps, avoidance) parameters
 4. Avoid parameters that were recently tried without success
 5. Follow neural network insights on winning patterns
-6. Address common death reasons with targeted parameter changes
-7. Respond with parameter names and adjustment directions only.
+6. Address common death reasons with targeted parameter changes:
+   - High starvation → increase food weights, decrease trap penalties
+   - Head collisions → increase head_collision penalty, adjust pursuit
+   - Wall collisions → increase wall_penalty, adjust emergency_wall_escape
+   - Body collisions → adjust space weights, trapping parameters
+7. Consider tactical parameters for specific game situations
+8. Adjust as few or as many parameters as makes sense based on the situation
+9. Respond with parameter names and adjustment directions/magnitudes only.
 </s>
 <|assistant|>
 Based on analysis, I suggest adjusting:"""
         
         return prompt
     
+    def _format_all_parameters(self, config):
+        """Format all tunable parameters from config into a readable string for LLM context
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            str: Formatted parameter listing organized by section
+        """
+        sections = []
+        
+        # Weights section
+        weights = config.get('weights', {})
+        if weights:
+            w_lines = ["Weights:"]
+            for key, val in weights.items():
+                if isinstance(val, (int, float)):
+                    w_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(w_lines))
+        
+        # Traps section
+        traps = config.get('traps', {})
+        if traps:
+            t_lines = ["Traps:"]
+            for key, val in traps.items():
+                if isinstance(val, (int, float)):
+                    t_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(t_lines))
+        
+        # Pursuit section
+        pursuit = config.get('pursuit', {})
+        if pursuit:
+            p_lines = ["Pursuit:"]
+            for key, val in pursuit.items():
+                if isinstance(val, (int, float)):
+                    p_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(p_lines))
+        
+        # Trapping section
+        trapping = config.get('trapping', {})
+        if trapping:
+            tr_lines = ["Trapping:"]
+            for key, val in trapping.items():
+                if isinstance(val, (int, float)):
+                    tr_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(tr_lines))
+        
+        # Food urgency section
+        food_urgency = config.get('food_urgency', {})
+        if food_urgency:
+            fu_lines = ["Food Urgency:"]
+            for key, val in food_urgency.items():
+                if isinstance(val, (int, float)):
+                    fu_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(fu_lines))
+        
+        # Food weights section
+        food_weights = config.get('food_weights', {})
+        if food_weights:
+            fw_lines = ["Food Weights:"]
+            for key, val in food_weights.items():
+                if isinstance(val, (int, float)):
+                    fw_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(fw_lines))
+        
+        # Late game section
+        late_game = config.get('late_game', {})
+        if late_game:
+            lg_lines = ["Late Game:"]
+            for key, val in late_game.items():
+                if isinstance(val, (int, float)):
+                    lg_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(lg_lines))
+        
+        # Hybrid section (numeric only)
+        hybrid = config.get('hybrid', {})
+        if hybrid:
+            h_lines = ["Hybrid:"]
+            for key, val in hybrid.items():
+                if isinstance(val, (int, float)):
+                    h_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(h_lines))
+        
+        # Search section (numeric only)
+        search = config.get('search', {})
+        if search:
+            s_lines = ["Search:"]
+            for key, val in search.items():
+                if isinstance(val, (int, float)):
+                    s_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(s_lines))
+        
+        # Optimization section (numeric only)
+        optimization = config.get('optimization', {})
+        if optimization:
+            o_lines = ["Optimization:"]
+            for key, val in optimization.items():
+                if isinstance(val, (int, float)):
+                    o_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(o_lines))
+        
+        # Tactics section (numeric only)
+        tactics = config.get('tactics', {})
+        if tactics:
+            tac_lines = ["Tactics:"]
+            for key, val in tactics.items():
+                if isinstance(val, (int, float)):
+                    tac_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(tac_lines))
+        
+        # Emergency wall escape section
+        emergency = config.get('emergency_wall_escape', {})
+        if emergency:
+            e_lines = ["Emergency Wall Escape:"]
+            for key, val in emergency.items():
+                if isinstance(val, (int, float)):
+                    e_lines.append(f"  - {key}: {val}")
+            sections.append("\n".join(e_lines))
+        
+        return "\n\n".join(sections)
+    
     def _parse_suggestions(self, response):
-        """Extract parameter adjustment suggestions from LLM response"""
+        """Extract parameter adjustment suggestions from LLM response
+        
+        Returns all suggestions found (no limit) to allow LLM full control over how many parameters to adjust.
+        """
         suggestions = []
         
         # Simple parsing - look for parameter names and increase/decrease keywords
@@ -321,12 +468,36 @@ Based on analysis, I suggest adjusting:"""
             'decrease': -0.15, 'lower': -0.15, 'reduce': -0.15, 'down': -0.15
         }
         
+        # Comprehensive list of parameter keywords to search for in LLM response
+        # Using partial matching to catch variations (e.g., "head_collision", "head collision", etc.)
         param_names = [
-            'space', 'head_collision', 'center_control', 'wall_penalty', 'cutoff', 'food',
-            'moderate', 'severe', 'critical', 'food_trap', 
-            'distance_2', 'distance_3', 'distance_4', 'distance_5',
-            'food_urgency', 'caution', 'threshold',
-            'critical_health', 'low_health', 'medium_health', 'healthy_base', 'healthy_early_game'
+            # Weights
+            'space', 'head_collision', 'center_control', 'wall_penalty', 'cutoff', 'food', 'straight_movement',
+            # Traps
+            'moderate', 'severe', 'critical', 'food_trap', 'space_reduction',
+            # Pursuit
+            'distance_2', 'distance_3', 'distance_4', 'distance_5', 'pursuit',
+            # Trapping
+            'trapping', 'trapped_ratio', 'space_cutoff',
+            # Food urgency
+            'food_urgency', 'urgency',
+            # Food weights
+            'critical_health', 'low_health', 'medium_health', 'healthy_base', 'healthy_early', 
+            'outmatched', 'multiplier', 'ceiling',
+            # Late game
+            'caution', 'turn_threshold', 'late_game',
+            # Hybrid
+            'lookahead', 'mcts', 'iterations', 'timeout', 'nearby_enemies', 'space_ratio',
+            # Search
+            'astar', 'nodes', 'depth', 'max_depth',
+            # Optimization
+            'learning_rate', 'discount', 'exploration', 'batch', 'episodes',
+            # Tactics
+            'inward_trap', 'aggressive_space', 'predictive', 'energy_conservation', 
+            'wall_hugging', 'avoidance',
+            # Emergency wall escape
+            'emergency', 'min_distance', 'max_distance', 'turn_bonus', 'close_bonus', 
+            'away_penalty', 'close_threshold', 'tolerance'
         ]
         
         response_lower = response.lower()
@@ -338,7 +509,7 @@ Based on analysis, I suggest adjusting:"""
                         suggestions.append({'param': param, 'adjustment': adjustment})
                         break
         
-        return suggestions[:5]  # Limit to 5 suggestions
+        return suggestions  # Return all suggestions (no limit)
     
     def _record_change_attempt(self, suggestions):
         """Record attempted changes to avoid repetition"""
@@ -1229,9 +1400,20 @@ class ContinuousTrainer:
         section_data[key] = new_val
         config[section] = section_data
     
-    def intelligent_perturbation(self, config, magnitude=0.15):
-        """Apply intelligent perturbation using LLM guidance with NN pattern insights"""
+    def intelligent_perturbation(self, config, magnitude=0.15, is_stagnant=False):
+        """Apply intelligent perturbation using LLM guidance with NN pattern insights
+        
+        Args:
+            config: Configuration to perturb
+            magnitude: Base magnitude for adjustments (will be increased if stagnant)
+            is_stagnant: Whether training has stagnated (no improvement in 50+ iterations)
+        """
         new_config = copy.deepcopy(config)
+        
+        # Increase magnitude aggressively when stagnant to escape local optima
+        if is_stagnant:
+            magnitude = STAGNANT_MAGNITUDE
+            print(f"  ⚠️  STAGNATION: Using aggressive exploration with ±{magnitude*100:.0f}% adjustments")
         
         # Extract winning patterns from neural network if available
         nn_patterns = None
@@ -1256,7 +1438,8 @@ class ContinuousTrainer:
                     self.state.get('best_win_rate', 0.0),
                     self.state.get('best_win_rate', 0.0),
                     nn_patterns,
-                    death_summary
+                    death_summary,
+                    is_stagnant
                 )
                 if llm_suggestions:
                     print(f"  🤖 LLM suggested {len(llm_suggestions)} parameter adjustments")
@@ -1271,7 +1454,7 @@ class ContinuousTrainer:
         
         # Decide which parameters to adjust
         if llm_suggestions and len(llm_suggestions) > 0:
-            # Use LLM-guided selection
+            # Use LLM-guided selection - no minimum, let LLM decide how many
             params_to_adjust = []
             for suggestion in llm_suggestions:
                 param_name = suggestion['param']
@@ -1283,14 +1466,18 @@ class ContinuousTrainer:
                         params_to_adjust.append((section, key, adjustment, min_val, max_val))
                         break
             
-            # Fill with random if needed
-            while len(params_to_adjust) < 3:
-                section, key, min_val, max_val = random.choice(tunable_params)
-                adjustment = random.uniform(-magnitude, magnitude)
-                params_to_adjust.append((section, key, adjustment, min_val, max_val))
+            # If LLM didn't suggest anything (parsing failed), fall back to random
+            if len(params_to_adjust) == 0:
+                # Random selection (fallback) - more aggressive when stagnant
+                num_to_adjust = min(random.randint(5, 10) if is_stagnant else random.randint(3, 7), len(tunable_params))
+                selected = random.sample(tunable_params, num_to_adjust)
+                params_to_adjust = [
+                    (section, key, random.uniform(-magnitude, magnitude), min_val, max_val)
+                    for section, key, min_val, max_val in selected
+                ]
         else:
-            # Random selection (fallback)
-            num_to_adjust = min(random.randint(3, 7), len(tunable_params))
+            # Random selection (fallback when no LLM available) - more aggressive when stagnant
+            num_to_adjust = min(random.randint(5, 10) if is_stagnant else random.randint(3, 7), len(tunable_params))
             selected = random.sample(tunable_params, num_to_adjust)
             params_to_adjust = [
                 (section, key, random.uniform(-magnitude, magnitude), min_val, max_val)
@@ -1303,9 +1490,9 @@ class ContinuousTrainer:
         
         return new_config
     
-    def random_perturbation(self, config, magnitude=0.1):
+    def random_perturbation(self, config, magnitude=0.1, is_stagnant=False):
         """Apply perturbation to weights - now uses intelligent method"""
-        return self.intelligent_perturbation(config, magnitude)
+        return self.intelligent_perturbation(config, magnitude, is_stagnant)
     
     def _config_to_vector(self, config):
         """Convert configuration to a vector for neural network processing"""
@@ -1559,6 +1746,10 @@ class ContinuousTrainer:
             # Load current best config
             current_config = self.load_config()
             
+            # Detect stagnation: no improvement in STAGNATION_THRESHOLD iterations
+            iterations_since_improvement = iteration - self.state['last_improvement_iteration']
+            is_stagnant = iterations_since_improvement >= STAGNATION_THRESHOLD
+            
             # Parallel mode: Generate and test multiple candidates simultaneously
             if self.parallel_configs > 1:
                 print(f"🔄 Generating {self.parallel_configs} candidate configurations for parallel testing...")
@@ -1568,7 +1759,8 @@ class ContinuousTrainer:
                 for i in range(self.parallel_configs):
                     candidate = self.random_perturbation(
                         current_config, 
-                        magnitude=0.15  # 15% random adjustment
+                        magnitude=NORMAL_MAGNITUDE,  # Will be overridden to STAGNANT_MAGNITUDE if stagnant
+                        is_stagnant=is_stagnant
                     )
                     candidate_configs.append(candidate)
                 
@@ -1603,7 +1795,8 @@ class ContinuousTrainer:
                 print("🔄 Generating candidate configuration...")
                 candidate_config = self.random_perturbation(
                     current_config, 
-                    magnitude=0.15  # 15% random adjustment
+                    magnitude=NORMAL_MAGNITUDE,  # Will be overridden to STAGNANT_MAGNITUDE if stagnant
+                    is_stagnant=is_stagnant
                 )
                 
                 # Save candidate and reload config (faster than rebuilding)
@@ -1710,10 +1903,11 @@ class ContinuousTrainer:
                 self.save_checkpoint()
                 print("✓ Checkpoint saved\n")
             
-            # Check for stagnation (no improvement in 100 iterations)
-            if iteration - self.state['last_improvement_iteration'] >= 100:
-                print("⚠ WARNING: No improvement in 100 iterations")
-                print("  Consider adjusting perturbation magnitude or stopping training")
+            # Check for severe stagnation
+            # Note: Aggressive exploration already activated at STAGNATION_THRESHOLD iterations
+            if iteration - self.state['last_improvement_iteration'] >= SEVERE_STAGNATION_THRESHOLD:
+                print(f"⚠ WARNING: No improvement in {SEVERE_STAGNATION_THRESHOLD} iterations (aggressive mode active since {STAGNATION_THRESHOLD})")
+                print("  Consider stopping training or adjusting configuration manually")
                 print()
         
         # Final checkpoint
