@@ -48,3 +48,4 @@ Thumbs.db
 __pycache__/
 *.pyc
 battleclank
+tools/test_prompt_generation.py

@@ -1863,10 +1863,11 @@ class ContinuousTrainer:
                 self.save_checkpoint()
                 print("✓ Checkpoint saved\n")
             
-            # Check for stagnation (no improvement in 100 iterations)
+            # Check for severe stagnation (no improvement in 100 iterations)
+            # Note: Aggressive exploration already activated at 50 iterations
             if iteration - self.state['last_improvement_iteration'] >= 100:
-                print("⚠ WARNING: No improvement in 100 iterations")
-                print("  Consider adjusting perturbation magnitude or stopping training")
+                print("⚠ WARNING: No improvement in 100 iterations (aggressive mode active since iteration 50)")
+                print("  Consider stopping training or adjusting configuration manually")
                 print()
         
         # Final checkpoint
