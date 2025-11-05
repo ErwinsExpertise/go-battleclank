@@ -466,12 +466,36 @@ Based on analysis, I suggest adjusting:"""
             'decrease': -0.15, 'lower': -0.15, 'reduce': -0.15, 'down': -0.15
         }
         
+        # Comprehensive list of parameter keywords to search for in LLM response
+        # Using partial matching to catch variations (e.g., "head_collision", "head collision", etc.)
         param_names = [
-            'space', 'head_collision', 'center_control', 'wall_penalty', 'cutoff', 'food',
-            'moderate', 'severe', 'critical', 'food_trap', 
-            'distance_2', 'distance_3', 'distance_4', 'distance_5',
-            'food_urgency', 'caution', 'threshold',
-            'critical_health', 'low_health', 'medium_health', 'healthy_base', 'healthy_early_game'
+            # Weights
+            'space', 'head_collision', 'center_control', 'wall_penalty', 'cutoff', 'food', 'straight_movement',
+            # Traps
+            'moderate', 'severe', 'critical', 'food_trap', 'space_reduction',
+            # Pursuit
+            'distance_2', 'distance_3', 'distance_4', 'distance_5', 'pursuit',
+            # Trapping
+            'trapping', 'trapped_ratio', 'space_cutoff',
+            # Food urgency
+            'food_urgency', 'urgency',
+            # Food weights
+            'critical_health', 'low_health', 'medium_health', 'healthy_base', 'healthy_early', 
+            'outmatched', 'multiplier', 'ceiling',
+            # Late game
+            'caution', 'turn_threshold', 'late_game',
+            # Hybrid
+            'lookahead', 'mcts', 'iterations', 'timeout', 'nearby_enemies', 'space_ratio',
+            # Search
+            'astar', 'nodes', 'depth', 'max_depth',
+            # Optimization
+            'learning_rate', 'discount', 'exploration', 'batch', 'episodes',
+            # Tactics
+            'inward_trap', 'aggressive_space', 'predictive', 'energy_conservation', 
+            'wall_hugging', 'avoidance',
+            # Emergency wall escape
+            'emergency', 'min_distance', 'max_distance', 'turn_bonus', 'close_bonus', 
+            'away_penalty', 'close_threshold', 'tolerance'
         ]
         
         response_lower = response.lower()
@@ -1769,7 +1793,7 @@ class ContinuousTrainer:
                 print("🔄 Generating candidate configuration...")
                 candidate_config = self.random_perturbation(
                     current_config, 
-                    magnitude=0.15,  # 15% random adjustment (will be overridden if stagnant)
+                    magnitude=NORMAL_MAGNITUDE,  # Will be overridden to STAGNANT_MAGNITUDE if stagnant
                     is_stagnant=is_stagnant
                 )
                 
