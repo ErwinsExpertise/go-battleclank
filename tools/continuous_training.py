@@ -37,11 +37,13 @@ MAX_WINNING_PATTERNS = 50  # Maximum number of winning configs to keep in memory
 MAX_CHANGE_HISTORY = 100  # Maximum number of change attempts to track
 
 # Stagnation detection and aggressive tuning constants
-STAGNATION_THRESHOLD = 50  # Number of iterations without improvement before triggering aggressive mode
+STAGNATION_THRESHOLD = 50  # Number of iterations without win rate improvement before triggering aggressive mode
 STAGNANT_MAGNITUDE = 0.40  # Parameter adjustment magnitude when stagnant (40%)
+MAX_STAGNANT_MAGNITUDE = 0.50  # Maximum suggested adjustment magnitude for stagnant mode (50%)
 NORMAL_MAGNITUDE = 0.15  # Parameter adjustment magnitude during normal operation (15%)
 STAGNANT_TEMPERATURE = 0.9  # LLM temperature when stagnant (more creative)
 NORMAL_TEMPERATURE = 0.7  # LLM temperature during normal operation
+SEVERE_STAGNATION_THRESHOLD = 100  # Number of iterations for severe stagnation warning
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -289,7 +291,7 @@ class LLMWeightAdvisor:
         # Add stagnation notice if applicable
         stagnation_notice = ""
         if is_stagnant:
-            stagnation_notice = f"\n⚠️ STAGNATION DETECTED: No improvement in {STAGNATION_THRESHOLD}+ iterations. Use AGGRESSIVE exploration with +/-{int(STAGNANT_MAGNITUDE*100)}-50% changes!"
+            stagnation_notice = f"\n⚠️ STAGNATION DETECTED: No improvement in {STAGNATION_THRESHOLD}+ iterations. Use AGGRESSIVE exploration with +/-{int(STAGNANT_MAGNITUDE*100)}-{int(MAX_STAGNANT_MAGNITUDE*100)}% changes!"
         
         prompt = f"""<|system|>
 You are an AI expert in Battlesnake game optimization. Analyze training results and suggest parameter adjustments.
@@ -314,7 +316,7 @@ Current Configuration (ALL tunable parameters):
 
 Based on this data, which parameters should be adjusted and by how much? You may adjust as many parameters as needed. Consider:
 1. If performance is declining, revert recent changes with small adjustments (±10-15%)
-2. If stagnating, try LARGE adjustments (±{int(STAGNANT_MAGNITUDE*100)}-50%) to escape local optima
+2. If stagnating, try LARGE adjustments (±{int(STAGNANT_MAGNITUDE*100)}-{int(MAX_STAGNANT_MAGNITUDE*100)}%) to escape local optima
 3. Balance offensive (food, pursuit) and defensive (traps, avoidance) parameters
 4. Avoid parameters that were recently tried without success
 5. Follow neural network insights on winning patterns
@@ -1901,10 +1903,10 @@ class ContinuousTrainer:
                 self.save_checkpoint()
                 print("✓ Checkpoint saved\n")
             
-            # Check for severe stagnation (no improvement in 100 iterations)
+            # Check for severe stagnation
             # Note: Aggressive exploration already activated at STAGNATION_THRESHOLD iterations
-            if iteration - self.state['last_improvement_iteration'] >= 100:
-                print(f"⚠ WARNING: No improvement in 100 iterations (aggressive mode active since {STAGNATION_THRESHOLD})")
+            if iteration - self.state['last_improvement_iteration'] >= SEVERE_STAGNATION_THRESHOLD:
+                print(f"⚠ WARNING: No improvement in {SEVERE_STAGNATION_THRESHOLD} iterations (aggressive mode active since {STAGNATION_THRESHOLD})")
                 print("  Consider stopping training or adjusting configuration manually")
                 print()
         
