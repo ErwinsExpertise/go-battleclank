@@ -1,86 +1,86 @@
 emergency_wall_escape:
-  away_penalty: 50.0
-  close_bonus: 78.4
+  away_penalty: 57.5
+  close_bonus: 90.2
   close_threshold: 2
   coord_tolerance: 1
   max_distance: 3
   min_distance: 2
-  turn_bonus: 51.8
+  turn_bonus: 59.6
 food_urgency:
   critical: 1.65
-  low: 1.0
+  low: 1.15
   normal: 1.09
 food_weights:
   critical_health: 499.1
-  critical_health_outmatched: 400.0
-  healthy_base: 71.0
-  healthy_ceiling: 89
+  critical_health_outmatched: 1.0
+  healthy_base: 81.6
+  healthy_ceiling: 102
   healthy_ceiling_weight: 10.0
-  healthy_early_game: 100.0
-  healthy_early_multiplier: 0.6
+  healthy_early_game: 115.0
+  healthy_early_multiplier: 0.69
   healthy_multiplier: 0.5
   healthy_outmatched: 0.58
   low_health: 220.0
   low_health_outmatched: 180.0
-  medium_health: 115.0
+  medium_health: 132.2
   medium_health_outmatched: 0.65
 hybrid:
   critical_health: 28
   critical_nearby_enemies: 2
   critical_space_ratio: 2.9
   lookahead_depth: 3
-  mcts_iterations: 87
-  mcts_timeout_ms: 222
+  mcts_iterations: 115
+  mcts_timeout_ms: 255
   use_lookahead_on_critical: true
   use_mcts_in_endgame: true
 late_game:
-  caution_multiplier: 1.17
-  turn_threshold: 120
+  caution_multiplier: 1.35
+  turn_threshold: 138
 optimization:
-  batch_size: 32
+  batch_size: 37
   discount_factor: 0.1
   enabled: false
-  episodes: 838
+  episodes: 964
   exploration_rate: 0.1
   learning_rate: 0.0
 pursuit:
-  distance_2: 77.1
-  distance_3: 39.9
-  distance_4: 31.4
-  distance_5: 10.6
+  distance_2: 88.7
+  distance_3: 45.9
+  distance_4: 36.1
+  distance_5: 12.2
 search:
   algorithm: hybrid
-  max_astar_nodes: 368
-  max_depth: 93
+  max_astar_nodes: 486
+  max_depth: 107
   use_astar: true
 tactics:
-  adaptive_wall_hugging_weight: 25.0
+  adaptive_wall_hugging_weight: 28.7
   aggressive_space_control_weight: 30.0
   aggressive_space_turn_threshold: 51
-  energy_conservation_weight: 14.5
-  inward_trap_min_enemy_length: 6
+  energy_conservation_weight: 16.7
+  inward_trap_min_enemy_length: 7
   inward_trap_weight: 45.0
-  predictive_avoidance_weight: 112.0
+  predictive_avoidance_weight: 148.1
 trapping:
   space_cutoff_threshold: 0.12
-  trapped_ratio: 0.49
+  trapped_ratio: 0.56
   weight: 503.7
 traps:
-  critical: 1700.0
+  critical: 2000.0
   food_trap: 411.5
   food_trap_threshold: 0.59
   moderate: 2000.0
-  severe: 467.4
+  severe: 537.5
   space_reduction_50: 874.4
   space_reduction_60: 1500.0
   space_reduction_min_base: 1.0
   space_reduction_ratio_50: 1.0
   space_reduction_ratio_60: 0.4
 weights:
-  center_control: 75.0
-  cutoff: 958.8
-  food: 8.9
-  head_collision: 850.0
-  space: 26.8
-  straight_movement: 25.9
-  wall_penalty: 30.0
+  center_control: 86.2
+  cutoff: 1000.0
+  food: 11.7
+  head_collision: 977.5
+  space: 46.8
+  straight_movement: 29.8
+  wall_penalty: 34.5
