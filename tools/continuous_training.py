@@ -36,6 +36,13 @@ TOP_CONSISTENT_PARAMS = 5  # Number of most consistent parameters to identify
 MAX_WINNING_PATTERNS = 50  # Maximum number of winning configs to keep in memory
 MAX_CHANGE_HISTORY = 100  # Maximum number of change attempts to track
 
+# Stagnation detection and aggressive tuning constants
+STAGNATION_THRESHOLD = 50  # Number of iterations without improvement before triggering aggressive mode
+STAGNANT_MAGNITUDE = 0.40  # Parameter adjustment magnitude when stagnant (40%)
+NORMAL_MAGNITUDE = 0.15  # Parameter adjustment magnitude during normal operation (15%)
+STAGNANT_TEMPERATURE = 0.9  # LLM temperature when stagnant (more creative)
+NORMAL_TEMPERATURE = 0.7  # LLM temperature during normal operation
+
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -234,7 +241,7 @@ class LLMWeightAdvisor:
             prompt = self._build_prompt(config, recent_history, current_win_rate, best_win_rate, nn_patterns, death_summary, is_stagnant)
             
             # Adjust temperature based on stagnation - more aggressive when stuck
-            temperature = 0.9 if is_stagnant else 0.7
+            temperature = STAGNANT_TEMPERATURE if is_stagnant else NORMAL_TEMPERATURE
             
             # Generate suggestion
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
@@ -282,7 +289,7 @@ class LLMWeightAdvisor:
         # Add stagnation notice if applicable
         stagnation_notice = ""
         if is_stagnant:
-            stagnation_notice = "\n⚠️ STAGNATION DETECTED: No improvement in 50+ iterations. Use AGGRESSIVE exploration with +/-30-50% changes!"
+            stagnation_notice = f"\n⚠️ STAGNATION DETECTED: No improvement in {STAGNATION_THRESHOLD}+ iterations. Use AGGRESSIVE exploration with +/-{int(STAGNANT_MAGNITUDE*100)}-50% changes!"
         
         prompt = f"""<|system|>
 You are an AI expert in Battlesnake game optimization. Analyze training results and suggest parameter adjustments.
@@ -305,9 +312,9 @@ Previously tried adjustments (avoid repeating):
 Current Configuration (ALL tunable parameters):
 {params_str}
 
-Based on this data, which 3-7 parameters should be adjusted and by how much? Consider:
+Based on this data, which parameters should be adjusted and by how much? You may adjust as many parameters as needed. Consider:
 1. If performance is declining, revert recent changes with small adjustments (±10-15%)
-2. If stagnating, try LARGE adjustments (±30-50%) to escape local optima
+2. If stagnating, try LARGE adjustments (±{int(STAGNANT_MAGNITUDE*100)}-50%) to escape local optima
 3. Balance offensive (food, pursuit) and defensive (traps, avoidance) parameters
 4. Avoid parameters that were recently tried without success
 5. Follow neural network insights on winning patterns
@@ -317,7 +324,8 @@ Based on this data, which 3-7 parameters should be adjusted and by how much? Con
    - Wall collisions → increase wall_penalty, adjust emergency_wall_escape
    - Body collisions → adjust space weights, trapping parameters
 7. Consider tactical parameters for specific game situations
-8. Respond with parameter names and adjustment directions/magnitudes only.
+8. Adjust as few or as many parameters as makes sense based on the situation
+9. Respond with parameter names and adjustment directions/magnitudes only.
 </s>
 <|assistant|>
 Based on analysis, I suggest adjusting:"""
@@ -446,7 +454,10 @@ Based on analysis, I suggest adjusting:"""
         return "\n\n".join(sections)
     
     def _parse_suggestions(self, response):
-        """Extract parameter adjustment suggestions from LLM response"""
+        """Extract parameter adjustment suggestions from LLM response
+        
+        Returns all suggestions found (no limit) to allow LLM full control over how many parameters to adjust.
+        """
         suggestions = []
         
         # Simple parsing - look for parameter names and increase/decrease keywords
@@ -472,7 +483,7 @@ Based on analysis, I suggest adjusting:"""
                         suggestions.append({'param': param, 'adjustment': adjustment})
                         break
         
-        return suggestions[:5]  # Limit to 5 suggestions
+        return suggestions  # Return all suggestions (no limit)
     
     def _record_change_attempt(self, suggestions):
         """Record attempted changes to avoid repetition"""
@@ -1375,7 +1386,7 @@ class ContinuousTrainer:
         
         # Increase magnitude aggressively when stagnant to escape local optima
         if is_stagnant:
-            magnitude = 0.40  # 40% changes when stagnant (up from 15%)
+            magnitude = STAGNANT_MAGNITUDE
             print(f"  ⚠️  STAGNATION: Using aggressive exploration with ±{magnitude*100:.0f}% adjustments")
         
         # Extract winning patterns from neural network if available
@@ -1417,7 +1428,7 @@ class ContinuousTrainer:
         
         # Decide which parameters to adjust
         if llm_suggestions and len(llm_suggestions) > 0:
-            # Use LLM-guided selection
+            # Use LLM-guided selection - no minimum, let LLM decide how many
             params_to_adjust = []
             for suggestion in llm_suggestions:
                 param_name = suggestion['param']
@@ -1429,14 +1440,17 @@ class ContinuousTrainer:
                         params_to_adjust.append((section, key, adjustment, min_val, max_val))
                         break
             
-            # Fill with random if needed (more params when stagnant)
-            min_params = 5 if is_stagnant else 3
-            while len(params_to_adjust) < min_params:
-                section, key, min_val, max_val = random.choice(tunable_params)
-                adjustment = random.uniform(-magnitude, magnitude)
-                params_to_adjust.append((section, key, adjustment, min_val, max_val))
+            # If LLM didn't suggest anything (parsing failed), fall back to random
+            if len(params_to_adjust) == 0:
+                # Random selection (fallback) - more aggressive when stagnant
+                num_to_adjust = min(random.randint(5, 10) if is_stagnant else random.randint(3, 7), len(tunable_params))
+                selected = random.sample(tunable_params, num_to_adjust)
+                params_to_adjust = [
+                    (section, key, random.uniform(-magnitude, magnitude), min_val, max_val)
+                    for section, key, min_val, max_val in selected
+                ]
         else:
-            # Random selection (fallback) - more aggressive when stagnant
+            # Random selection (fallback when no LLM available) - more aggressive when stagnant
             num_to_adjust = min(random.randint(5, 10) if is_stagnant else random.randint(3, 7), len(tunable_params))
             selected = random.sample(tunable_params, num_to_adjust)
             params_to_adjust = [
@@ -1706,9 +1720,9 @@ class ContinuousTrainer:
             # Load current best config
             current_config = self.load_config()
             
-            # Detect stagnation: no improvement in 50+ iterations
+            # Detect stagnation: no improvement in STAGNATION_THRESHOLD iterations
             iterations_since_improvement = iteration - self.state['last_improvement_iteration']
-            is_stagnant = iterations_since_improvement >= 50
+            is_stagnant = iterations_since_improvement >= STAGNATION_THRESHOLD
             
             # Parallel mode: Generate and test multiple candidates simultaneously
             if self.parallel_configs > 1:
@@ -1719,7 +1733,7 @@ class ContinuousTrainer:
                 for i in range(self.parallel_configs):
                     candidate = self.random_perturbation(
                         current_config, 
-                        magnitude=0.15,  # 15% random adjustment (will be overridden if stagnant)
+                        magnitude=NORMAL_MAGNITUDE,  # Will be overridden to STAGNANT_MAGNITUDE if stagnant
                         is_stagnant=is_stagnant
                     )
                     candidate_configs.append(candidate)
@@ -1864,9 +1878,9 @@ class ContinuousTrainer:
                 print("✓ Checkpoint saved\n")
             
             # Check for severe stagnation (no improvement in 100 iterations)
-            # Note: Aggressive exploration already activated at 50 iterations
+            # Note: Aggressive exploration already activated at STAGNATION_THRESHOLD iterations
             if iteration - self.state['last_improvement_iteration'] >= 100:
-                print("⚠ WARNING: No improvement in 100 iterations (aggressive mode active since iteration 50)")
+                print(f"⚠ WARNING: No improvement in 100 iterations (aggressive mode active since {STAGNATION_THRESHOLD})")
                 print("  Consider stopping training or adjusting configuration manually")
                 print()
         
