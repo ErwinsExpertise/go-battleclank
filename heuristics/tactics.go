@@ -714,7 +714,7 @@ func EvaluateParallelEdgeAvoidance(state *board.GameState, nextPos board.Coord, 
 		switch myDirection {
 		case board.MoveUp, board.MoveDown:
 			// Moving vertically, check horizontal offset (lane separation)
-			currentLaneOffset = abs(myHead.X - enemy.Head.X)
+			currentLaneOffset = int(math.Abs(float64(myHead.X - enemy.Head.X)))
 			isAdjacentLane = (currentLaneOffset == 1)
 			
 			// Check if enemy is ahead or aligned in Y direction
@@ -726,7 +726,7 @@ func EvaluateParallelEdgeAvoidance(state *board.GameState, nextPos board.Coord, 
 			
 		case board.MoveLeft, board.MoveRight:
 			// Moving horizontally, check vertical offset (lane separation)
-			currentLaneOffset = abs(myHead.Y - enemy.Head.Y)
+			currentLaneOffset = int(math.Abs(float64(myHead.Y - enemy.Head.Y)))
 			isAdjacentLane = (currentLaneOffset == 1)
 			
 			// Check if enemy is ahead or aligned in X direction
@@ -749,12 +749,12 @@ func EvaluateParallelEdgeAvoidance(state *board.GameState, nextPos board.Coord, 
 		switch myDirection {
 		case board.MoveUp, board.MoveDown:
 			// Moving vertically, check if turning left/right moves toward enemy
-			nextLaneOffset = abs(nextPos.X - enemy.Head.X)
+			nextLaneOffset = int(math.Abs(float64(nextPos.X - enemy.Head.X)))
 			wouldReduceSeparation = nextLaneOffset < currentLaneOffset
 			
 		case board.MoveLeft, board.MoveRight:
 			// Moving horizontally, check if turning up/down moves toward enemy
-			nextLaneOffset = abs(nextPos.Y - enemy.Head.Y)
+			nextLaneOffset = int(math.Abs(float64(nextPos.Y - enemy.Head.Y)))
 			wouldReduceSeparation = nextLaneOffset < currentLaneOffset
 		}
 		
