@@ -1,11 +1,11 @@
 emergency_wall_escape:
-  away_penalty: 232.4
+  away_penalty: 267.3
   close_bonus: 300.0
   close_threshold: 2
   coord_tolerance: 1
   max_distance: 3
   min_distance: 2
-  turn_bonus: 241.0
+  turn_bonus: 277.1
 food_urgency:
   critical: 1.65
   low: 3.0
@@ -13,16 +13,16 @@ food_urgency:
 food_weights:
   critical_health: 499.1
   critical_health_outmatched: 1.0
-  healthy_base: 329.9
-  healthy_ceiling: 413
+  healthy_base: 379.4
+  healthy_ceiling: 475
   healthy_ceiling_weight: 10.0
-  healthy_early_game: 464.9
+  healthy_early_game: 534.6
   healthy_early_multiplier: 1.0
   healthy_multiplier: 0.5
   healthy_outmatched: 0.58
   low_health: 220.0
   low_health_outmatched: 180.0
-  medium_health: 534.6
+  medium_health: 614.8
   medium_health_outmatched: 0.65
 hybrid:
   critical_health: 28
@@ -40,30 +40,30 @@ optimization:
   batch_size: 128
   discount_factor: 0.1
   enabled: false
-  episodes: 3900
+  episodes: 4485
   exploration_rate: 0.1
   learning_rate: 0.0
 pursuit:
-  distance_2: 358.9
-  distance_3: 185.5
-  distance_4: 146.0
-  distance_5: 49.3
+  distance_2: 412.7
+  distance_3: 213.3
+  distance_4: 167.9
+  distance_5: 56.7
 search:
   algorithm: hybrid
   max_astar_nodes: 1000
   max_depth: 200
   use_astar: true
 tactics:
-  adaptive_wall_hugging_weight: 115.7
+  adaptive_wall_hugging_weight: 133.1
   aggressive_space_control_weight: 30.0
   aggressive_space_turn_threshold: 51
-  energy_conservation_weight: 67.6
+  energy_conservation_weight: 77.7
   inward_trap_min_enemy_length: 10
   inward_trap_weight: 45.0
-  predictive_avoidance_weight: 200.0
   parallel_edge_base_penalty: 300.0
   parallel_edge_close_penalty: 450.0
   parallel_edge_larger_multiplier: 1.5
+  predictive_avoidance_weight: 200.0
 trapping:
   space_cutoff_threshold: 0.12
   trapped_ratio: 0.9
@@ -80,10 +80,10 @@ traps:
   space_reduction_ratio_50: 1.0
   space_reduction_ratio_60: 0.4
 weights:
-  center_control: 348.8
+  center_control: 401.1
   cutoff: 1000.0
-  food: 191.9
+  food: 253.8
   head_collision: 1000.0
   space: 1000.0
-  straight_movement: 120.5
-  wall_penalty: 140.0
+  straight_movement: 138.6
+  wall_penalty: 161.0
