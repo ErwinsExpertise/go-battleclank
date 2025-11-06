@@ -270,6 +270,10 @@ func (g *GreedySearch) ScoreMove(state *board.GameState, move string) float64 {
 	wallApproachBonus := evaluateWallApproachSpace(state, myHead, nextPos, move, g.MaxDepth)
 	score += wallApproachBonus
 
+	// Parallel edge avoidance: when moving parallel to opponent near edge, avoid turning toward them
+	parallelEdgePenalty := heuristics.EvaluateParallelEdgeAvoidance(state, nextPos, move)
+	score -= parallelEdgePenalty
+
 	return score
 }
 
