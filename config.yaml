@@ -1,28 +1,28 @@
 emergency_wall_escape:
-  away_penalty: 132.9
-  close_bonus: 208.7
+  away_penalty: 152.8
+  close_bonus: 240.0
   close_threshold: 2
   coord_tolerance: 1
   max_distance: 3
   min_distance: 2
-  turn_bonus: 137.8
+  turn_bonus: 158.5
 food_urgency:
   critical: 1.65
-  low: 2.66
+  low: 3.0
   normal: 1.09
 food_weights:
   critical_health: 499.1
   critical_health_outmatched: 1.0
-  healthy_base: 188.7
-  healthy_ceiling: 236
+  healthy_base: 217.0
+  healthy_ceiling: 271
   healthy_ceiling_weight: 10.0
-  healthy_early_game: 265.8
+  healthy_early_game: 305.7
   healthy_early_multiplier: 1.0
   healthy_multiplier: 0.5
   healthy_outmatched: 0.58
   low_health: 220.0
   low_health_outmatched: 180.0
-  medium_health: 305.7
+  medium_health: 351.6
   medium_health_outmatched: 0.65
 hybrid:
   critical_health: 28
@@ -37,27 +37,27 @@ late_game:
   caution_multiplier: 2.0
   turn_threshold: 300
 optimization:
-  batch_size: 85
+  batch_size: 98
   discount_factor: 0.1
   enabled: false
-  episodes: 2230
+  episodes: 2564
   exploration_rate: 0.1
   learning_rate: 0.0
 pursuit:
-  distance_2: 205.2
-  distance_3: 106.1
-  distance_4: 83.5
-  distance_5: 28.2
+  distance_2: 236.0
+  distance_3: 122.0
+  distance_4: 96.0
+  distance_5: 32.4
 search:
   algorithm: hybrid
   max_astar_nodes: 1000
   max_depth: 200
   use_astar: true
 tactics:
-  adaptive_wall_hugging_weight: 66.2
+  adaptive_wall_hugging_weight: 76.1
   aggressive_space_control_weight: 30.0
   aggressive_space_turn_threshold: 51
-  energy_conservation_weight: 38.6
+  energy_conservation_weight: 44.4
   inward_trap_min_enemy_length: 10
   inward_trap_weight: 45.0
   parallel_edge_base_penalty: 300.0
@@ -73,17 +73,17 @@ traps:
   food_trap: 411.5
   food_trap_threshold: 0.59
   moderate: 2000.0
-  severe: 1243.1
+  severe: 1429.6
   space_reduction_50: 874.4
   space_reduction_60: 1500.0
   space_reduction_min_base: 1.0
   space_reduction_ratio_50: 1.0
   space_reduction_ratio_60: 0.4
 weights:
-  center_control: 199.4
+  center_control: 229.3
   cutoff: 1000.0
-  food: 62.8
+  food: 83.0
   head_collision: 1000.0
   space: 1000.0
-  straight_movement: 68.9
-  wall_penalty: 80.0
+  straight_movement: 79.2
+  wall_penalty: 92.0
