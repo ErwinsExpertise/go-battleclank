@@ -13,16 +13,16 @@ food_urgency:
 food_weights:
   critical_health: 499.1
   critical_health_outmatched: 1.0
-  healthy_base: 436.3
-  healthy_ceiling: 546
+  healthy_base: 501.7
+  healthy_ceiling: 628
   healthy_ceiling_weight: 10.0
-  healthy_early_game: 614.8
+  healthy_early_game: 707.0
   healthy_early_multiplier: 1.0
   healthy_multiplier: 0.5
   healthy_outmatched: 0.58
   low_health: 220.0
   low_health_outmatched: 180.0
-  medium_health: 707.0
+  medium_health: 800.0
   medium_health_outmatched: 0.65
 hybrid:
   critical_health: 28
@@ -44,20 +44,20 @@ optimization:
   exploration_rate: 0.1
   learning_rate: 0.0
 pursuit:
-  distance_2: 474.6
-  distance_3: 245.3
-  distance_4: 193.1
-  distance_5: 65.2
+  distance_2: 500.0
+  distance_3: 282.1
+  distance_4: 222.1
+  distance_5: 75.0
 search:
   algorithm: hybrid
   max_astar_nodes: 1000
   max_depth: 200
   use_astar: true
 tactics:
-  adaptive_wall_hugging_weight: 153.1
+  adaptive_wall_hugging_weight: 176.1
   aggressive_space_control_weight: 30.0
   aggressive_space_turn_threshold: 51
-  energy_conservation_weight: 89.4
+  energy_conservation_weight: 102.8
   inward_trap_min_enemy_length: 10
   inward_trap_weight: 45.0
   parallel_edge_base_penalty: 300.0
@@ -80,10 +80,10 @@ traps:
   space_reduction_ratio_50: 1.0
   space_reduction_ratio_60: 0.4
 weights:
-  center_control: 461.3
+  center_control: 530.5
   cutoff: 1000.0
-  food: 335.7
+  food: 444.0
   head_collision: 1000.0
   space: 1000.0
-  straight_movement: 159.4
-  wall_penalty: 185.1
+  straight_movement: 183.3
+  wall_penalty: 212.9
