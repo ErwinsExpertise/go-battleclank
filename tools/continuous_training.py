@@ -72,8 +72,8 @@ except ImportError:
 if PYTORCH_AVAILABLE:
     # Configuration vector size: calculated from config structure
     # This must match the number of parameters extracted in ContinuousTrainer._config_to_vector()
-    # weights(9) + traps(12) + pursuit(4) + trapping(3) + food_urgency(3) + food_weights(13) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(7) + emergency_wall_escape(7) = 73
-    CONFIG_VECTOR_SIZE = 73
+    # weights(9) + traps(12) + pursuit(4) + trapping(3) + food_urgency(3) + food_weights(13) + late_game(2) + hybrid(6) + search(2) + optimization(5) + tactics(10) + emergency_wall_escape(7) = 76
+    CONFIG_VECTOR_SIZE = 76
     
     class ConfigPatternNetwork(nn.Module):
         """Neural network that learns patterns in successful configurations"""
@@ -165,9 +165,10 @@ if PYTORCH_AVAILABLE:
                 'search_nodes', 'search_depth',
                 # Optimization section (5)
                 'opt_lr', 'opt_discount', 'opt_exploration', 'opt_batch', 'opt_episodes',
-                # Tactics section (7)
+                # Tactics section (10)
                 'inward_trap_weight', 'inward_trap_min_length', 'aggressive_space_weight',
                 'aggressive_space_threshold', 'predictive_avoidance', 'energy_conservation', 'wall_hugging',
+                'parallel_edge_base_penalty', 'parallel_edge_close_penalty', 'parallel_edge_larger_multiplier',
                 # Emergency wall escape section (7)
                 'emergency_min_distance', 'emergency_max_distance', 'emergency_turn_bonus',
                 'emergency_close_bonus', 'emergency_away_penalty', 'emergency_close_threshold', 'emergency_coord_tolerance'
@@ -1597,7 +1598,7 @@ class ContinuousTrainer:
                 optimization.get('batch_size', 32),
                 optimization.get('episodes', 1000)
             ])
-            # Tactics section (7 params)
+            # Tactics section (10 params)
             tactics = config.get('tactics', {})
             vector.extend([
                 tactics.get('inward_trap_weight', 50.0),
@@ -1606,7 +1607,10 @@ class ContinuousTrainer:
                 tactics.get('aggressive_space_turn_threshold', 50),
                 tactics.get('predictive_avoidance_weight', 100.0),
                 tactics.get('energy_conservation_weight', 15.0),
-                tactics.get('adaptive_wall_hugging_weight', 25.0)
+                tactics.get('adaptive_wall_hugging_weight', 25.0),
+                tactics.get('parallel_edge_base_penalty', 300.0),
+                tactics.get('parallel_edge_close_penalty', 450.0),
+                tactics.get('parallel_edge_larger_multiplier', 1.5)
             ])
             # Emergency wall escape section (7 params)
             emergency = config.get('emergency_wall_escape', {})

@@ -1,6 +1,7 @@
 package heuristics
 
 import (
+	"github.com/ErwinsExpertise/go-battleclank/config"
 	"github.com/ErwinsExpertise/go-battleclank/engine/board"
 	"math"
 )
@@ -760,17 +761,19 @@ func EvaluateParallelEdgeAvoidance(state *board.GameState, nextPos board.Coord, 
 		
 		// If move reduces separation when we're near edge and parallel, penalize it
 		if wouldReduceSeparation {
+			cfg := config.GetConfig()
+			
 			// Base penalty for reducing separation
-			basePenalty := 300.0
+			basePenalty := cfg.Tactics.ParallelEdgeBasePenalty
 			
 			// Increase penalty if very close to edge (1 tile away)
 			if distToEdge <= 1 {
-				basePenalty = 450.0
+				basePenalty = cfg.Tactics.ParallelEdgeClosePenalty
 			}
 			
 			// Increase penalty if enemy is equal or larger (more dangerous)
 			if enemy.Length >= state.You.Length {
-				basePenalty *= 1.5
+				basePenalty *= cfg.Tactics.ParallelEdgeLargerMultiplier
 			}
 			
 			penalty += basePenalty

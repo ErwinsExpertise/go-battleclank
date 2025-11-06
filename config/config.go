@@ -114,6 +114,19 @@ type Config struct {
 		CloseThreshold      int     `yaml:"close_threshold"`       // Distance threshold for "very close" enemy
 		CoordTolerance      int     `yaml:"coord_tolerance"`       // Tolerance for "similar coordinates" in head-on detection
 	} `yaml:"emergency_wall_escape"`
+
+	Tactics struct {
+		InwardTrapWeight              float64 `yaml:"inward_trap_weight"`
+		InwardTrapMinEnemyLength      int     `yaml:"inward_trap_min_enemy_length"`
+		AggressiveSpaceControlWeight  float64 `yaml:"aggressive_space_control_weight"`
+		AggressiveSpaceTurnThreshold  int     `yaml:"aggressive_space_turn_threshold"`
+		PredictiveAvoidanceWeight     float64 `yaml:"predictive_avoidance_weight"`
+		EnergyConservationWeight      float64 `yaml:"energy_conservation_weight"`
+		AdaptiveWallHuggingWeight     float64 `yaml:"adaptive_wall_hugging_weight"`
+		ParallelEdgeBasePenalty       float64 `yaml:"parallel_edge_base_penalty"`        // Base penalty for turning toward parallel snake near edge
+		ParallelEdgeClosePenalty      float64 `yaml:"parallel_edge_close_penalty"`       // Penalty when very close to edge (1 tile)
+		ParallelEdgeLargerMultiplier  float64 `yaml:"parallel_edge_larger_multiplier"`   // Multiplier when enemy is equal or larger
+	} `yaml:"tactics"`
 }
 
 var (
@@ -285,6 +298,18 @@ func GetDefaultConfig() *Config {
 	config.EmergencyWallEscape.AwayPenalty = 100.0
 	config.EmergencyWallEscape.CloseThreshold = 2
 	config.EmergencyWallEscape.CoordTolerance = 3
+
+	// Tactics configuration
+	config.Tactics.InwardTrapWeight = 50.0
+	config.Tactics.InwardTrapMinEnemyLength = 5
+	config.Tactics.AggressiveSpaceControlWeight = 30.0
+	config.Tactics.AggressiveSpaceTurnThreshold = 50
+	config.Tactics.PredictiveAvoidanceWeight = 100.0
+	config.Tactics.EnergyConservationWeight = 15.0
+	config.Tactics.AdaptiveWallHuggingWeight = 25.0
+	config.Tactics.ParallelEdgeBasePenalty = 300.0
+	config.Tactics.ParallelEdgeClosePenalty = 450.0
+	config.Tactics.ParallelEdgeLargerMultiplier = 1.5
 
 	return config
 }
