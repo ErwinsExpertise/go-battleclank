@@ -638,11 +638,12 @@ func EvaluateWallInterception(state *board.GameState, nextPos board.Coord) float
 }
 
 // EvaluateParallelEdgeAvoidance detects when agent and opponent are moving parallel 
-// toward the same edge and penalizes moves that reduce lateral separation.
+// toward the same edge and returns a penalty value for moves that reduce lateral separation.
 // This prevents the agent from turning toward the opponent when near board boundaries,
 // which leads to reduced maneuvering space and higher chance of entrapment.
 //
-// Returns penalty (negative score) if move reduces distance between parallel lanes near edge.
+// Returns penalty value (positive) if move reduces distance between parallel lanes near edge.
+// The caller should subtract this from the score.
 func EvaluateParallelEdgeAvoidance(state *board.GameState, nextPos board.Coord, move string) float64 {
 	penalty := 0.0
 	myHead := state.You.Head
