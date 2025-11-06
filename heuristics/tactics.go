@@ -1,6 +1,7 @@
 package heuristics
 
 import (
+	"github.com/ErwinsExpertise/go-battleclank/config"
 	"github.com/ErwinsExpertise/go-battleclank/engine/board"
 	"math"
 )
@@ -16,6 +17,9 @@ const (
 
 	// AggressiveSpaceControlThreshold is the early game turn threshold
 	AggressiveSpaceControlThreshold = 50
+
+	// EdgeParallelDistance is the distance from boundary to trigger parallel avoidance
+	EdgeParallelDistance = 2
 )
 
 // EvaluateInwardTrap attempts to trap enemy in center by surrounding from outside
@@ -631,4 +635,151 @@ func EvaluateWallInterception(state *board.GameState, nextPos board.Coord) float
 	}
 	
 	return score
+}
+
+// EvaluateParallelEdgeAvoidance detects when agent and opponent are moving parallel 
+// toward the same edge and returns a penalty value for moves that reduce lateral separation.
+// This prevents the agent from turning toward the opponent when near board boundaries,
+// which leads to reduced maneuvering space and higher chance of entrapment.
+//
+// Returns penalty value (positive) if move reduces distance between parallel lanes near edge.
+// The caller should subtract this from the score.
+func EvaluateParallelEdgeAvoidance(state *board.GameState, nextPos board.Coord, move string) float64 {
+	penalty := 0.0
+	myHead := state.You.Head
+	
+	// Need at least 2 body segments to determine our direction
+	if len(state.You.Body) < 2 {
+		return 0.0
+	}
+	
+	myNeck := state.You.Body[1]
+	myDirection := getDirection(myHead, myNeck)
+	
+	if myDirection == "" {
+		return 0.0
+	}
+	
+	// Check each enemy snake
+	for _, enemy := range state.Board.Snakes {
+		if enemy.ID == state.You.ID {
+			continue
+		}
+		
+		// Enemy needs at least 2 segments to determine direction
+		if len(enemy.Body) < 2 {
+			continue
+		}
+		
+		enemyNeck := enemy.Body[1]
+		enemyDirection := getDirection(enemy.Head, enemyNeck)
+		
+		// Condition 1: Both moving in same direction (parallel)
+		if myDirection != enemyDirection {
+			continue
+		}
+		
+		// Condition 2: Check if we're within EdgeParallelDistance tiles of boundary
+		// in the movement direction
+		var distToEdge int
+		var weAreNearEdge bool
+		
+		switch myDirection {
+		case board.MoveUp:
+			// Moving up, check distance to top edge
+			distToEdge = state.Board.Height - 1 - myHead.Y
+			weAreNearEdge = distToEdge <= EdgeParallelDistance
+		case board.MoveDown:
+			// Moving down, check distance to bottom edge
+			distToEdge = myHead.Y
+			weAreNearEdge = distToEdge <= EdgeParallelDistance
+		case board.MoveLeft:
+			// Moving left, check distance to left edge
+			distToEdge = myHead.X
+			weAreNearEdge = distToEdge <= EdgeParallelDistance
+		case board.MoveRight:
+			// Moving right, check distance to right edge
+			distToEdge = state.Board.Width - 1 - myHead.X
+			weAreNearEdge = distToEdge <= EdgeParallelDistance
+		}
+		
+		if !weAreNearEdge {
+			continue
+		}
+		
+		// Condition 3: Check if opponent is in adjacent lane (1 tile offset perpendicular to movement)
+		// and ahead or aligned in the movement direction
+		var isAdjacentLane bool
+		var isAheadOrAligned bool
+		var currentLaneOffset int
+		
+		switch myDirection {
+		case board.MoveUp, board.MoveDown:
+			// Moving vertically, check horizontal offset (lane separation)
+			currentLaneOffset = int(math.Abs(float64(myHead.X - enemy.Head.X)))
+			isAdjacentLane = (currentLaneOffset == 1)
+			
+			// Check if enemy is ahead or aligned in Y direction
+			if myDirection == board.MoveUp {
+				isAheadOrAligned = enemy.Head.Y >= myHead.Y
+			} else {
+				isAheadOrAligned = enemy.Head.Y <= myHead.Y
+			}
+			
+		case board.MoveLeft, board.MoveRight:
+			// Moving horizontally, check vertical offset (lane separation)
+			currentLaneOffset = int(math.Abs(float64(myHead.Y - enemy.Head.Y)))
+			isAdjacentLane = (currentLaneOffset == 1)
+			
+			// Check if enemy is ahead or aligned in X direction
+			if myDirection == board.MoveRight {
+				isAheadOrAligned = enemy.Head.X >= myHead.X
+			} else {
+				isAheadOrAligned = enemy.Head.X <= myHead.X
+			}
+		}
+		
+		if !isAdjacentLane || !isAheadOrAligned {
+			continue
+		}
+		
+		// Condition 4: Check if the move being considered would reduce distance between lanes
+		// Calculate what the lane offset would be after this move
+		var nextLaneOffset int
+		var wouldReduceSeparation bool
+		
+		switch myDirection {
+		case board.MoveUp, board.MoveDown:
+			// Moving vertically, check if turning left/right moves toward enemy
+			nextLaneOffset = int(math.Abs(float64(nextPos.X - enemy.Head.X)))
+			wouldReduceSeparation = nextLaneOffset < currentLaneOffset
+			
+		case board.MoveLeft, board.MoveRight:
+			// Moving horizontally, check if turning up/down moves toward enemy
+			nextLaneOffset = int(math.Abs(float64(nextPos.Y - enemy.Head.Y)))
+			wouldReduceSeparation = nextLaneOffset < currentLaneOffset
+		}
+		
+		// If move reduces separation when we're near edge and parallel, penalize it
+		if wouldReduceSeparation {
+			cfg := config.GetConfig()
+			
+			// Base penalty for reducing separation
+			basePenalty := cfg.Tactics.ParallelEdgeBasePenalty
+			
+			// Increase penalty if very close to edge (1 tile away)
+			if distToEdge <= 1 {
+				basePenalty = cfg.Tactics.ParallelEdgeClosePenalty
+			}
+			
+			// Increase penalty if enemy is equal or larger (more dangerous)
+			if enemy.Length >= state.You.Length {
+				basePenalty *= cfg.Tactics.ParallelEdgeLargerMultiplier
+			}
+			
+			penalty += basePenalty
+		}
+	}
+	
+	return penalty
 }

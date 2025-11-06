@@ -61,6 +61,9 @@ tactics:
   inward_trap_min_enemy_length: 10
   inward_trap_weight: 45.0
   predictive_avoidance_weight: 200.0
+  parallel_edge_base_penalty: 300.0
+  parallel_edge_close_penalty: 450.0
+  parallel_edge_larger_multiplier: 1.5
 trapping:
   space_cutoff_threshold: 0.12
   trapped_ratio: 0.9
