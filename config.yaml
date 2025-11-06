@@ -1,28 +1,28 @@
 emergency_wall_escape:
-  away_penalty: 300.0
-  close_bonus: 300.0
+  away_penalty: 100.5
+  close_bonus: 157.8
   close_threshold: 2
   coord_tolerance: 1
   max_distance: 3
   min_distance: 2
-  turn_bonus: 300.0
+  turn_bonus: 104.2
 food_urgency:
   critical: 1.65
-  low: 3.0
+  low: 2.01
   normal: 1.09
 food_weights:
   critical_health: 499.1
   critical_health_outmatched: 1.0
-  healthy_base: 501.7
-  healthy_ceiling: 628
+  healthy_base: 142.7
+  healthy_ceiling: 178
   healthy_ceiling_weight: 10.0
-  healthy_early_game: 707.0
+  healthy_early_game: 201.0
   healthy_early_multiplier: 1.0
   healthy_multiplier: 0.5
   healthy_outmatched: 0.58
   low_health: 220.0
   low_health_outmatched: 180.0
-  medium_health: 800.0
+  medium_health: 231.1
   medium_health_outmatched: 0.65
 hybrid:
   critical_health: 28
@@ -30,34 +30,34 @@ hybrid:
   critical_space_ratio: 2.9
   lookahead_depth: 3
   mcts_iterations: 200
-  mcts_timeout_ms: 500
+  mcts_timeout_ms: 446
   use_lookahead_on_critical: true
   use_mcts_in_endgame: true
 late_game:
   caution_multiplier: 2.0
-  turn_threshold: 300
+  turn_threshold: 241
 optimization:
-  batch_size: 128
+  batch_size: 64
   discount_factor: 0.1
   enabled: false
-  episodes: 5000
+  episodes: 1686
   exploration_rate: 0.1
   learning_rate: 0.0
 pursuit:
-  distance_2: 500.0
-  distance_3: 282.1
-  distance_4: 222.1
-  distance_5: 75.0
+  distance_2: 155.1
+  distance_3: 80.3
+  distance_4: 63.1
+  distance_5: 21.3
 search:
   algorithm: hybrid
   max_astar_nodes: 1000
-  max_depth: 200
+  max_depth: 186
   use_astar: true
 tactics:
-  adaptive_wall_hugging_weight: 176.1
+  adaptive_wall_hugging_weight: 50.1
   aggressive_space_control_weight: 30.0
   aggressive_space_turn_threshold: 51
-  energy_conservation_weight: 102.8
+  energy_conservation_weight: 29.2
   inward_trap_min_enemy_length: 10
   inward_trap_weight: 45.0
   parallel_edge_base_penalty: 300.0
@@ -73,17 +73,17 @@ traps:
   food_trap: 411.5
   food_trap_threshold: 0.59
   moderate: 2000.0
-  severe: 2000.0
+  severe: 940.0
   space_reduction_50: 874.4
   space_reduction_60: 1500.0
   space_reduction_min_base: 1.0
   space_reduction_ratio_50: 1.0
   space_reduction_ratio_60: 0.4
 weights:
-  center_control: 530.5
+  center_control: 150.8
   cutoff: 1000.0
-  food: 444.0
+  food: 35.9
   head_collision: 1000.0
-  space: 1000.0
-  straight_movement: 183.3
-  wall_penalty: 212.9
+  space: 438.1
+  straight_movement: 52.1
+  wall_penalty: 60.5
